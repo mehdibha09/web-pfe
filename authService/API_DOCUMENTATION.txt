@@ -1,0 +1,222 @@
+================================================================================
+AUTH SERVICE API DOCUMENTATION
+================================================================================
+Date: April 21, 2026
+Base URL: http://localhost:8080/api/v1
+
+================================================================================
+TOKEN AUTHENTICATION RULES
+================================================================================
+- Auth token (Bearer access token): header "Authorization: Bearer <access_token>"
+- Refresh token: in request body on refresh/logout endpoints
+- No token required: login, forgot-password, reset-password, SSO endpoints
+
+================================================================================
+AUTH APIS
+================================================================================
+
+
+
+
+6. POST /auth/forgot-password
+   URL: http://localhost:8080/api/v1/auth/forgot-password
+   Token needed: NO
+   Body example:
+   {
+     "email": "admin@example.com",
+     "tenantId": "11111111-1111-1111-1111-111111111111",
+     "tenantName": "acme"
+   }
+   Notes: email (required), tenantId (optional), tenantName (optional)
+
+7. POST /auth/reset-password
+   URL: http://localhost:8080/api/v1/auth/reset-password
+   Token needed: NO
+   Body example:
+   {
+     "token": "reset-token-from-email",
+     "newPassword": "New@123"
+   }
+   Notes: token (required), newPassword (required)
+
+8. GET /auth/sso/{provider}/redirect
+   URL: http://localhost:8080/api/v1/auth/sso/{provider}/redirect
+   Query params: tenantId (optional), tenantName (optional)
+   Token needed: NO
+   Body: none
+   Example: http://localhost:8080/api/v1/auth/sso/google/redirect?tenantId=11111111-1111-1111-1111-111111111111
+
+9. GET /auth/sso/{provider}/callback
+   URL: http://localhost:8080/api/v1/auth/sso/{provider}/callback
+   Query params: code (optional), state (optional), tenantId (optional), tenantName (optional)
+   Token needed: NO
+   Body: none
+
+10. POST /auth/2fa/setup
+    URL: http://localhost:8080/api/v1/auth/2fa/setup
+    Token needed: AUTH TOKEN
+    Body: none
+    Notes: Setup two-factor authentication
+
+11. POST /auth/2fa/verify
+    URL: http://localhost:8080/api/v1/auth/2fa/verify
+    Token needed: AUTH TOKEN
+    Body example:
+    {
+      "code": "123456"
+    }
+    Notes: code (required)
+
+12. DELETE /auth/2fa
+    URL: http://localhost:8080/api/v1/auth/2fa
+    Token needed: AUTH TOKEN
+    Body: none
+    Notes: Disable two-factor authentication
+==================================================
+ROLES APIS
+================================================================================
+
+
+
+7. POST /roles/{roleId}/users
+   URL: http://localhost:8080/api/v1/roles/44444444-4444-4444-4444-444444444444/users
+   Token needed: AUTH TOKEN
+   Body example:
+   {
+     "userId": "33333333-3333-3333-3333-333333333333"
+   }
+   Notes: userId (required UUID)
+
+================================================================================
+TENANTS APIS
+================================================================================
+
+1. GET /tenants
+   URL: http://localhost:8080/api/v1/tenants
+   Token needed: AUTH TOKEN
+   Body: none
+
+2. GET /tenants/{tenantId}
+   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
+   Token needed: AUTH TOKEN
+   Body: none
+
+3. POST /tenants
+   URL: http://localhost:8080/api/v1/tenants
+   Token needed: AUTH TOKEN
+   Body example:
+   {
+     "name": "acme",
+     "contactEmail": "ops@acme.com",
+     "modeDeployment": "CLOUD",
+     "status": "ACTIVE"
+   }
+   Notes: name (required), contactEmail (optional), modeDeployment (optional), status (optional)
+
+4. PATCH /tenants/{tenantId}
+   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
+   Token needed: AUTH TOKEN
+   Body example:
+   {
+     "name": "acme-new",
+     "contactEmail": "new@acme.com",
+     "modeDeployment": "HYBRID",
+     "status": "ACTIVE"
+   }
+   Notes: name (optional), contactEmail (optional), modeDeployment (optional), status (optional)
+
+5. DELETE /tenants/{tenantId}
+   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
+   Token needed: AUTH TOKEN
+   Body: none
+
+6. GET /tenants/{tenantId}/users
+   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111/users
+   Token needed: AUTH TOKEN
+   Body: none
+
+7. GET /tenants/{tenantId}/roles
+   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111/roles
+   Token needed: AUTH TOKEN
+   Body: none
+
+================================================================================
+AUDIT LOGS APIS
+================================================================================
+
+1. GET /audit-logs
+   URL: http://localhost:8080/api/v1/audit-logs
+   Token needed: AUTH TOKEN
+   Query params (all optional):
+     - from: ISO 8601 timestamp
+     - to: ISO 8601 timestamp
+     - action: string (e.g., "LOGIN", "USER_CREATE")
+     - resource: string (e.g., "USER", "ROLE")
+     - userId: UUID
+   Body: none
+   
+   Examples:
+   http://localhost:8080/api/v1/audit-logs
+   http://localhost:8080/api/v1/audit-logs?action=LOGIN
+   http://localhost:8080/api/v1/audit-logs?from=2026-04-21T00:00:00Z&to=2026-04-21T23:59:59Z
+   http://localhost:8080/api/v1/audit-logs?action=USER_CREATE&resource=USER
+
+================================================================================
+POSTMAN SETUP HINTS
+================================================================================
+
+1. Create a Postman Collection
+2. Add a variable: {{base_url}} = http://localhost:8080/api/v1
+3. Add a variable: {{auth_token}} = (set after login response)
+4. Add a variable: {{refresh_token}} = (set after login response)
+
+5. For each request with AUTH TOKEN:
+   Header: Authorization
+   Value: Bearer {{auth_token}}
+
+6. Copy-paste the URLs and bodies from this file into Postman
+
+================================================================================
+EXAMPLE LOGIN FLOW
+================================================================================
+
+Step 1: Login (no token needed)
+  POST http://localhost:8080/api/v1/auth/login
+  Body:
+  {
+    "email": "admin@example.com",
+    "password": "Admin@123"
+  }
+  Response will contain:
+  {
+    "accessToken": "eyJhbGc...",
+    "refreshToken": "eyJhbGc...",
+    "expiresIn": 3600,
+    "tokenType": "Bearer"
+  }
+
+Step 2: Save tokens and use in next requests
+  - Copy accessToken
+  - Set it in Postman variable {{auth_token}}
+  - Use in header: Authorization: Bearer {{auth_token}}
+
+Step 3: Refresh token when expires
+  POST http://localhost:8080/api/v1/auth/refresh
+  Body:
+  {
+    "refreshToken": "{{refresh_token}}"
+  }
+
+================================================================================
+NOTES
+================================================================================
+
+- All timestamps should be in ISO 8601 format: 2026-04-21T11:00:00Z
+- All IDs are UUIDs (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+- Replace {userId}, {roleId}, {permissionId}, {tenantId}, {sessionId}, {provider} with actual values
+- Content-Type header: application/json (for all POST/PATCH/PUT/DELETE)
+- Database: H2 in-memory (jdbc:h2:mem:auth_users)
+- H2 Console: http://localhost:8080/h2-console
+- Swagger UI: http://localhost:8080/swagger-ui.html
+
+================================================================================

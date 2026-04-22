@@ -1,0 +1,66 @@
+package com.auth.auth.web.controller;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.auth.auth.service.PermissionService;
+import com.auth.auth.web.dto.AuthActionResponse;
+import com.auth.auth.web.dto.PermissionCreateRequest;
+import com.auth.auth.web.dto.PermissionResponse;
+import com.auth.auth.web.routes.ApiRoutes;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping(ApiRoutes.Permissions.BASE)
+@Validated
+public class PermissionController {
+
+    private final PermissionService permissionService;
+
+    public PermissionController(PermissionService permissionService) {
+        this.permissionService = permissionService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PermissionResponse>> listPermissions(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        return ResponseEntity.ok(permissionService.listPermissions(authorizationHeader));
+    }
+
+    @GetMapping(ApiRoutes.Permissions.BY_ID)
+    public ResponseEntity<PermissionResponse> getPermissionById(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable UUID permissionId
+    ) {
+        return ResponseEntity.ok(permissionService.getPermissionById(authorizationHeader, permissionId));
+    }
+
+    @PostMapping
+    public ResponseEntity<PermissionResponse> createPermission(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @Valid @RequestBody PermissionCreateRequest request
+    ) {
+        return ResponseEntity.ok(permissionService.createPermission(authorizationHeader, request));
+    }
+
+    @DeleteMapping(ApiRoutes.Permissions.BY_ID)
+    public ResponseEntity<AuthActionResponse> deletePermission(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable UUID permissionId
+    ) {
+        return ResponseEntity.ok(permissionService.deletePermission(authorizationHeader, permissionId));
+    }
+}
