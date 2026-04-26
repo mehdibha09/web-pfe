@@ -12,13 +12,16 @@ import com.auth.auth.domain.Permission;
 import com.auth.auth.domain.RolePermission;
 import com.auth.auth.domain.Session;
 import com.auth.auth.domain.User;
+import com.auth.auth.domain.UserRole;
 import com.auth.auth.exception.ConflictException;
+import com.auth.auth.exception.ForbiddenException;
 import com.auth.auth.exception.NotFoundException;
 import com.auth.auth.exception.UnauthorizedException;
 import com.auth.auth.repository.AuditLogRepository;
 import com.auth.auth.repository.PermissionRepository;
 import com.auth.auth.repository.RolePermissionRepository;
 import com.auth.auth.repository.SessionRepository;
+import com.auth.auth.repository.UserRoleRepository;
 import com.auth.auth.web.dto.AuthActionResponse;
 import com.auth.auth.web.dto.PermissionCreateRequest;
 import com.auth.auth.web.dto.PermissionResponse;
@@ -29,17 +32,20 @@ public class PermissionService {
 
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final UserRoleRepository userRoleRepository;
     private final SessionRepository sessionRepository;
     private final AuditLogRepository auditLogRepository;
 
     public PermissionService(
             PermissionRepository permissionRepository,
             RolePermissionRepository rolePermissionRepository,
+            UserRoleRepository userRoleRepository,
             SessionRepository sessionRepository,
             AuditLogRepository auditLogRepository
     ) {
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.userRoleRepository = userRoleRepository;
         this.sessionRepository = sessionRepository;
         this.auditLogRepository = auditLogRepository;
     }
@@ -65,6 +71,7 @@ public class PermissionService {
     @Transactional
     public PermissionResponse createPermission(String authorizationHeader, PermissionCreateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManagePermissions(currentUser);
         String permissionName = request.name().trim();
 
         permissionRepository.findByName(permissionName)
@@ -84,6 +91,7 @@ public class PermissionService {
     @Transactional
     public AuthActionResponse deletePermission(String authorizationHeader, UUID permissionId) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManagePermissions(currentUser);
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new NotFoundException("Permission not found"));
 
@@ -150,6 +158,32 @@ public class PermissionService {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void ensureCanManagePermissions(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canManagePermissions = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("PERMISSION_MANAGE"));
+
+        if (!canManagePermissions) {
+            throw new ForbiddenException("Permission management permission required");
+        }
+    }
+
+    private boolean isSuperAdmin(User currentUser) {
+        return userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
     }
 
     private void writeAudit(User currentUser, String action, String details, String resourceId) {

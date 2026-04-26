@@ -68,7 +68,9 @@ public class RoleService {
     @Transactional(readOnly = true)
     public List<RoleResponse> listRoles(String authorizationHeader) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        return roleRepository.findByTenant_Id(currentUser.getTenant().getId())
+        return (isSuperAdmin(currentUser)
+            ? roleRepository.findAll()
+            : roleRepository.findByTenant_Id(currentUser.getTenant().getId()))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -77,6 +79,7 @@ public class RoleService {
     @Transactional
     public RoleResponse createRole(String authorizationHeader, RoleCreateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManageRoles(currentUser);
         String roleName = normalizeRoleName(request.name());
 
         roleRepository.findByTenant_IdAndName(currentUser.getTenant().getId(), roleName)
@@ -97,7 +100,8 @@ public class RoleService {
     @Transactional
     public RoleResponse updateRole(String authorizationHeader, UUID roleId, RoleUpdateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
 
         if (request.name() != null && !request.name().isBlank()) {
             String updatedName = normalizeRoleName(request.name());
@@ -122,7 +126,8 @@ public class RoleService {
     @Transactional
     public AuthActionResponse deleteRole(String authorizationHeader, UUID roleId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
 
         List<RolePermission> rolePermissions = rolePermissionRepository.findByRole_Id(role.getId());
         if (!rolePermissions.isEmpty()) {
@@ -146,7 +151,8 @@ public class RoleService {
             RolePermissionAssignRequest request
     ) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
         Permission permission = resolvePermission(request);
 
         RolePermissionId rolePermissionId = new RolePermissionId(role.getId(), permission.getId());
@@ -167,7 +173,8 @@ public class RoleService {
     @Transactional
     public AuthActionResponse removePermissionFromRole(String authorizationHeader, UUID roleId, UUID permissionId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
 
         RolePermissionId rolePermissionId = new RolePermissionId(role.getId(), permissionId);
         RolePermission rolePermission = rolePermissionRepository.findById(rolePermissionId)
@@ -181,13 +188,18 @@ public class RoleService {
     @Transactional
     public AuthActionResponse assignUserToRole(String authorizationHeader, UUID roleId, RoleAssignUserRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
 
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
-        if (!user.getTenant().getId().equals(currentUser.getTenant().getId())) {
+        if (!isSuperAdmin(currentUser) && !user.getTenant().getId().equals(currentUser.getTenant().getId())) {
             throw new ForbiddenException("User belongs to another tenant");
+        }
+
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
+            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
         }
 
         UserRoleId userRoleId = new UserRoleId(user.getId(), role.getId());
@@ -208,14 +220,19 @@ public class RoleService {
     @Transactional
     public AuthActionResponse unassignUserFromRole(String authorizationHeader, UUID roleId, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        Role role = requireRoleInCurrentTenant(roleId, currentUser);
+        ensureCanManageRoles(currentUser);
+        Role role = requireRoleInAllowedScope(roleId, currentUser);
 
         UserRoleId userRoleId = new UserRoleId(userId, role.getId());
         UserRole userRole = userRoleRepository.findById(userRoleId)
                 .orElseThrow(() -> new NotFoundException("User-role assignment not found"));
 
-        if (!userRole.getUser().getTenant().getId().equals(currentUser.getTenant().getId())) {
+        if (!isSuperAdmin(currentUser) && !userRole.getUser().getTenant().getId().equals(currentUser.getTenant().getId())) {
             throw new ForbiddenException("User belongs to another tenant");
+        }
+
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(userRole.getUser())) {
+            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
         }
 
         userRoleRepository.delete(userRole);
@@ -223,14 +240,47 @@ public class RoleService {
         return new AuthActionResponse("User unassigned from role");
     }
 
-    private Role requireRoleInCurrentTenant(UUID roleId, User currentUser) {
+    private Role requireRoleInAllowedScope(UUID roleId, User currentUser) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new NotFoundException("Role not found"));
 
-        if (!role.getTenant().getId().equals(currentUser.getTenant().getId())) {
+        if (!isSuperAdmin(currentUser) && !role.getTenant().getId().equals(currentUser.getTenant().getId())) {
             throw new ForbiddenException("Role belongs to another tenant");
         }
         return role;
+    }
+
+    private boolean isSuperAdmin(User currentUser) {
+        return userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
+    }
+
+    private boolean hasSuperAdminRole(User user) {
+        return userRoleRepository.findByUser_Id(user.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
+    }
+
+    private void ensureCanManageRoles(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canManageRoles = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("ROLE_MANAGE"));
+
+        if (!canManageRoles) {
+            throw new ForbiddenException("Role management permission required");
+        }
     }
 
     private Permission resolvePermission(RolePermissionAssignRequest request) {

@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.auth.auth.domain.AuditLog;
+import com.auth.auth.domain.RolePermission;
 import com.auth.auth.domain.Session;
 import com.auth.auth.domain.User;
+import com.auth.auth.domain.UserRole;
 import com.auth.auth.domain.UserStatus;
 import com.auth.auth.exception.BadRequestException;
 import com.auth.auth.exception.ConflictException;
@@ -17,6 +19,7 @@ import com.auth.auth.exception.ForbiddenException;
 import com.auth.auth.exception.NotFoundException;
 import com.auth.auth.exception.UnauthorizedException;
 import com.auth.auth.repository.AuditLogRepository;
+import com.auth.auth.repository.RolePermissionRepository;
 import com.auth.auth.repository.SessionRepository;
 import com.auth.auth.repository.UserRepository;
 import com.auth.auth.repository.UserRoleRepository;
@@ -33,6 +36,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
     private final AuditLogRepository auditLogRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -40,18 +44,20 @@ public class UserService {
             UserRepository userRepository,
             SessionRepository sessionRepository,
             UserRoleRepository userRoleRepository,
+            RolePermissionRepository rolePermissionRepository,
             AuditLogRepository auditLogRepository
     ) {
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.userRoleRepository = userRoleRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
         this.auditLogRepository = auditLogRepository;
     }
 
     @Transactional(readOnly = true)
     public List<RoleResponse> listUserRoles(String authorizationHeader, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        User user = requireUserInSameTenant(userId, currentUser);
+        User user = requireUserInAllowedScope(userId, currentUser);
 
         return userRoleRepository.findByUser_Id(user.getId())
                 .stream()
@@ -70,8 +76,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserResponse> listUsers(String authorizationHeader) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        return userRepository.findByTenant_Id(currentUser.getTenant().getId())
+        return (isSuperAdmin(currentUser)
+                        ? userRepository.findAll()
+                        : userRepository.findByTenant_Id(currentUser.getTenant().getId()))
                 .stream()
+                .filter(user -> isSuperAdmin(currentUser) || !hasSuperAdminRole(user))
                 .map(this::toResponse)
                 .toList();
     }
@@ -79,13 +88,14 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(String authorizationHeader, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        User user = requireUserInSameTenant(userId, currentUser);
+        User user = requireUserInAllowedScope(userId, currentUser);
         return toResponse(user);
     }
 
     @Transactional
     public UserResponse createUser(String authorizationHeader, UserCreateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManageUsers(currentUser);
         String email = normalizeEmail(request.email());
 
         userRepository.findByTenant_IdAndEmail(currentUser.getTenant().getId(), email)
@@ -107,7 +117,8 @@ public class UserService {
     @Transactional
     public UserResponse updateUser(String authorizationHeader, UUID userId, UserUpdateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        User user = requireUserInSameTenant(userId, currentUser);
+        ensureCanManageUsers(currentUser);
+        User user = requireUserInAllowedScope(userId, currentUser);
 
         if (request.email() != null && !request.email().isBlank()) {
             String newEmail = normalizeEmail(request.email());
@@ -136,10 +147,15 @@ public class UserService {
     @Transactional
     public AuthActionResponse deleteUser(String authorizationHeader, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        User user = requireUserInSameTenant(userId, currentUser);
+        ensureCanManageUsers(currentUser);
+        User user = requireUserInAllowedScope(userId, currentUser);
 
         if (user.getId().equals(currentUser.getId())) {
             throw new BadRequestException("You cannot delete your own account");
+        }
+
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
+            throw new ForbiddenException("Super-admin account cannot be deleted");
         }
 
         user.setStatus(UserStatus.DELETED);
@@ -187,14 +203,44 @@ public class UserService {
         return token;
     }
 
-    private User requireUserInSameTenant(UUID userId, User currentUser) {
+    private User requireUserInAllowedScope(UUID userId, User currentUser) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
-        if (!user.getTenant().getId().equals(currentUser.getTenant().getId())) {
+        if (!isSuperAdmin(currentUser) && !user.getTenant().getId().equals(currentUser.getTenant().getId())) {
             throw new ForbiddenException("User belongs to another tenant");
         }
         return user;
+    }
+
+    private boolean isSuperAdmin(User currentUser) {
+        return hasSuperAdminRole(currentUser);
+    }
+
+    private boolean hasSuperAdminRole(User user) {
+        return userRoleRepository.findByUser_Id(user.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
+    }
+
+    private void ensureCanManageUsers(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canManageUsers = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("USER_MANAGE"));
+
+        if (!canManageUsers) {
+            throw new ForbiddenException("User management permission required");
+        }
     }
 
     private UserStatus parseStatusOrDefault(String rawStatus, UserStatus defaultValue) {

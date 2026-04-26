@@ -286,6 +286,7 @@ public class TenantService {
                 tenant.getContactEmail(),
                 tenant.getModeDeployment(),
                 tenant.getStatus().name(),
+                userRepository.countByTenant_Id(tenant.getId()),
                 tenant.getCreatedAt(),
                 tenant.getUpdatedAt()
         );

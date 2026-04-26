@@ -7,12 +7,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.auth.auth.domain.AuditLog;
+import com.auth.auth.domain.RolePermission;
 import com.auth.auth.domain.Session;
 import com.auth.auth.domain.User;
+import com.auth.auth.domain.UserRole;
 import com.auth.auth.exception.BadRequestException;
+import com.auth.auth.exception.ForbiddenException;
 import com.auth.auth.exception.UnauthorizedException;
 import com.auth.auth.repository.AuditLogRepository;
+import com.auth.auth.repository.RolePermissionRepository;
 import com.auth.auth.repository.SessionRepository;
+import com.auth.auth.repository.UserRoleRepository;
 import com.auth.auth.web.dto.AuditLogQuery;
 import com.auth.auth.web.dto.AuditLogResponse;
 
@@ -21,16 +26,26 @@ public class AuditLogService {
     private static final String TOKEN_TYPE = "Bearer";
 
     private final AuditLogRepository auditLogRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
     private final SessionRepository sessionRepository;
 
-    public AuditLogService(AuditLogRepository auditLogRepository, SessionRepository sessionRepository) {
+    public AuditLogService(
+            AuditLogRepository auditLogRepository,
+            UserRoleRepository userRoleRepository,
+            RolePermissionRepository rolePermissionRepository,
+            SessionRepository sessionRepository
+    ) {
         this.auditLogRepository = auditLogRepository;
+        this.userRoleRepository = userRoleRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
         this.sessionRepository = sessionRepository;
     }
 
     @Transactional(readOnly = true)
     public List<AuditLogResponse> listAuditLogs(String authorizationHeader, AuditLogQuery query) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadAuditLogs(currentUser);
 
         Instant from = query.from() == null ? Instant.now().minusSeconds(60L * 60L * 24L * 30L) : query.from();
         Instant to = query.to() == null ? Instant.now() : query.to();
@@ -47,6 +62,43 @@ public class AuditLogService {
                 .sorted((first, second) -> second.getTimestamp().compareTo(first.getTimestamp()))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> listAuditResources(String authorizationHeader) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadAuditLogs(currentUser);
+
+        return auditLogRepository.findDistinctResourcesByTenantId(currentUser.getTenant().getId())
+                .stream()
+                .map(String::toUpperCase)
+                .toList();
+    }
+
+    private void ensureCanReadAuditLogs(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canReadAuditLogs = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("AUDIT_READ"));
+
+        if (!canReadAuditLogs) {
+            throw new ForbiddenException("Audit log read permission required");
+        }
+    }
+
+    private boolean isSuperAdmin(User currentUser) {
+        return userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
     }
 
     private AuditLogResponse toResponse(AuditLog log) {

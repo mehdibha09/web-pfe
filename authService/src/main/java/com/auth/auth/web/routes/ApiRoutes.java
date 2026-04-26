@@ -66,6 +66,7 @@ public final class ApiRoutes {
         }
 
         public static final String BASE = API_V1 + "/audit-logs";
+        public static final String RESOURCES = "/resources";
     }
 
     public static final class Tenants {

@@ -42,12 +42,17 @@ public class SessionService {
 
     @Transactional
     public AuthActionResponse revokeSession(String authorizationHeader, UUID sessionId) {
-        User currentUser = requireCurrentUser(authorizationHeader);
+        Session currentSession = requireValidSession(authorizationHeader);
+        User currentUser = currentSession.getUser();
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NotFoundException("Session not found"));
 
         if (!session.getUser().getId().equals(currentUser.getId())) {
             throw new ForbiddenException("Session belongs to another user");
+        }
+
+        if (session.getId().equals(currentSession.getId())) {
+            throw new ForbiddenException("Cannot revoke your current session");
         }
 
         session.setRevokedAt(Instant.now());

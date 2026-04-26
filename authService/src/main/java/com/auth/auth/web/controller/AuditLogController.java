@@ -40,4 +40,11 @@ public class AuditLogController {
         AuditLogQuery query = new AuditLogQuery(from, to, action, resource, userId);
         return ResponseEntity.ok(auditLogService.listAuditLogs(authorizationHeader, query));
     }
+
+    @GetMapping(ApiRoutes.AuditLogs.RESOURCES)
+    public ResponseEntity<List<String>> listAuditResources(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        return ResponseEntity.ok(auditLogService.listAuditResources(authorizationHeader));
+    }
 }

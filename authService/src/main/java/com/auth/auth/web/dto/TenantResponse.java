@@ -9,6 +9,7 @@ public record TenantResponse(
         String contactEmail,
         String modeDeployment,
         String status,
+        long usersCount,
         Instant createdAt,
         Instant updatedAt
 ) {

@@ -35,6 +35,7 @@ import com.auth.auth.domain.UserRole;
 import com.auth.auth.domain.UserStatus;
 import com.auth.auth.domain.UserTwoFactor;
 import com.auth.auth.exception.BadRequestException;
+import com.auth.auth.exception.InvalidCredentialsException;
 import com.auth.auth.exception.NotFoundException;
 import com.auth.auth.exception.UnauthorizedException;
 import com.auth.auth.repository.AuditLogRepository;
@@ -78,6 +79,7 @@ public class AuthService {
     private final AuditLogRepository auditLogRepository;
     private final Environment environment;
     private final ObjectMapper objectMapper;
+    private final EmailService emailService;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -96,9 +98,10 @@ public class AuthService {
             UserTwoFactorRepository userTwoFactorRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             SsoIdentityRepository ssoIdentityRepository,
-            AuditLogRepository auditLogRepository
-            ,Environment environment,
-            ObjectMapper objectMapper
+            AuditLogRepository auditLogRepository,
+            Environment environment,
+            ObjectMapper objectMapper,
+            EmailService emailService
     ) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
@@ -111,18 +114,19 @@ public class AuthService {
         this.auditLogRepository = auditLogRepository;
         this.environment = environment;
         this.objectMapper = objectMapper;
+        this.emailService = emailService;
     }
 
     @Transactional
     public AuthLoginResponse login(AuthLoginRequest request, String ipAddress) {
         User user = resolveUserForLogin(request);
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UnauthorizedException("User account is not active");
+        if (!passwordMatches(request.password(), user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid credentials");
         }
 
-        if (!passwordMatches(request.password(), user.getPassword())) {
-            throw new UnauthorizedException("Invalid credentials");
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidCredentialsException("Invalid credentials");
         }
 
         Session session = createSession(user, ipAddress);
@@ -258,6 +262,9 @@ public class AuthService {
         String otpAuthUrl = "otpauth://totp/AuthService:" + user.getEmail() + "?secret=" + secret + "&issuer=AuthService";
         writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "2FA setup initiated");
 
+        // Send 2FA setup email
+        emailService.send2FASetupEmail(user.getEmail(), user.getEmail(), secret, otpAuthUrl);
+
         return new AuthTwoFaSetupResponse(
                 secret,
                 otpAuthUrl,
@@ -289,6 +296,10 @@ public class AuthService {
         userTwoFactor.setEnabled(true);
         userTwoFactorRepository.save(userTwoFactor);
         writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified");
+        
+        // Send 2FA verification notification
+        emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
+        
         return new AuthActionResponse("2FA verification successful");
     }
 
@@ -298,6 +309,10 @@ public class AuthService {
         userTwoFactorRepository.findByUser_Id(user.getId()).ifPresent(userTwoFactorRepository::delete);
 
         writeAudit(user, user.getTenant(), "AUTH_2FA_DISABLE", "2FA disabled");
+        
+        // Send 2FA disabled notification email
+        emailService.send2FADisabledEmail(user.getEmail(), user.getEmail());
+        
         return new AuthActionResponse("2FA disabled");
     }
 
@@ -312,6 +327,10 @@ public class AuthService {
         userRepository.save(user);
         revokeAllUserSessions(user.getId());
         writeAudit(user, user.getTenant(), "AUTH_CHANGE_PASSWORD", "Password changed");
+        
+        // Send password change confirmation email
+        emailService.sendPasswordChangeEmail(user.getEmail(), user.getEmail());
+        
         return new AuthActionResponse("Password changed successfully");
     }
 
@@ -325,6 +344,10 @@ public class AuthService {
         token.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
         passwordResetTokenRepository.save(token);
         writeAudit(user, user.getTenant(), "AUTH_FORGOT_PASSWORD", "Password reset token generated");
+        
+        // Send password reset email
+        emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
+        
         return new com.auth.auth.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
     }
 
@@ -342,6 +365,9 @@ public class AuthService {
         passwordResetTokenRepository.save(token);
 
         revokeAllUserSessions(user.getId());
+        
+        // Send password change confirmation email
+        emailService.sendPasswordChangeEmail(user.getEmail(), user.getEmail());
         writeAudit(user, user.getTenant(), "AUTH_RESET_PASSWORD", "Password reset completed");
         return new AuthActionResponse("Password reset successful");
     }
@@ -351,19 +377,19 @@ public class AuthService {
 
         if (request.tenantId() != null) {
             return userRepository.findByTenant_IdAndEmail(request.tenantId(), email)
-                    .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+                    .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         }
 
         if (request.tenantName() != null && !request.tenantName().isBlank()) {
             Tenant tenant = tenantRepository.findByName(request.tenantName().trim())
-                    .orElseThrow(() -> new NotFoundException("Tenant not found"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
             return userRepository.findByTenant_IdAndEmail(tenant.getId(), email)
-                    .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+                    .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         }
 
         List<User> users = userRepository.findByEmail(email);
         if (users.isEmpty()) {
-            throw new UnauthorizedException("Invalid credentials");
+            throw new InvalidCredentialsException("Invalid credentials");
         }
         if (users.size() > 1) {
             throw new BadRequestException("tenantId or tenantName is required for this email");
