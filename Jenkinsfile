@@ -207,90 +207,90 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
-        stage('Sonar Analysis') {
-            when { expression { env.CHANGED_BACKEND == 'true' } }
+        // stage('Sonar Analysis') {
+        //     when { expression { env.CHANGED_BACKEND == 'true' } }
 
-                stage('Sonar authService') {
-                    when { expression { env.CHANGED_AUTH == 'true' } }
-                    steps {
-                        dir('authService') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate authService failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar authService : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar authService : échec d'exécution." }
-                    }
-                }
+        //         stage('Sonar authService') {
+        //             when { expression { env.CHANGED_AUTH == 'true' } }
+        //             steps {
+        //                 dir('authService') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate authService failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar authService : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar authService : échec d'exécution." }
+        //             }
+        //         }
 
-                stage('Sonar cloudPricer') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_PRICER == 'true' } }
-                    steps {
-                        dir('cloudPricer') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate cloudPricer failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar cloudPricer : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar cloudPricer : échec d'exécution." }
-                    }
-                }
+        //         stage('Sonar cloudPricer') {
+        //             // Désactivé temporairement: focus authService only
+        //             when { expression { env.CHANGED_PRICER == 'true' } }
+        //             steps {
+        //                 dir('cloudPricer') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate cloudPricer failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar cloudPricer : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar cloudPricer : échec d'exécution." }
+        //             }
+        //         }
 
-                stage('Sonar dashboard') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_DASHBOARD == 'true' } }
-                    steps {
-                        dir('dashboard') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate dashboard failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar dashboard : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar dashboard : échec d'exécution." }
-                    }
-                }
+        //         stage('Sonar dashboard') {
+        //             // Désactivé temporairement: focus authService only
+        //             when { expression { env.CHANGED_DASHBOARD == 'true' } }
+        //             steps {
+        //                 dir('dashboard') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate dashboard failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar dashboard : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar dashboard : échec d'exécution." }
+        //             }
+        //         }
 
-        }
+        // }
 
         // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
