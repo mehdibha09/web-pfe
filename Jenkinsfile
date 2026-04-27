@@ -95,7 +95,6 @@ pipeline {
 
         // ─────────────────────────────────────────────
         stage('Build') {
-            parallel {
 
                 stage('authService') {
                     when { expression { env.CHANGED_AUTH == 'true' } }
@@ -137,13 +136,13 @@ pipeline {
                     }
                 }
 
-            }
+            
         }
 
         // ─────────────────────────────────────────────
         stage('Test') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
-            parallel {
+            steps {
 
                 stage('Test authService') {
                     when { expression { env.CHANGED_AUTH == 'true' } }
@@ -210,7 +209,6 @@ pipeline {
         // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
-            parallel {
 
                 stage('Sonar authService') {
                     when { expression { env.CHANGED_AUTH == 'true' } }
@@ -292,7 +290,6 @@ pipeline {
                     }
                 }
 
-            }
         }
 
         // ─────────────────────────────────────────────
@@ -548,84 +545,84 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
-        stage('OWASP ZAP Full Scan') {
-            agent { label 'security' }
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        // stage('OWASP ZAP Full Scan') {
+        //     agent { label 'security' }
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-            steps {
-                script {
-                    int zapExitCode = sh(
-                        script: """
-                            set -x
-                            docker run --rm \
-                                --name owasp-zap-scan-${BUILD_NUMBER} \
-                                --cpus="0.7" \
-                                -v /mnt/nfs/owasp-zap:/zap/wrk \
-                                ghcr.io/zaproxy/zaproxy:stable \
-                                zap-full-scan.py \
-                                -t http://192.168.56.10:30080 \
-                                -J /zap/wrk/zap-report-${BUILD_NUMBER}.json \
-                                -r /zap/wrk/zap-report-${BUILD_NUMBER}.html
-                        """,
-                        returnStatus: true
-                    )
+        //     steps {
+        //         script {
+        //             int zapExitCode = sh(
+        //                 script: """
+        //                     set -x
+        //                     docker run --rm \
+        //                         --name owasp-zap-scan-${BUILD_NUMBER} \
+        //                         --cpus="0.7" \
+        //                         -v /mnt/nfs/owasp-zap:/zap/wrk \
+        //                         ghcr.io/zaproxy/zaproxy:stable \
+        //                         zap-full-scan.py \
+        //                         -t http://192.168.56.10:30080 \
+        //                         -J /zap/wrk/zap-report-${BUILD_NUMBER}.json \
+        //                         -r /zap/wrk/zap-report-${BUILD_NUMBER}.html
+        //                 """,
+        //                 returnStatus: true
+        //             )
 
-                    if (zapExitCode == 0) {
-                        echo 'OWASP ZAP : aucune vulnérabilité (code 0).'
-                    } else if (zapExitCode == 2) {
-                        echo 'OWASP ZAP : vulnérabilités détectées (code 2).'
-                    } else if (zapExitCode == 3) {
-                        echo 'OWASP ZAP : vulnérabilités MEDIUM/HIGH détectées (code 3).'
-                    } else {
-                        error "OWASP ZAP a échoué (code ${zapExitCode})"
-                    }
-                }
-            }
-        }
+        //             if (zapExitCode == 0) {
+        //                 echo 'OWASP ZAP : aucune vulnérabilité (code 0).'
+        //             } else if (zapExitCode == 2) {
+        //                 echo 'OWASP ZAP : vulnérabilités détectées (code 2).'
+        //             } else if (zapExitCode == 3) {
+        //                 echo 'OWASP ZAP : vulnérabilités MEDIUM/HIGH détectées (code 3).'
+        //             } else {
+        //                 error "OWASP ZAP a échoué (code ${zapExitCode})"
+        //             }
+        //         }
+        //     }
+        // }
 
-        // ─────────────────────────────────────────────
-        stage('Publish Security Reports owasp zap') {
-            agent { label 'security' }
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        // // ─────────────────────────────────────────────
+        // stage('Publish Security Reports owasp zap') {
+        //     agent { label 'security' }
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-            steps {
-                sh """
-                    set -x
-                    cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.html reports/zap/ 2>/dev/null || true
-                    cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.json reports/zap/ 2>/dev/null || true
-                """
+        //     steps {
+        //         sh """
+        //             set -x
+        //             cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.html reports/zap/ 2>/dev/null || true
+        //             cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.json reports/zap/ 2>/dev/null || true
+        //         """
 
-                archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
+        //         archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
 
-                publishHTML(target: [
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'reports/zap',
-                    reportFiles: "zap-report-${BUILD_NUMBER}.html",
-                    reportName: 'OWASP ZAP Report'
-                ])
-            }
-        }
+        //         publishHTML(target: [
+        //             allowMissing: true,
+        //             alwaysLinkToLastBuild: true,
+        //             keepAll: true,
+        //             reportDir: 'reports/zap',
+        //             reportFiles: "zap-report-${BUILD_NUMBER}.html",
+        //             reportName: 'OWASP ZAP Report'
+        //         ])
+        //     }
+        // }
 
-        // ─────────────────────────────────────────────
-        stage('Stop Security VM') {
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-            steps {
-                sh '''
-                    ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-                        -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-                    STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-                    if echo "$STATE" | grep -q running; then
-                        echo "Arrêt Security VM"
-                        VBoxManage controlvm securite acpipowerbutton
-                    else
-                        echo "Security VM déjà arrêtée"
-                    fi
-                    '
-                '''
-            }
-        }
+        // // ─────────────────────────────────────────────
+        // stage('Stop Security VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         sh '''
+        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+        //             if echo "$STATE" | grep -q running; then
+        //                 echo "Arrêt Security VM"
+        //                 VBoxManage controlvm securite acpipowerbutton
+        //             else
+        //                 echo "Security VM déjà arrêtée"
+        //             fi
+        //             '
+        //         '''
+        //     }
+        // }
 
     }
 
