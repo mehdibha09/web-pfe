@@ -483,7 +483,6 @@ stage('Build') {
                                 # Deploy frontend
                                 kubectl apply -f frontend.yaml
                             '''
-                            }
 
                             // Mettre à jour l'image uniquement pour les services reconstruits
                             def services = [
