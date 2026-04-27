@@ -126,30 +126,30 @@ stage('Build') {
             }
         }
 
-        stage('Test') {
-            steps {
-                script {
+        // stage('Test') {
+        //     steps {
+        //         script {
 
-                    if (env.CHANGED_AUTH == 'true') {
-                        dir('authService') {
-                            sh 'mvn test'
-                        }
-                    }
+        //             if (env.CHANGED_AUTH == 'true') {
+        //                 dir('authService') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
 
-                    if (env.CHANGED_PRICER == 'true') {
-                        dir('cloudPricer') {
-                            sh 'mvn test'
-                        }
-                    }
+        //             if (env.CHANGED_PRICER == 'true') {
+        //                 dir('cloudPricer') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
 
-                    if (env.CHANGED_DASHBOARD == 'true') {
-                        dir('dashboard') {
-                            sh 'mvn test'
-                        }
-                    }
-                }
-            }
-        }
+        //             if (env.CHANGED_DASHBOARD == 'true') {
+        //                 dir('dashboard') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         
 
@@ -183,91 +183,91 @@ stage('Build') {
             }
         }
 
-        // ─────────────────────────────────────────────
-        // stage('Sonar Analysis') {
-        //     when { expression { env.CHANGED_BACKEND == 'true' } }
+        ─────────────────────────────────────────────
+        stage('Sonar Analysis') {
+            when { expression { env.CHANGED_BACKEND == 'true' } }
 
-        //         stage('Sonar authService') {
-        //             when { expression { env.CHANGED_AUTH == 'true' } }
-        //             steps {
-        //                 dir('authService') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate authService failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar authService : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar authService : échec d'exécution." }
-        //             }
-        //         }
+                stage('Sonar authService') {
+                    when { expression { env.CHANGED_AUTH == 'true' } }
+                    steps {
+                        dir('authService') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate authService failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar authService : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar authService : échec d'exécution." }
+                    }
+                }
 
-        //         stage('Sonar cloudPricer') {
-        //             // Désactivé temporairement: focus authService only
-        //             when { expression { env.CHANGED_PRICER == 'true' } }
-        //             steps {
-        //                 dir('cloudPricer') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate cloudPricer failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar cloudPricer : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar cloudPricer : échec d'exécution." }
-        //             }
-        //         }
+                stage('Sonar cloudPricer') {
+                    // Désactivé temporairement: focus authService only
+                    when { expression { env.CHANGED_PRICER == 'true' } }
+                    steps {
+                        dir('cloudPricer') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate cloudPricer failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar cloudPricer : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar cloudPricer : échec d'exécution." }
+                    }
+                }
 
-        //         stage('Sonar dashboard') {
-        //             // Désactivé temporairement: focus authService only
-        //             when { expression { env.CHANGED_DASHBOARD == 'true' } }
-        //             steps {
-        //                 dir('dashboard') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate dashboard failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar dashboard : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar dashboard : échec d'exécution." }
-        //             }
-        //         }
+                stage('Sonar dashboard') {
+                    // Désactivé temporairement: focus authService only
+                    when { expression { env.CHANGED_DASHBOARD == 'true' } }
+                    steps {
+                        dir('dashboard') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate dashboard failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar dashboard : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar dashboard : échec d'exécution." }
+                    }
+                }
 
-        // }
+        }
 
         // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
@@ -333,7 +333,8 @@ stage('Build') {
                 )]) {
                     script {
                         withEnv(["PGPASSWORD=${DB_PASSWORD}"]) {
-                            def databases = ['auth_db', 'order_db', 'product_db', 'inventory_db']
+                            // Create only databases that are actually used by microservices
+                            def databases = ['auth_service']  // authService uses this database
                             databases.each { dbName ->
                                 sh """
                                     psql -h ${DB_HOST} -U ${DB_USER} -d postgres \
@@ -349,104 +350,104 @@ stage('Build') {
             }
         }
 
-        // ─────────────────────────────────────────────
-        // stage('Security Scan') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        ─────────────────────────────────────────────
+        stage('Security Scan') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-        //     steps {
-        //         withCredentials([usernamePassword(
-        //             credentialsId: 'nexus-creds',
-        //             usernameVariable: 'NEXUS_USER',
-        //             passwordVariable: 'NEXUS_PASSWORD'
-        //         )]) {
-        //             script {
-        //                 sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-creds',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASSWORD'
+                )]) {
+                    script {
+                        sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
 
-        //                 def images = [
-        //                     [name: 'auth-service',    changed: env.CHANGED_AUTH],
-        //                     [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
-        //                     [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-        //                     [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
-        //                 ]
+                        def images = [
+                            [name: 'auth-service',    changed: env.CHANGED_AUTH],
+                            [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
+                            [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
+                            [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+                        ]
 
-        //                 images.each { img ->
-        //                     if (img.changed == 'true') {
-        //                         echo "→ Trivy scan : ${img.name}"
-        //                         sh """
-        //                             set -x
-        //                             docker run --rm \
-        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
-        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
-        //                                 -v /mnt/nfs/trivy/results:/results \
-        //                                 aquasec/trivy image \
-        //                                 --severity HIGH,CRITICAL \
-        //                                 --format json \
-        //                                 --output /results/${img.name}.json \
-        //                                 192.168.56.30/${img.name}:latest
+                        images.each { img ->
+                            if (img.changed == 'true') {
+                                echo "→ Trivy scan : ${img.name}"
+                                sh """
+                                    set -x
+                                    docker run --rm \
+                                        -v /var/run/docker.sock:/var/run/docker.sock \
+                                        -v /opt/trivy-cache:/root/.cache/trivy \
+                                        -v /mnt/nfs/trivy/results:/results \
+                                        aquasec/trivy image \
+                                        --severity HIGH,CRITICAL \
+                                        --format json \
+                                        --output /results/${img.name}.json \
+                                        192.168.56.30/${img.name}:latest
 
-        //                             docker run --rm \
-        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
-        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
-        //                                 -v /mnt/nfs/trivy/results:/results \
-        //                                 aquasec/trivy image \
-        //                                 --severity HIGH,CRITICAL \
-        //                                 --format template \
-        //                                 --template "@/contrib/html.tpl" \
-        //                                 --output /results/${img.name}.html \
-        //                                 192.168.56.30/${img.name}:latest
-        //                         """
-        //                     } else {
-        //                         echo "→ Aucun changement pour ${img.name}, scan ignoré."
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+                                    docker run --rm \
+                                        -v /var/run/docker.sock:/var/run/docker.sock \
+                                        -v /opt/trivy-cache:/root/.cache/trivy \
+                                        -v /mnt/nfs/trivy/results:/results \
+                                        aquasec/trivy image \
+                                        --severity HIGH,CRITICAL \
+                                        --format template \
+                                        --template "@/contrib/html.tpl" \
+                                        --output /results/${img.name}.html \
+                                        192.168.56.30/${img.name}:latest
+                                """
+                            } else {
+                                echo "→ Aucun changement pour ${img.name}, scan ignoré."
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-        // ─────────────────────────────────────────────
-        // stage('Publish Security Reports trivey') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        ─────────────────────────────────────────────
+        stage('Publish Security Reports trivey') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-        //     steps {
-        //         script {
-        //             sh 'mkdir -p reports/trivy reports/zap'
+            steps {
+                script {
+                    sh 'mkdir -p reports/trivy reports/zap'
 
-        //             def images = [
-        //                 [name: 'auth-service',    changed: env.CHANGED_AUTH],
-        //                 [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
-        //                 [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-        //                 [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
-        //             ]
+                    def images = [
+                        [name: 'auth-service',    changed: env.CHANGED_AUTH],
+                        [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
+                        [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
+                        [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+                    ]
 
-        //             images.each { img ->
-        //                 if (img.changed == 'true') {
-        //                     sh """
-        //                         cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
-        //                         cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
-        //                     """
-        //                 }
-        //             }
+                    images.each { img ->
+                        if (img.changed == 'true') {
+                            sh """
+                                cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
+                                cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
+                            """
+                        }
+                    }
 
-        //             archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
 
-        //             images.each { img ->
-        //                 if (img.changed == 'true') {
-        //                     publishHTML(target: [
-        //                         allowMissing: true,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: 'reports/trivy',
-        //                         reportFiles: "${img.name}.html",
-        //                         reportName: "Trivy Report - ${img.name}"
-        //                     ])
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+                    images.each { img ->
+                        if (img.changed == 'true') {
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'reports/trivy',
+                                reportFiles: "${img.name}.html",
+                                reportName: "Trivy Report - ${img.name}"
+                            ])
+                        }
+                    }
+                }
+            }
+        }
 
         // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
