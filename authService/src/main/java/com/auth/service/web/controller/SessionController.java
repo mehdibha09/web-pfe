@@ -1,4 +1,4 @@
-package com.auth.auth.web.controller;
+package com.auth.service.web.controller;
 
 import java.util.List;
 import java.util.UUID;
@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.auth.auth.service.SessionService;
-import com.auth.auth.web.dto.AuthActionResponse;
-import com.auth.auth.web.dto.SessionResponse;
-import com.auth.auth.web.routes.ApiRoutes;
+import com.auth.service.service.SessionService;
+import com.auth.service.web.dto.AuthActionResponse;
+import com.auth.service.web.dto.SessionResponse;
+import com.auth.service.web.routes.ApiRoutes;
 
 @RestController
 @RequestMapping(ApiRoutes.Sessions.BASE)

@@ -1,4 +1,4 @@
-package com.auth.auth.service;
+package com.auth.service.service;
 
 import java.util.List;
 import java.util.UUID;
@@ -7,32 +7,32 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.auth.auth.domain.AuditLog;
-import com.auth.auth.domain.Role;
-import com.auth.auth.domain.RolePermission;
-import com.auth.auth.domain.Session;
-import com.auth.auth.domain.User;
-import com.auth.auth.domain.UserRole;
-import com.auth.auth.domain.UserRoleId;
-import com.auth.auth.domain.UserStatus;
-import com.auth.auth.exception.BadRequestException;
-import com.auth.auth.exception.ConflictException;
-import com.auth.auth.exception.ForbiddenException;
-import com.auth.auth.exception.NotFoundException;
-import com.auth.auth.exception.UnauthorizedException;
-import com.auth.auth.repository.AuditLogRepository;
-import com.auth.auth.repository.RolePermissionRepository;
-import com.auth.auth.repository.RoleRepository;
-import com.auth.auth.repository.SessionRepository;
-import com.auth.auth.repository.UserRepository;
-import com.auth.auth.repository.UserRoleRepository;
-import com.auth.auth.web.dto.AuthActionResponse;
-import com.auth.auth.web.dto.RoleResponse;
-import com.auth.auth.web.dto.UserAssignRoleRequest;
-import com.auth.auth.web.dto.UserCreateRequest;
-import com.auth.auth.web.dto.UserResponse;
-import com.auth.auth.web.dto.UserUpdateRequest;
-import com.auth.auth.web.dto.UserUpdateRolesRequest;
+import com.auth.service.domain.AuditLog;
+import com.auth.service.domain.Role;
+import com.auth.service.domain.RolePermission;
+import com.auth.service.domain.Session;
+import com.auth.service.domain.User;
+import com.auth.service.domain.UserRole;
+import com.auth.service.domain.UserRoleId;
+import com.auth.service.domain.UserStatus;
+import com.auth.service.exception.BadRequestException;
+import com.auth.service.exception.ConflictException;
+import com.auth.service.exception.ForbiddenException;
+import com.auth.service.exception.NotFoundException;
+import com.auth.service.exception.UnauthorizedException;
+import com.auth.service.repository.AuditLogRepository;
+import com.auth.service.repository.RolePermissionRepository;
+import com.auth.service.repository.RoleRepository;
+import com.auth.service.repository.SessionRepository;
+import com.auth.service.repository.UserRepository;
+import com.auth.service.repository.UserRoleRepository;
+import com.auth.service.web.dto.AuthActionResponse;
+import com.auth.service.web.dto.RoleResponse;
+import com.auth.service.web.dto.UserAssignRoleRequest;
+import com.auth.service.web.dto.UserCreateRequest;
+import com.auth.service.web.dto.UserResponse;
+import com.auth.service.web.dto.UserUpdateRequest;
+import com.auth.service.web.dto.UserUpdateRolesRequest;
 
 @Service
 public class UserService {

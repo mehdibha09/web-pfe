@@ -1,4 +1,4 @@
-package com.auth.auth.domain;
+package com.auth.service.domain;
 
 import java.time.Instant;
 import java.util.UUID;

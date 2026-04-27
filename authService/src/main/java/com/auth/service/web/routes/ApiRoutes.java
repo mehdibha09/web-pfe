@@ -1,4 +1,4 @@
-package com.auth.auth.web.routes;
+package com.auth.service.web.routes;
 
 public final class ApiRoutes {
     private ApiRoutes() {

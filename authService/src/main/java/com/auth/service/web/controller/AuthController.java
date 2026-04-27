@@ -1,4 +1,4 @@
-package com.auth.auth.web.controller;
+package com.auth.service.web.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -12,22 +12,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.auth.auth.service.AuthService;
-import com.auth.auth.web.dto.AuthActionResponse;
-import com.auth.auth.web.dto.AuthChangePasswordRequest;
-import com.auth.auth.web.dto.AuthForgotPasswordRequest;
-import com.auth.auth.web.dto.AuthLoginRequest;
-import com.auth.auth.web.dto.AuthLoginResponse;
-import com.auth.auth.web.dto.AuthLogoutRequest;
-import com.auth.auth.web.dto.AuthMeResponse;
-import com.auth.auth.web.dto.AuthRefreshRequest;
-import com.auth.auth.web.dto.AuthResetPasswordRequest;
-import com.auth.auth.web.dto.AuthSsoRedirectResponse;
-import com.auth.auth.web.dto.AuthTokensResponse;
-import com.auth.auth.web.dto.AuthTwoFaEmailVerifyRequest;
-import com.auth.auth.web.dto.AuthTwoFaSetupResponse;
-import com.auth.auth.web.dto.AuthTwoFaVerifyRequest;
-import com.auth.auth.web.routes.ApiRoutes;
+import com.auth.service.service.AuthService;
+import com.auth.service.web.dto.AuthActionResponse;
+import com.auth.service.web.dto.AuthChangePasswordRequest;
+import com.auth.service.web.dto.AuthForgotPasswordRequest;
+import com.auth.service.web.dto.AuthLoginRequest;
+import com.auth.service.web.dto.AuthLoginResponse;
+import com.auth.service.web.dto.AuthLogoutRequest;
+import com.auth.service.web.dto.AuthMeResponse;
+import com.auth.service.web.dto.AuthRefreshRequest;
+import com.auth.service.web.dto.AuthResetPasswordRequest;
+import com.auth.service.web.dto.AuthSsoRedirectResponse;
+import com.auth.service.web.dto.AuthTokensResponse;
+import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
+import com.auth.service.web.dto.AuthTwoFaSetupResponse;
+import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
+import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -123,7 +123,7 @@ public class AuthController {
     }
 
     @PostMapping(ApiRoutes.Auth.FORGOT_PASSWORD)
-    public ResponseEntity<com.auth.auth.web.dto.PasswordResetResponse> forgotPassword(
+    public ResponseEntity<com.service.auth.web.dto.PasswordResetResponse> forgotPassword(
             @Valid @RequestBody AuthForgotPasswordRequest request
     ) {
         return ResponseEntity.ok(authService.forgotPassword(request));

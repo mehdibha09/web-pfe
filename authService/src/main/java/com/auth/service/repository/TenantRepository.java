@@ -1,11 +1,11 @@
-package com.auth.auth.repository;
+package com.auth.service.repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.auth.auth.domain.Tenant;
+import com.auth.service.domain.Tenant;
 
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     Optional<Tenant> findByName(String name);

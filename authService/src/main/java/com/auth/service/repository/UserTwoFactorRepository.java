@@ -1,11 +1,11 @@
-package com.auth.auth.repository;
+package com.auth.service.repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.auth.auth.domain.UserTwoFactor;
+import com.auth.service.domain.UserTwoFactor;
 
 public interface UserTwoFactorRepository extends JpaRepository<UserTwoFactor, UUID> {
     Optional<UserTwoFactor> findByUser_Id(UUID userId);

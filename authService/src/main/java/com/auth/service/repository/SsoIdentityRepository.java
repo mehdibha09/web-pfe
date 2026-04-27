@@ -1,11 +1,11 @@
-package com.auth.auth.repository;
+package com.auth.service.repository;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.auth.auth.domain.SsoIdentity;
+import com.auth.service.domain.SsoIdentity;
 
 public interface SsoIdentityRepository extends JpaRepository<SsoIdentity, UUID> {
     Optional<SsoIdentity> findByProviderAndSubject(String provider, String subject);

@@ -1,4 +1,4 @@
-package com.auth.auth.service;
+package com.auth.service.service;
 
 import java.time.Instant;
 import java.util.List;
@@ -6,20 +6,20 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.auth.auth.domain.AuditLog;
-import com.auth.auth.domain.RolePermission;
-import com.auth.auth.domain.Session;
-import com.auth.auth.domain.User;
-import com.auth.auth.domain.UserRole;
-import com.auth.auth.exception.BadRequestException;
-import com.auth.auth.exception.ForbiddenException;
-import com.auth.auth.exception.UnauthorizedException;
-import com.auth.auth.repository.AuditLogRepository;
-import com.auth.auth.repository.RolePermissionRepository;
-import com.auth.auth.repository.SessionRepository;
-import com.auth.auth.repository.UserRoleRepository;
-import com.auth.auth.web.dto.AuditLogQuery;
-import com.auth.auth.web.dto.AuditLogResponse;
+import com.auth.service.domain.AuditLog;
+import com.auth.service.domain.RolePermission;
+import com.auth.service.domain.Session;
+import com.auth.service.domain.User;
+import com.auth.service.domain.UserRole;
+import com.auth.service.exception.BadRequestException;
+import com.auth.service.exception.ForbiddenException;
+import com.auth.service.exception.UnauthorizedException;
+import com.auth.service.repository.AuditLogRepository;
+import com.auth.service.repository.RolePermissionRepository;
+import com.auth.service.repository.SessionRepository;
+import com.auth.service.repository.UserRoleRepository;
+import com.auth.service.web.dto.AuditLogQuery;
+import com.auth.service.web.dto.AuditLogResponse;
 
 @Service
 public class AuditLogService {

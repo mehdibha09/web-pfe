@@ -1,4 +1,4 @@
-package com.auth.auth.web.controller;
+package com.auth.service.web.controller;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,13 +15,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.auth.auth.service.TenantService;
-import com.auth.auth.web.dto.RoleResponse;
-import com.auth.auth.web.dto.TenantCreateRequest;
-import com.auth.auth.web.dto.TenantResponse;
-import com.auth.auth.web.dto.TenantUpdateRequest;
-import com.auth.auth.web.dto.UserResponse;
-import com.auth.auth.web.routes.ApiRoutes;
+import com.auth.service.service.TenantService;
+import com.auth.service.web.dto.RoleResponse;
+import com.auth.service.web.dto.TenantCreateRequest;
+import com.auth.service.web.dto.TenantResponse;
+import com.auth.service.web.dto.TenantUpdateRequest;
+import com.auth.service.web.dto.UserResponse;
+import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
 

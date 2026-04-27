@@ -1,4 +1,4 @@
-package com.auth.auth.service;
+package com.auth.service.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;

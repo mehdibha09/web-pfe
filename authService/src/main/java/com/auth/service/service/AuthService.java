@@ -1,4 +1,4 @@
-package com.auth.auth.service;
+package com.auth.service.service;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -22,42 +22,42 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.auth.auth.domain.AuditLog;
-import com.auth.auth.domain.PasswordResetToken;
-import com.auth.auth.domain.RolePermission;
-import com.auth.auth.domain.Session;
-import com.auth.auth.domain.SsoIdentity;
-import com.auth.auth.domain.Tenant;
-import com.auth.auth.domain.User;
-import com.auth.auth.domain.UserRole;
-import com.auth.auth.domain.UserStatus;
-import com.auth.auth.domain.UserTwoFactor;
-import com.auth.auth.exception.BadRequestException;
-import com.auth.auth.exception.InvalidCredentialsException;
-import com.auth.auth.exception.NotFoundException;
-import com.auth.auth.exception.UnauthorizedException;
-import com.auth.auth.repository.AuditLogRepository;
-import com.auth.auth.repository.PasswordResetTokenRepository;
-import com.auth.auth.repository.RolePermissionRepository;
-import com.auth.auth.repository.SessionRepository;
-import com.auth.auth.repository.SsoIdentityRepository;
-import com.auth.auth.repository.TenantRepository;
-import com.auth.auth.repository.UserRepository;
-import com.auth.auth.repository.UserRoleRepository;
-import com.auth.auth.repository.UserTwoFactorRepository;
-import com.auth.auth.web.dto.AuthActionResponse;
-import com.auth.auth.web.dto.AuthChangePasswordRequest;
-import com.auth.auth.web.dto.AuthForgotPasswordRequest;
-import com.auth.auth.web.dto.AuthLoginRequest;
-import com.auth.auth.web.dto.AuthLoginResponse;
-import com.auth.auth.web.dto.AuthMeResponse;
-import com.auth.auth.web.dto.AuthRefreshRequest;
-import com.auth.auth.web.dto.AuthResetPasswordRequest;
-import com.auth.auth.web.dto.AuthSsoRedirectResponse;
-import com.auth.auth.web.dto.AuthTokensResponse;
-import com.auth.auth.web.dto.AuthTwoFaEmailVerifyRequest;
-import com.auth.auth.web.dto.AuthTwoFaSetupResponse;
-import com.auth.auth.web.dto.AuthTwoFaVerifyRequest;
+import com.auth.service.domain.AuditLog;
+import com.auth.service.domain.PasswordResetToken;
+import com.auth.service.domain.RolePermission;
+import com.auth.service.domain.Session;
+import com.auth.service.domain.SsoIdentity;
+import com.auth.service.domain.Tenant;
+import com.auth.service.domain.User;
+import com.auth.service.domain.UserRole;
+import com.auth.service.domain.UserStatus;
+import com.auth.service.domain.UserTwoFactor;
+import com.auth.service.exception.BadRequestException;
+import com.auth.service.exception.InvalidCredentialsException;
+import com.auth.service.exception.NotFoundException;
+import com.auth.service.exception.UnauthorizedException;
+import com.auth.service.repository.AuditLogRepository;
+import com.auth.service.repository.PasswordResetTokenRepository;
+import com.auth.service.repository.RolePermissionRepository;
+import com.auth.service.repository.SessionRepository;
+import com.auth.service.repository.SsoIdentityRepository;
+import com.auth.service.repository.TenantRepository;
+import com.auth.service.repository.UserRepository;
+import com.auth.service.repository.UserRoleRepository;
+import com.auth.service.repository.UserTwoFactorRepository;
+import com.auth.service.web.dto.AuthActionResponse;
+import com.auth.service.web.dto.AuthChangePasswordRequest;
+import com.auth.service.web.dto.AuthForgotPasswordRequest;
+import com.auth.service.web.dto.AuthLoginRequest;
+import com.auth.service.web.dto.AuthLoginResponse;
+import com.auth.service.web.dto.AuthMeResponse;
+import com.auth.service.web.dto.AuthRefreshRequest;
+import com.auth.service.web.dto.AuthResetPasswordRequest;
+import com.auth.service.web.dto.AuthSsoRedirectResponse;
+import com.auth.service.web.dto.AuthTokensResponse;
+import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
+import com.auth.service.web.dto.AuthTwoFaSetupResponse;
+import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -410,7 +410,7 @@ public class AuthService {
     }
 
     @Transactional
-    public com.auth.auth.web.dto.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
+    public com.service.auth.web.dto.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
         User user = resolveUserForPasswordReset(request);
         String resetToken = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
         PasswordResetToken token = new PasswordResetToken();
@@ -423,7 +423,7 @@ public class AuthService {
         // Send password reset email
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
         
-        return new com.auth.auth.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
+        return new com.service.auth.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
     }
 
     @Transactional

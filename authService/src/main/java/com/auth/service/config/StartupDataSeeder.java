@@ -1,4 +1,4 @@
-package com.auth.auth.config;
+package com.auth.service.config;
 
 import java.util.List;
 
@@ -6,22 +6,22 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import com.auth.auth.domain.Permission;
-import com.auth.auth.domain.Role;
-import com.auth.auth.domain.RolePermission;
-import com.auth.auth.domain.RolePermissionId;
-import com.auth.auth.domain.Tenant;
-import com.auth.auth.domain.TenantStatus;
-import com.auth.auth.domain.User;
-import com.auth.auth.domain.UserRole;
-import com.auth.auth.domain.UserRoleId;
-import com.auth.auth.domain.UserStatus;
-import com.auth.auth.repository.PermissionRepository;
-import com.auth.auth.repository.RolePermissionRepository;
-import com.auth.auth.repository.RoleRepository;
-import com.auth.auth.repository.TenantRepository;
-import com.auth.auth.repository.UserRepository;
-import com.auth.auth.repository.UserRoleRepository;
+import com.auth.service.domain.Permission;
+import com.auth.service.domain.Role;
+import com.auth.service.domain.RolePermission;
+import com.auth.service.domain.RolePermissionId;
+import com.auth.service.domain.Tenant;
+import com.auth.service.domain.TenantStatus;
+import com.auth.service.domain.User;
+import com.auth.service.domain.UserRole;
+import com.auth.service.domain.UserRoleId;
+import com.auth.service.domain.UserStatus;
+import com.auth.service.repository.PermissionRepository;
+import com.auth.service.repository.RolePermissionRepository;
+import com.auth.service.repository.RoleRepository;
+import com.auth.service.repository.TenantRepository;
+import com.auth.service.repository.UserRepository;
+import com.auth.service.repository.UserRoleRepository;
 
 @Component
 public class StartupDataSeeder implements CommandLineRunner {

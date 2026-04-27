@@ -1,4 +1,5 @@
-package com.auth.auth.web.controller;
+
+package com.auth.service.web.controller;
 
 import java.time.Instant;
 import java.util.List;
@@ -12,10 +13,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.auth.auth.service.AuditLogService;
-import com.auth.auth.web.dto.AuditLogQuery;
-import com.auth.auth.web.dto.AuditLogResponse;
-import com.auth.auth.web.routes.ApiRoutes;
+import com.auth.service.service.AuditLogService;
+import com.auth.service.web.dto.AuditLogQuery;
+import com.auth.service.web.dto.AuditLogResponse;
+import com.auth.service.web.routes.ApiRoutes;
 
 @RestController
 @RequestMapping(ApiRoutes.AuditLogs.BASE)

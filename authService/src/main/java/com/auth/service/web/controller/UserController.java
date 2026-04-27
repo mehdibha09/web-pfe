@@ -1,4 +1,4 @@
-package com.auth.auth.web.controller;
+package com.auth.service.web.controller;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,15 +15,15 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.auth.auth.service.UserService;
-import com.auth.auth.web.dto.AuthActionResponse;
-import com.auth.auth.web.dto.RoleResponse;
-import com.auth.auth.web.dto.UserAssignRoleRequest;
-import com.auth.auth.web.dto.UserCreateRequest;
-import com.auth.auth.web.dto.UserResponse;
-import com.auth.auth.web.dto.UserUpdateRequest;
-import com.auth.auth.web.dto.UserUpdateRolesRequest;
-import com.auth.auth.web.routes.ApiRoutes;
+import com.auth.service.service.UserService;
+import com.auth.service.web.dto.AuthActionResponse;
+import com.auth.service.web.dto.RoleResponse;
+import com.auth.service.web.dto.UserAssignRoleRequest;
+import com.auth.service.web.dto.UserCreateRequest;
+import com.auth.service.web.dto.UserResponse;
+import com.auth.service.web.dto.UserUpdateRequest;
+import com.auth.service.web.dto.UserUpdateRolesRequest;
+import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
 

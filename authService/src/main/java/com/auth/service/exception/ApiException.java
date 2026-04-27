@@ -1,4 +1,4 @@
-package com.auth.auth.exception;
+package com.auth.service.exception;
 
 import org.springframework.http.HttpStatus;
 

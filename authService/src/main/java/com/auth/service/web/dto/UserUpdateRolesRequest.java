@@ -1,4 +1,4 @@
-package com.auth.auth.web.dto;
+package com.auth.service.web.dto;
 
 import java.util.List;
 import java.util.UUID;

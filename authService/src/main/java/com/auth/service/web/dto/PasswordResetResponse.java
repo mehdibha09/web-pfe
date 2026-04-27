@@ -1,4 +1,4 @@
-package com.auth.auth.web.dto;
+package com.auth.service.web.dto;
 
 public record PasswordResetResponse(
         String message,
