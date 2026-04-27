@@ -2,6 +2,8 @@ package com.auth.auth.web.dto;
 
 public record AuthLoginResponse(
         AuthTokensResponse tokens,
-        AuthMeResponse me
+        AuthMeResponse me,
+        boolean twoFaRequired,
+        String message
 ) {
 }

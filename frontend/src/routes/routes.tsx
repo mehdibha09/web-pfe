@@ -24,6 +24,7 @@ import Profile from '../views/auth/profile/Profile';
 import ResetPassword from '../views/auth/resetPassword/ResetPassword';
 import SsoCallback from '../views/auth/sso/SsoCallback';
 import SsoLogin from '../views/auth/sso/SsoLogin';
+import TwoFactor from '../views/auth/twoFactor';
 import ForbiddenPage from '../views/errors/ForbiddenPage';
 
 type AdminAccessRouteProps = {
@@ -49,6 +50,7 @@ const routes = () => {
         <Route path="/sso/callback/:provider" element={<SsoCallback />} />
         <Route path="/forgetPassword" element={<ForgetPassword />} />
         <Route path="/resetPassword/:token" element={<ResetPassword />} />
+        <Route path="/two-fa" element={<TwoFactor />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
@@ -56,7 +58,6 @@ const routes = () => {
         <Route element={<ProtectedLayout />}>
           <Route path="/profile" element={<Profile />} />
           <Route path="/change-password" element={<Navigate to="/profile" replace />} />
-          <Route path="/two-fa" element={<Navigate to="/profile" replace />} />
           <Route
             path="/admin/users"
             element={

@@ -87,17 +87,19 @@ const ForgetPassword = () => {
             error={!!errors.email}
             helperText={errors.email?.message}
           />
-          <Button
-            onClick={handleSubmit(handleForgotPassword)}
-            disabled={loading}
-            sx={{
-              my: 2,
-              padding: '0.5rem 2rem',
-              alignSelf: 'flex-end',
-            }}
-          >
-            {loading ? 'Sending...' : 'Send Reset Link'}
-          </Button>
+          <Box>
+            <Button
+              onClick={handleSubmit(handleForgotPassword)}
+              disabled={loading}
+              sx={{
+                my: 2,
+                padding: '0.5rem 2rem',
+                alignSelf: 'flex-end',
+              }}
+            >
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </Button>
+          </Box>
           <Typography
             variant="body2"
             component={Link}

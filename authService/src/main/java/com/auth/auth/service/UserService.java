@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.auth.auth.domain.AuditLog;
+import com.auth.auth.domain.Role;
 import com.auth.auth.domain.RolePermission;
 import com.auth.auth.domain.Session;
 import com.auth.auth.domain.User;
 import com.auth.auth.domain.UserRole;
+import com.auth.auth.domain.UserRoleId;
 import com.auth.auth.domain.UserStatus;
 import com.auth.auth.exception.BadRequestException;
 import com.auth.auth.exception.ConflictException;
@@ -20,20 +22,24 @@ import com.auth.auth.exception.NotFoundException;
 import com.auth.auth.exception.UnauthorizedException;
 import com.auth.auth.repository.AuditLogRepository;
 import com.auth.auth.repository.RolePermissionRepository;
+import com.auth.auth.repository.RoleRepository;
 import com.auth.auth.repository.SessionRepository;
 import com.auth.auth.repository.UserRepository;
 import com.auth.auth.repository.UserRoleRepository;
 import com.auth.auth.web.dto.AuthActionResponse;
 import com.auth.auth.web.dto.RoleResponse;
+import com.auth.auth.web.dto.UserAssignRoleRequest;
 import com.auth.auth.web.dto.UserCreateRequest;
 import com.auth.auth.web.dto.UserResponse;
 import com.auth.auth.web.dto.UserUpdateRequest;
+import com.auth.auth.web.dto.UserUpdateRolesRequest;
 
 @Service
 public class UserService {
     private static final String TOKEN_TYPE = "Bearer";
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final SessionRepository sessionRepository;
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
@@ -42,12 +48,14 @@ public class UserService {
 
     public UserService(
             UserRepository userRepository,
+            RoleRepository roleRepository,
             SessionRepository sessionRepository,
             UserRoleRepository userRoleRepository,
             RolePermissionRepository rolePermissionRepository,
             AuditLogRepository auditLogRepository
     ) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.sessionRepository = sessionRepository;
         this.userRoleRepository = userRoleRepository;
         this.rolePermissionRepository = rolePermissionRepository;
@@ -165,6 +173,118 @@ public class UserService {
         return new AuthActionResponse("User deleted successfully");
     }
 
+    @Transactional
+    public AuthActionResponse assignRoleToUser(String authorizationHeader, UUID userId, UserAssignRoleRequest request) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManageUserRoles(currentUser);
+
+        User user = requireUserInAllowedScope(userId, currentUser);
+        var role = roleRepository.findById(request.roleId())
+                .orElseThrow(() -> new NotFoundException("Role not found"));
+
+        if (!isSuperAdmin(currentUser) && !role.getTenant().getId().equals(currentUser.getTenant().getId())) {
+            throw new ForbiddenException("Role belongs to another tenant");
+        }
+
+        if (!isSuperAdmin(currentUser) && !user.getTenant().getId().equals(role.getTenant().getId())) {
+            throw new ForbiddenException("Role and user must belong to the same tenant");
+        }
+
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
+            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        }
+
+        List<UserRole> currentRoles = userRoleRepository.findByUser_Id(user.getId());
+        if (currentRoles.stream().anyMatch(assignment -> assignment.getRole().getId().equals(role.getId()))) {
+            throw new ConflictException("User already assigned to role");
+        }
+
+        if (!currentRoles.isEmpty()) {
+            userRoleRepository.deleteAll(currentRoles);
+        }
+
+        UserRole userRole = new UserRole();
+        userRole.setId(new UserRoleId(user.getId(), role.getId()));
+        userRole.setUser(user);
+        userRole.setRole(role);
+        userRoleRepository.save(userRole);
+
+        writeAudit(currentUser, "USER_ASSIGN_ROLE", "Role assigned to user", user.getId().toString());
+        return new AuthActionResponse("Role assigned to user");
+    }
+
+    @Transactional
+    public AuthActionResponse removeRoleFromUser(String authorizationHeader, UUID userId, UUID roleId) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManageUserRoles(currentUser);
+
+        User user = requireUserInAllowedScope(userId, currentUser);
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
+            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        }
+
+        UserRoleId userRoleId = new UserRoleId(user.getId(), roleId);
+        UserRole userRole = userRoleRepository.findById(userRoleId)
+                .orElseThrow(() -> new NotFoundException("User-role assignment not found"));
+
+        if (!isSuperAdmin(currentUser)
+                && !userRole.getRole().getTenant().getId().equals(currentUser.getTenant().getId())) {
+            throw new ForbiddenException("Role belongs to another tenant");
+        }
+
+        userRoleRepository.delete(userRole);
+        writeAudit(currentUser, "USER_REMOVE_ROLE", "Role removed from user", user.getId().toString());
+        return new AuthActionResponse("Role removed from user");
+    }
+
+    @Transactional
+    public List<RoleResponse> replaceUserRoles(String authorizationHeader, UUID userId, UserUpdateRolesRequest request) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManageUserRoles(currentUser);
+
+        User user = requireUserInAllowedScope(userId, currentUser);
+        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
+            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        }
+
+        List<UUID> roleIds = request.roleIds() == null ? List.of() : request.roleIds().stream().distinct().toList();
+        if (roleIds.size() > 1) {
+            throw new BadRequestException("A user can only have one role");
+        }
+
+        List<Role> validatedRoles = roleIds.stream()
+                .map(roleId -> roleRepository.findById(roleId)
+                        .orElseThrow(() -> new NotFoundException("Role not found")))
+                .toList();
+
+        for (Role role : validatedRoles) {
+            if (!isSuperAdmin(currentUser) && !role.getTenant().getId().equals(currentUser.getTenant().getId())) {
+                throw new ForbiddenException("Role belongs to another tenant");
+            }
+
+            if (!isSuperAdmin(currentUser) && !user.getTenant().getId().equals(role.getTenant().getId())) {
+                throw new ForbiddenException("Role and user must belong to the same tenant");
+            }
+        }
+
+        List<UserRole> existingAssignments = userRoleRepository.findByUser_Id(user.getId());
+
+        if (!existingAssignments.isEmpty()) {
+            userRoleRepository.deleteAll(existingAssignments);
+        }
+
+        for (Role role : validatedRoles) {
+            UserRole userRole = new UserRole();
+            userRole.setId(new UserRoleId(user.getId(), role.getId()));
+            userRole.setUser(user);
+            userRole.setRole(role);
+            userRoleRepository.save(userRole);
+        }
+
+        writeAudit(currentUser, "USER_REPLACE_ROLES", "User roles replaced", user.getId().toString());
+        return listUserRoles(authorizationHeader, userId);
+    }
+
     private User requireCurrentUser(String authorizationHeader) {
         Session session = requireValidSession(authorizationHeader);
         return session.getUser();
@@ -240,6 +360,27 @@ public class UserService {
 
         if (!canManageUsers) {
             throw new ForbiddenException("User management permission required");
+        }
+    }
+
+    private void ensureCanManageUserRoles(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canManageUserRoles = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null && (
+                        permission.getName().trim().equalsIgnoreCase("USER_MANAGE")
+                                || permission.getName().trim().equalsIgnoreCase("ROLE_MANAGE")
+                ));
+
+        if (!canManageUserRoles) {
+            throw new ForbiddenException("User role management permission required");
         }
     }
 

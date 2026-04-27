@@ -24,6 +24,7 @@ import com.auth.auth.web.dto.AuthRefreshRequest;
 import com.auth.auth.web.dto.AuthResetPasswordRequest;
 import com.auth.auth.web.dto.AuthSsoRedirectResponse;
 import com.auth.auth.web.dto.AuthTokensResponse;
+import com.auth.auth.web.dto.AuthTwoFaEmailVerifyRequest;
 import com.auth.auth.web.dto.AuthTwoFaSetupResponse;
 import com.auth.auth.web.dto.AuthTwoFaVerifyRequest;
 import com.auth.auth.web.routes.ApiRoutes;
@@ -43,12 +44,60 @@ public class AuthController {
 
     @PostMapping(ApiRoutes.Auth.LOGIN)
     public ResponseEntity<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(authService.login(request, httpRequest.getRemoteAddr()));
+        return ResponseEntity.ok(authService.login(
+                request,
+                resolveClientIp(httpRequest),
+                normalizeHeader(httpRequest.getHeader("User-Agent")),
+                normalizeHeader(httpRequest.getHeader("Accept-Language")),
+                normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
+        ));
+    }
+
+    @PostMapping(ApiRoutes.Auth.TWO_FA_EMAIL_VERIFY)
+    public ResponseEntity<AuthLoginResponse> verifyLoginTwoFa(
+            @Valid @RequestBody AuthTwoFaEmailVerifyRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return ResponseEntity.ok(authService.verifyEmailTwoFa(
+            request,
+            resolveClientIp(httpRequest),
+            normalizeHeader(httpRequest.getHeader("User-Agent")),
+            normalizeHeader(httpRequest.getHeader("Accept-Language")),
+            normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
+        ));
     }
 
     @PostMapping(ApiRoutes.Auth.REFRESH)
     public ResponseEntity<AuthTokensResponse> refresh(@Valid @RequestBody AuthRefreshRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(authService.refresh(request, httpRequest.getRemoteAddr()));
+        return ResponseEntity.ok(authService.refresh(
+                request,
+                resolveClientIp(httpRequest),
+                normalizeHeader(httpRequest.getHeader("User-Agent")),
+                normalizeHeader(httpRequest.getHeader("Accept-Language")),
+                normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
+        ));
+    }
+
+    private String resolveClientIp(HttpServletRequest httpRequest) {
+        String forwardedFor = normalizeHeader(httpRequest.getHeader("X-Forwarded-For"));
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+
+        String realIp = normalizeHeader(httpRequest.getHeader("X-Real-IP"));
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp;
+        }
+
+        return httpRequest.getRemoteAddr();
+    }
+
+    private String normalizeHeader(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     @PostMapping(ApiRoutes.Auth.LOGOUT)

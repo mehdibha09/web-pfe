@@ -35,13 +35,33 @@ export type AuthTokens = {
 };
 
 export type LoginResponse = {
-  tokens: AuthTokens;
+  tokens?: AuthTokens | null;
   me: AuthUser;
+  twoFaRequired?: boolean;
+  message?: string | null;
 };
 
 export type ChangePasswordPayload = {
   currentPassword: string;
   newPassword: string;
+};
+
+export type TwoFaSetupResponse = {
+  codeLength: number;
+  message: string;
+};
+
+export type TwoFaEnablePayload = {
+  code: string;
+};
+
+export type TwoFaEmailVerifyPayload = {
+  email: string;
+  code: string;
+};
+
+export type TwoFaActionResponse = {
+  message: string;
 };
 
 export const login = async (payload: LoginPayload): Promise<LoginResponse> => {
@@ -66,6 +86,28 @@ export const getMe = async (): Promise<AuthUser> => {
 
 export const changePassword = async (payload: ChangePasswordPayload) => {
   const response = await axiosInstance.post('/auth/change-password', payload);
+  return response.data;
+};
+
+export const setupTwoFa = async (): Promise<TwoFaSetupResponse> => {
+  const response = await axiosInstance.post('/auth/2fa/setup');
+  return response.data;
+};
+
+export const verifyTwoFa = async (payload: TwoFaEnablePayload): Promise<TwoFaActionResponse> => {
+  const response = await axiosInstance.post('/auth/2fa/verify', payload);
+  return response.data;
+};
+
+export const verifyEmailTwoFa = async (
+  payload: TwoFaEmailVerifyPayload,
+): Promise<LoginResponse> => {
+  const response = await axiosInstance.post('/auth/2fa/email/verify', payload);
+  return response.data;
+};
+
+export const disableTwoFa = async (): Promise<TwoFaActionResponse> => {
+  const response = await axiosInstance.delete('/auth/2fa');
   return response.data;
 };
 

@@ -8,11 +8,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +55,7 @@ import com.auth.auth.web.dto.AuthRefreshRequest;
 import com.auth.auth.web.dto.AuthResetPasswordRequest;
 import com.auth.auth.web.dto.AuthSsoRedirectResponse;
 import com.auth.auth.web.dto.AuthTokensResponse;
+import com.auth.auth.web.dto.AuthTwoFaEmailVerifyRequest;
 import com.auth.auth.web.dto.AuthTwoFaSetupResponse;
 import com.auth.auth.web.dto.AuthTwoFaVerifyRequest;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -81,12 +80,18 @@ public class AuthService {
     private final ObjectMapper objectMapper;
     private final EmailService emailService;
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private final Map<String, PendingSsoContext> pendingSsoStates = new ConcurrentHashMap<>();
+    private final Map<String, PendingEmailTwoFaContext> pendingEmailTwoFaChallenges = new ConcurrentHashMap<>();
+    private final Map<UUID, PendingEmailTwoFaContext> pendingTwoFaSetupChallenges = new ConcurrentHashMap<>();
 
     private record PendingSsoContext(UUID tenantId, String tenantName) {
+    }
+
+    private record PendingEmailTwoFaContext(UUID userId, String codeHash, Instant expiresAt) {
     }
 
     public AuthService(
@@ -118,7 +123,13 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthLoginResponse login(AuthLoginRequest request, String ipAddress) {
+        public AuthLoginResponse login(
+            AuthLoginRequest request,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone
+        ) {
         User user = resolveUserForLogin(request);
 
         if (!passwordMatches(request.password(), user.getPassword())) {
@@ -129,14 +140,78 @@ public class AuthService {
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
-        Session session = createSession(user, ipAddress);
+        if (userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId())) {
+            String code = generateEmailTwoFaCode();
+            String normalizedEmail = normalizeEmail(user.getEmail());
+            pendingEmailTwoFaChallenges.put(
+                normalizedEmail,
+                    new PendingEmailTwoFaContext(user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10)))
+            );
+            emailService.sendLoginTwoFaCodeEmail(user.getEmail(), user.getEmail(), code, 10);
+            writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL", "Email 2FA code sent");
+
+            return new AuthLoginResponse(
+                    null,
+                    toMeResponse(user),
+                    true,
+                    "A verification code has been sent to your email address"
+            );
+        }
+
+        Session session = createSession(user, ipAddress, userAgent, acceptLanguage, clientTimezone);
         writeAudit(user, user.getTenant(), "AUTH_LOGIN", "LOGIN success");
 
-        return new AuthLoginResponse(toTokens(session), toMeResponse(user));
+        return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, null);
     }
 
     @Transactional
-    public AuthTokensResponse refresh(AuthRefreshRequest request, String ipAddress) {
+        public AuthLoginResponse verifyEmailTwoFa(
+            AuthTwoFaEmailVerifyRequest request,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone
+        ) {
+        String normalizedEmail = normalizeEmail(request.email());
+        String providedCode = request.code() == null ? "" : request.code().trim();
+
+        if (!providedCode.matches("\\d{6}")) {
+            throw new BadRequestException("Invalid verification code format");
+        }
+
+        PendingEmailTwoFaContext challenge = pendingEmailTwoFaChallenges.get(normalizedEmail);
+        if (challenge == null) {
+            throw new UnauthorizedException("Invalid or expired verification challenge");
+        }
+
+        if (challenge.expiresAt().isBefore(Instant.now())) {
+            pendingEmailTwoFaChallenges.remove(normalizedEmail);
+            throw new UnauthorizedException("Invalid or expired verification challenge");
+        }
+
+        if (!hashToken(providedCode).equals(challenge.codeHash())) {
+            throw new UnauthorizedException("Invalid verification code");
+        }
+
+        pendingEmailTwoFaChallenges.remove(normalizedEmail);
+
+        User user = userRepository.findById(challenge.userId())
+                .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
+
+        Session session = createSession(user, ipAddress, userAgent, acceptLanguage, clientTimezone);
+        writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL_VERIFY", "Email 2FA verified");
+
+        return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, "Login successful");
+    }
+
+    @Transactional
+        public AuthTokensResponse refresh(
+            AuthRefreshRequest request,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone
+        ) {
         Session existingSession = sessionRepository.findByRefreshToken(request.refreshToken())
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
@@ -153,7 +228,7 @@ public class AuthService {
         existingSession.setRevokedAt(now);
         sessionRepository.save(existingSession);
 
-        Session rotatedSession = createSession(existingSession.getUser(), ipAddress);
+        Session rotatedSession = createSession(existingSession.getUser(), ipAddress, userAgent, acceptLanguage, clientTimezone);
         writeAudit(existingSession.getUser(), existingSession.getUser().getTenant(), "AUTH_REFRESH", "Token rotation");
 
         return toTokens(rotatedSession);
@@ -241,47 +316,41 @@ public class AuthService {
         ssoIdentity.setUser(user);
         ssoIdentityRepository.save(ssoIdentity);
 
-        Session session = createSession(user, null);
+        Session session = createSession(user, null, null, null, null);
         writeAudit(user, user.getTenant(), "AUTH_SSO_LOGIN", "SSO login success");
-        return new AuthLoginResponse(toTokens(session), toMeResponse(user));
+        return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, null);
     }
 
     @Transactional
     public AuthTwoFaSetupResponse setupTwoFa(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        String secret = generateSecret();
-        List<String> generatedBackupCodes = generateBackupCodes();
+        String code = generateEmailTwoFaCode();
 
-        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId()).orElseGet(UserTwoFactor::new);
-        userTwoFactor.setUser(user);
-        userTwoFactor.setSecret(secret);
-        userTwoFactor.setEnabled(false);
-        userTwoFactor.setBackupCodesJson(writeBackupCodes(generatedBackupCodes));
-        userTwoFactorRepository.save(userTwoFactor);
+        pendingTwoFaSetupChallenges.put(
+            user.getId(),
+                new PendingEmailTwoFaContext(user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10)))
+        );
 
-        String otpAuthUrl = "otpauth://totp/AuthService:" + user.getEmail() + "?secret=" + secret + "&issuer=AuthService";
         writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "2FA setup initiated");
-
-        // Send 2FA setup email
-        emailService.send2FASetupEmail(user.getEmail(), user.getEmail(), secret, otpAuthUrl);
+        emailService.sendTwoFaSetupCodeEmail(user.getEmail(), user.getEmail(), code, 10);
 
         return new AuthTwoFaSetupResponse(
-                secret,
-                otpAuthUrl,
-                generatedBackupCodes,
-                "2FA setup generated. Verify a code to enable 2FA."
+                6,
+                "A 6-digit activation code has been sent to your email address"
         );
     }
 
     @Transactional
     public AuthActionResponse verifyTwoFa(String authorizationHeader, AuthTwoFaVerifyRequest request) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new BadRequestException("2FA is not initialized for this user"));
+        PendingEmailTwoFaContext challenge = pendingTwoFaSetupChallenges.get(user.getId());
+        if (challenge == null || !challenge.userId().equals(user.getId())) {
+            throw new UnauthorizedException("Invalid or expired 2FA activation challenge");
+        }
 
-        String secret = userTwoFactor.getSecret();
-        if (secret == null || secret.isBlank()) {
-            throw new BadRequestException("2FA is not initialized for this user");
+        if (challenge.expiresAt().isBefore(Instant.now())) {
+            pendingTwoFaSetupChallenges.remove(user.getId());
+            throw new UnauthorizedException("Invalid or expired 2FA activation challenge");
         }
 
         String code = request.code().trim();
@@ -289,11 +358,16 @@ public class AuthService {
             throw new BadRequestException("Invalid 2FA code format");
         }
 
-        if (!isValidOtp(secret, code) && !consumeBackupCode(userTwoFactor, code)) {
+        if (!hashToken(code).equals(challenge.codeHash())) {
             throw new UnauthorizedException("Invalid 2FA code");
         }
 
+        pendingTwoFaSetupChallenges.remove(user.getId());
+
+        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId()).orElseGet(UserTwoFactor::new);
+        userTwoFactor.setSecret(UUID.randomUUID().toString());
         userTwoFactor.setEnabled(true);
+        userTwoFactor.setUser(user);
         userTwoFactorRepository.save(userTwoFactor);
         writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified");
         
@@ -306,6 +380,7 @@ public class AuthService {
     @Transactional
     public AuthActionResponse disableTwoFa(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
+        pendingTwoFaSetupChallenges.remove(user.getId());
         userTwoFactorRepository.findByUser_Id(user.getId()).ifPresent(userTwoFactorRepository::delete);
 
         writeAudit(user, user.getTenant(), "AUTH_2FA_DISABLE", "2FA disabled");
@@ -397,15 +472,76 @@ public class AuthService {
         return users.getFirst();
     }
 
-    private Session createSession(User user, String ipAddress) {
+    private Session createSession(
+            User user,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone
+    ) {
         Session session = new Session();
         session.setUser(user);
         session.setAccessToken(generateAccessToken());
         session.setRefreshToken(generateRefreshToken());
         session.setExpirationDate(Instant.now().plus(ACCESS_TOKEN_TTL));
         session.setIpAddress(ipAddress);
+        session.setBrowser(resolveBrowser(userAgent));
+        session.setOs(resolveOperatingSystem(userAgent));
+        session.setLocalization(resolveLocalization(acceptLanguage, clientTimezone));
         session.setRevokedAt(null);
         return sessionRepository.save(session);
+    }
+
+    private String resolveBrowser(String userAgent) {
+        if (userAgent == null || userAgent.isBlank()) {
+            return "Unknown";
+        }
+
+        String normalized = userAgent.toLowerCase();
+        if (normalized.contains("edg/")) return "Microsoft Edge";
+        if (normalized.contains("opr/") || normalized.contains("opera")) return "Opera";
+        if (normalized.contains("chrome/")) return "Google Chrome";
+        if (normalized.contains("safari/") && !normalized.contains("chrome/")) return "Safari";
+        if (normalized.contains("firefox/")) return "Firefox";
+        if (normalized.contains("msie") || normalized.contains("trident/")) return "Internet Explorer";
+        return "Unknown";
+    }
+
+    private String resolveOperatingSystem(String userAgent) {
+        if (userAgent == null || userAgent.isBlank()) {
+            return "Unknown";
+        }
+
+        String normalized = userAgent.toLowerCase();
+        if (normalized.contains("windows")) return "Windows";
+        if (normalized.contains("mac os") || normalized.contains("macintosh")) return "macOS";
+        if (normalized.contains("android")) return "Android";
+        if (normalized.contains("iphone") || normalized.contains("ipad") || normalized.contains("ios")) return "iOS";
+        if (normalized.contains("linux")) return "Linux";
+        return "Unknown";
+    }
+
+    private String resolveLocalization(String acceptLanguage, String clientTimezone) {
+        String language = null;
+        if (acceptLanguage != null && !acceptLanguage.isBlank()) {
+            language = acceptLanguage.split(",")[0].trim();
+        }
+
+        String timezone = clientTimezone == null ? null : clientTimezone.trim();
+        if (timezone != null && timezone.isBlank()) {
+            timezone = null;
+        }
+
+        if (timezone != null && language != null && !language.isBlank()) {
+            return timezone + " | " + language;
+        }
+        if (timezone != null) {
+            return timezone;
+        }
+        if (language != null && !language.isBlank()) {
+            return language;
+        }
+        return "Unknown";
     }
 
     private AuthTokensResponse toTokens(Session session) {
@@ -654,35 +790,6 @@ public class AuthService {
         });
     }
 
-    private String writeBackupCodes(List<String> codes) {
-        try {
-            return objectMapper.writeValueAsString(codes);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Unable to store backup codes", exception);
-        }
-    }
-
-    private boolean consumeBackupCode(UserTwoFactor userTwoFactor, String providedCode) {
-        String backupCodesJson = userTwoFactor.getBackupCodesJson();
-        if (backupCodesJson == null || backupCodesJson.isBlank()) {
-            return false;
-        }
-        try {
-            List<String> codes = objectMapper.readValue(
-                    backupCodesJson,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)
-            );
-            boolean removed = codes.remove(providedCode.trim().toUpperCase());
-            if (removed) {
-                userTwoFactor.setBackupCodesJson(writeBackupCodes(codes));
-                userTwoFactorRepository.save(userTwoFactor);
-            }
-            return removed;
-        } catch (Exception exception) {
-            return false;
-        }
-    }
-
     private record SsoProviderSettings(String authorizationUri, String tokenUri, String userInfoUri, String clientId, String clientSecret, String redirectUri, String scope) {
     }
 
@@ -707,37 +814,9 @@ public class AuthService {
         return "rtk_" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     }
 
-    private String generateSecret() {
-        byte[] random = UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8);
-        return Base64.getEncoder().withoutPadding().encodeToString(random).substring(0, 24).toUpperCase();
-    }
-
-    private List<String> generateBackupCodes() {
-        List<String> codes = new ArrayList<>(8);
-        for (int i = 0; i < 8; i++) {
-            String raw = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-            codes.add(raw);
-        }
-        return codes.stream().sorted(Comparator.naturalOrder()).toList();
-    }
-
-    private boolean isValidOtp(String secret, String providedCode) {
-        long window = Instant.now().getEpochSecond() / 30;
-        return providedCode.equals(generateOtp(secret, window))
-                || providedCode.equals(generateOtp(secret, window - 1));
-    }
-
-    private String generateOtp(String secret, long timeWindow) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            String payload = secret + ":" + timeWindow;
-            byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
-            int value = (hash[0] & 0x7F) << 24 | (hash[1] & 0xFF) << 16 | (hash[2] & 0xFF) << 8 | (hash[3] & 0xFF);
-            int otp = value % 1_000_000;
-            return String.format("%06d", otp);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 algorithm is not available", exception);
-        }
+    private String generateEmailTwoFaCode() {
+        int code = secureRandom.nextInt(1_000_000);
+        return String.format("%06d", code);
     }
 
     private void writeAudit(User user, Tenant tenant, String action, String details) {

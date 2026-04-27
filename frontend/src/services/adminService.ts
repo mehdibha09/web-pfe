@@ -45,6 +45,9 @@ export type SessionResponse = {
   expirationDate: string;
   createdAt: string;
   ipAddress: string;
+  browser: string;
+  os: string;
+  localization: string;
   revokedAt: string | null;
 };
 
@@ -75,6 +78,26 @@ export const deleteUser = async (userId: string) => {
   return response.data;
 };
 
+export const listUserRoles = async (userId: string): Promise<RoleResponse[]> => {
+  const response = await axiosInstance.get(`/users/${userId}/roles`);
+  return response.data || [];
+};
+
+export const assignRoleToUser = async (userId: string, roleId: string) => {
+  const response = await axiosInstance.post(`/users/${userId}/roles`, { roleId });
+  return response.data;
+};
+
+export const removeRoleFromUser = async (userId: string, roleId: string) => {
+  const response = await axiosInstance.delete(`/users/${userId}/roles/${roleId}`);
+  return response.data;
+};
+
+export const replaceUserRoles = async (userId: string, roleIds: string[]) => {
+  const response = await axiosInstance.patch(`/users/${userId}/roles`, { roleIds });
+  return response.data;
+};
+
 export const listRoles = async (): Promise<RoleResponse[]> => {
   const response = await axiosInstance.get('/roles');
   return response.data || [];
@@ -87,6 +110,27 @@ export const createRole = async (payload: { name: string; description?: string }
 
 export const deleteRole = async (roleId: string) => {
   const response = await axiosInstance.delete(`/roles/${roleId}`);
+  return response.data;
+};
+
+export const updateRole = async (
+  roleId: string,
+  payload: { name?: string; description?: string },
+) => {
+  const response = await axiosInstance.patch(`/roles/${roleId}`, payload);
+  return response.data;
+};
+
+export const addPermissionToRole = async (
+  roleId: string,
+  payload: { permissionId?: string; permissionName?: string; description?: string },
+) => {
+  const response = await axiosInstance.post(`/roles/${roleId}/permissions`, payload);
+  return response.data;
+};
+
+export const removePermissionFromRole = async (roleId: string, permissionId: string) => {
+  const response = await axiosInstance.delete(`/roles/${roleId}/permissions/${permissionId}`);
   return response.data;
 };
 

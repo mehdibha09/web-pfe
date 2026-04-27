@@ -41,23 +41,6 @@ public class EmailService {
     }
 
     /**
-     * Send 2FA setup email with secret key
-     */
-    public void send2FASetupEmail(String toEmail, String userName, String secretKey, String qrCodeUrl) {
-        String body = String.format(
-            "Bonjour %s,\n\n" +
-            "Votre code d'authentification à deux facteurs (2FA) a été activé.\n\n" +
-            "Votre clé secrète: %s\n\n" +
-            "Utilisez votre application d'authentification (Google Authenticator, Authy, etc.) pour scanner le code QR.\n\n" +
-            "Conservez cette clé secrète dans un endroit sûr.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName, secretKey
-        );
-
-        sendEmail(toEmail, "Authentification à deux facteurs activée", body);
-    }
-
-    /**
      * Send 2FA verification notification
      */
     public void send2FAVerificationNotification(String toEmail, String userName) {
@@ -70,6 +53,37 @@ public class EmailService {
         );
 
         sendEmail(toEmail, "Notification de vérification 2FA", body);
+    }
+
+    /**
+     * Send email verification code for login 2FA
+     */
+    public void sendLoginTwoFaCodeEmail(String toEmail, String userName, String code, int expiresMinutes) {
+        String body = String.format(
+            "Bonjour %s,\n\n" +
+            "Votre code de vérification pour la connexion est : %s\n\n" +
+            "Ce code expire dans %d minutes.\n\n" +
+            "Si ce n'était pas vous, ignorez cet email.\n\n" +
+            "Cordialement,\nL'équipe d'authentification",
+            userName, code, expiresMinutes
+        );
+
+        sendEmail(toEmail, "Code de vérification de connexion", body);
+    }
+
+    /**
+     * Send 2FA setup verification code email
+     */
+    public void sendTwoFaSetupCodeEmail(String toEmail, String userName, String code, int expiresMinutes) {
+        String body = String.format(
+            "Bonjour %s,\n\n" +
+            "Votre code d'activation 2FA est : %s\n\n" +
+            "Ce code expire dans %d minutes.\n\n" +
+            "Cordialement,\nL'équipe d'authentification",
+            userName, code, expiresMinutes
+        );
+
+        sendEmail(toEmail, "Code d'activation 2FA", body);
     }
 
     /**
@@ -148,9 +162,15 @@ public class EmailService {
             mailSender.send(message);
         } catch (Exception e) {
             String message = e.getMessage() == null ? "unknown error" : e.getMessage();
-            if (message.toLowerCase().contains("no password specified")) {
+            String lowerMessage = message.toLowerCase();
+            if (lowerMessage.contains("no password specified")) {
                 System.err.println("Failed to send email to " + toEmail
                         + ": SMTP password is missing. Configure MAIL_PASSWORD or BREVO_SMTP_KEY.");
+                return;
+            }
+            if (lowerMessage.contains("authentication failed")) {
+                System.err.println("Failed to send email to " + toEmail
+                        + ": SMTP authentication failed. Check BREVO_SMTP_KEY/MAIL_PASSWORD and SMTP username (MAIL_USERNAME or BREVO_SMTP_USER). For Brevo, use your SMTP login or apikey depending on account settings.");
                 return;
             }
             System.err.println("Failed to send email to " + toEmail + ": " + message);

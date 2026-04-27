@@ -90,13 +90,15 @@ const ChangePassword = () => {
           error={!!errors.confirmPassword}
           helperText={errors.confirmPassword?.message}
         />
-        <Button
-          onClick={handleSubmit(onSubmit)}
-          disabled={loading}
-          sx={{ mt: 2, px: 3, alignSelf: 'flex-end' }}
-        >
-          {loading ? 'Saving...' : 'Save'}
-        </Button>
+        <Box>
+          <Button
+            onClick={handleSubmit(onSubmit)}
+            disabled={loading}
+            sx={{ mt: 2, px: 3, alignSelf: 'flex-end' }}
+          >
+            {loading ? 'Saving...' : 'Save'}
+          </Button>
+        </Box>
       </Box>
     </Box>
   );

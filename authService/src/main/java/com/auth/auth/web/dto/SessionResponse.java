@@ -12,6 +12,9 @@ public record SessionResponse(
         Instant expirationDate,
         Instant createdAt,
         String ipAddress,
+        String browser,
+        String os,
+        String localization,
         Instant revokedAt
 ) {
 }

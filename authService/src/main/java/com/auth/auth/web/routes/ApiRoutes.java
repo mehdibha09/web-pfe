@@ -23,6 +23,7 @@ public final class ApiRoutes {
         public static final String TWO_FA_SETUP = "/2fa/setup";
         public static final String TWO_FA_VERIFY = "/2fa/verify";
         public static final String TWO_FA_DISABLE = "/2fa";
+        public static final String TWO_FA_EMAIL_VERIFY = "/2fa/email/verify";
     }
 
     public static final class Roles {
@@ -43,6 +44,8 @@ public final class ApiRoutes {
 
         public static final String BASE = API_V1 + "/users";
         public static final String BY_ID = "/{userId}";
+        public static final String ROLES = "/{userId}/roles";
+        public static final String ROLE_BY_ID = "/{userId}/roles/{roleId}";
     }
 
     public static final class Permissions {

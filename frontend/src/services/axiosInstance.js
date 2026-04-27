@@ -17,6 +17,25 @@ const API_BASE_URL = (() => {
 let isRefreshing = false;
 let failedQueue = []; // { resolve, reject }[]
 
+const buildClientHeaders = () => {
+  const headers = {};
+
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) {
+      headers['X-Client-Timezone'] = timezone;
+    }
+  } catch {
+    // noop
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    headers['Accept-Language'] = navigator.language;
+  }
+
+  return headers;
+};
+
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) reject(error);
@@ -32,7 +51,7 @@ const refreshTokens = async () => {
 
   const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...buildClientHeaders() },
     body: JSON.stringify({ refreshToken }),
   });
 
@@ -66,6 +85,7 @@ const request = async (method, url, payload, _retry = false) => {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...buildClientHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}),
@@ -78,8 +98,8 @@ const request = async (method, url, payload, _retry = false) => {
     return { data: text ? JSON.parse(text) : null };
   }
 
-  // ── Not a 401, or already retried → throw ───────────────────────────────
-  if (response.status !== 401 || _retry) {
+  // ── Not a 401, or already retried, or public request without token → throw
+  if (response.status !== 401 || _retry || !token) {
     throw await toError(response);
   }
 
@@ -114,6 +134,7 @@ const request = async (method, url, payload, _retry = false) => {
 const axiosInstance = {
   get: (url) => request('GET', url),
   post: (url, payload) => request('POST', url, payload),
+  patch: (url, payload) => request('PATCH', url, payload),
   put: (url, payload) => request('PUT', url, payload),
   delete: (url, payload) => request('DELETE', url, payload),
 };

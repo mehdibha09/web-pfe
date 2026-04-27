@@ -71,6 +71,9 @@ public class SessionService {
                 session.getExpirationDate(),
                 session.getCreatedAt(),
                 session.getIpAddress(),
+                session.getBrowser(),
+                session.getOs(),
+                session.getLocalization(),
                 session.getRevokedAt()
         );
     }

@@ -202,13 +202,17 @@ public class RoleService {
             throw new ForbiddenException("Cannot modify roles for super-admin accounts");
         }
 
-        UserRoleId userRoleId = new UserRoleId(user.getId(), role.getId());
-        if (userRoleRepository.existsById(userRoleId)) {
+        List<UserRole> currentRoles = userRoleRepository.findByUser_Id(user.getId());
+        if (currentRoles.stream().anyMatch(assignment -> assignment.getRole().getId().equals(role.getId()))) {
             throw new ConflictException("User already assigned to role");
         }
 
+        if (!currentRoles.isEmpty()) {
+            userRoleRepository.deleteAll(currentRoles);
+        }
+
         UserRole userRole = new UserRole();
-        userRole.setId(userRoleId);
+        userRole.setId(new UserRoleId(user.getId(), role.getId()));
         userRole.setUser(user);
         userRole.setRole(role);
         userRoleRepository.save(userRole);
@@ -295,12 +299,7 @@ public class RoleService {
 
         String name = request.permissionName().trim();
         return permissionRepository.findByName(name)
-                .orElseGet(() -> {
-                    Permission permission = new Permission();
-                    permission.setName(name);
-                    permission.setDescription(normalizeNullable(request.description()));
-                    return permissionRepository.save(permission);
-                });
+                .orElseThrow(() -> new NotFoundException("Permission not found"));
     }
 
     private RoleResponse toResponse(Role role) {

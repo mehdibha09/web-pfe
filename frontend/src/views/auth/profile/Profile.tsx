@@ -1,14 +1,23 @@
-import { Box, Card, CardContent, Chip, Divider, TextField, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../component/MyCustomButton';
-import { changePassword, getMe, logout } from '../../../services/authService';
+import {
+  changePassword,
+  disableTwoFa,
+  getMe,
+  logout,
+  setupTwoFa,
+  verifyTwoFa,
+  type TwoFaSetupResponse,
+} from '../../../services/authService';
 import {
   clearSession,
   getRefreshToken,
   getStoredUser,
+  isAuthenticated,
   setStoredUser,
 } from '../../../services/authStorage';
 
@@ -21,8 +30,10 @@ type ChangePasswordForm = {
 const Profile = () => {
   const [user, setUser] = useState(getStoredUser());
   const navigate = useNavigate();
-  const [code, setCode] = useState('');
+  const [profileLoading, setProfileLoading] = useState(true);
   const [twoFaEnabled, setTwoFaEnabled] = useState(Boolean(user?.twoFaEnabled));
+  const [twoFaSetup, setTwoFaSetup] = useState<TwoFaSetupResponse | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const {
@@ -51,6 +62,10 @@ const Profile = () => {
         }
         clearSession();
         navigate('/login', { replace: true });
+      } finally {
+        if (mounted) {
+          setProfileLoading(false);
+        }
       }
     };
 
@@ -97,30 +112,79 @@ const Profile = () => {
     }
   };
 
-  const handleSetup2FA = () => {
+  const handleEnableTwoFa = async () => {
     setTwoFaLoading(true);
-    setTimeout(() => {
-      toast.success('2FA setup started (API integration later)');
+    try {
+      const response = await setupTwoFa();
+      setTwoFaSetup(response);
+      setTwoFaCode('');
+      toast.success(response.message || '2FA setup generated');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || '2FA setup failed';
+      toast.error(message);
+    } finally {
       setTwoFaLoading(false);
-    }, 400);
+    }
   };
 
-  const handleVerify2FA = () => {
-    if (!code.trim()) {
-      toast.error('Enter verification code');
+  const handleVerifyTwoFa = async () => {
+    if (!twoFaSetup) {
+      toast.error('Generate 2FA setup first');
       return;
     }
-    setTwoFaEnabled(true);
-    setCode('');
-    toast.success('2FA verified locally');
+
+    const trimmedCode = twoFaCode.trim();
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      toast.error('Enter a valid 6-digit code');
+      return;
+    }
+
+    setTwoFaLoading(true);
+    try {
+      const response = await verifyTwoFa({ code: trimmedCode });
+      const me = await getMe();
+      setStoredUser(me);
+      setUser(me);
+      setTwoFaEnabled(Boolean(me.twoFaEnabled));
+      setTwoFaSetup(null);
+      setTwoFaCode('');
+      toast.success(response.message || '2FA enabled successfully');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || '2FA verification failed';
+      toast.error(message);
+    } finally {
+      setTwoFaLoading(false);
+    }
   };
 
-  const handleDisable2FA = () => {
-    setTwoFaEnabled(false);
-    toast.success('2FA disabled locally');
+  const handleDisableTwoFa = async () => {
+    setTwoFaLoading(true);
+    try {
+      const response = await disableTwoFa();
+      const me = await getMe();
+      setStoredUser(me);
+      setUser(me);
+      setTwoFaEnabled(Boolean(me.twoFaEnabled));
+      setTwoFaSetup(null);
+      setTwoFaCode('');
+      toast.success(response.message || '2FA disabled');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || '2FA disable failed';
+      toast.error(message);
+    } finally {
+      setTwoFaLoading(false);
+    }
   };
 
-  if (!user) {
+  if (profileLoading) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 4 } }}>
+        <Typography sx={{ color: '#64748B' }}>Loading profile...</Typography>
+      </Box>
+    );
+  }
+
+  if (!user || !isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 
@@ -251,7 +315,7 @@ const Profile = () => {
               Status:
             </Typography>
             <Chip
-              label={twoFaEnabled ? 'Enabled' : 'Disabled'}
+              label={twoFaEnabled ? 'Email code enabled' : 'Disabled'}
               size="small"
               sx={{
                 backgroundColor: twoFaEnabled ? '#FCE7F3' : '#FFF1F6',
@@ -261,28 +325,35 @@ const Profile = () => {
               }}
             />
           </Box>
-          <Divider sx={{ mb: 2, borderColor: '#F6DDE7' }} />
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'auto 1fr auto auto' },
-              gap: 2,
-            }}
-          >
-            <Button onClick={handleSetup2FA} disabled={twoFaLoading}>
-              {twoFaLoading ? 'Preparing...' : 'Setup'}
+          <Typography sx={{ color: '#64748B', mb: 2 }}>
+            When 2FA is enabled, a 6-digit code is sent by email each time you sign in.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Button onClick={handleEnableTwoFa} disabled={twoFaLoading}>
+              {twoFaLoading ? 'Loading...' : 'Enable 2FA'}
             </Button>
-            <TextField
-              label="Verification Code"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder="Enter code"
-            />
-            <Button onClick={handleVerify2FA}>Verify</Button>
-            <Button onClick={handleDisable2FA} disabled={!twoFaEnabled}>
-              Disable
+            <Button onClick={handleVerifyTwoFa} disabled={twoFaLoading || !twoFaSetup}>
+              Verify & Enable
+            </Button>
+            <Button onClick={handleDisableTwoFa} disabled={twoFaLoading || !twoFaEnabled}>
+              Disable 2FA
             </Button>
           </Box>
+          <TextField
+            label="2FA code"
+            value={twoFaCode}
+            onChange={(event) => setTwoFaCode(event.target.value)}
+            placeholder="123456"
+            slotProps={{ htmlInput: { maxLength: 6 } }}
+            sx={{ mb: 2, maxWidth: 240 }}
+          />
+          {twoFaSetup && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ color: '#64748B' }}>
+                Check your email for the 6-digit activation code, then click Verify & Enable.
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
 

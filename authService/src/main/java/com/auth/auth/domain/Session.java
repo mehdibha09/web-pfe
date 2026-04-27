@@ -42,6 +42,12 @@ public class Session {
 
     private String ipAddress;
 
+    private String browser;
+
+    private String os;
+
+    private String localization;
+
     private Instant revokedAt;
 
     @PrePersist

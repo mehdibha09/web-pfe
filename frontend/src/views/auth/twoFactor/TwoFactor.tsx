@@ -1,34 +1,74 @@
 import { Box, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../component/MyCustomButton';
+import { verifyEmailTwoFa } from '../../../services/authService';
+import {
+  clearPendingTwoFactorSession,
+  getPendingTwoFactorSession,
+  saveSession,
+} from '../../../services/authStorage';
 
 const TwoFactor = () => {
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
-  const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verificationSucceeded, setVerificationSucceeded] = useState(false);
+  const [pendingSession] = useState(() => getPendingTwoFactorSession());
 
-  const handleSetup = () => {
-    setLoading(true);
-    setTimeout(() => {
-      toast.success('2FA setup UI completed (API integration later)');
-      setLoading(false);
-    }, 400);
-  };
+  useEffect(() => {
+    if (!pendingSession && !verificationSucceeded) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, pendingSession, verificationSucceeded]);
 
-  const handleVerify = () => {
-    if (!code.trim()) {
-      toast.error('Enter verification code');
+  const handleVerify = async () => {
+    if (!pendingSession || !pendingSession.email) {
+      navigate('/login', { replace: true });
       return;
     }
-    setEnabled(true);
-    toast.success('2FA verified locally');
-    setCode('');
+
+    const normalizedEmail = pendingSession.email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      toast.error('Missing verification email. Please login again.');
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    const trimmedCode = code.trim();
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      toast.error('Enter a valid 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await verifyEmailTwoFa({
+        email: normalizedEmail,
+        code: trimmedCode,
+      });
+
+      if (!response.tokens) {
+        throw new Error('Missing authentication tokens');
+      }
+
+      setVerificationSucceeded(true);
+      clearPendingTwoFactorSession();
+      saveSession(response.tokens.accessToken, response.tokens.refreshToken, response.me);
+      toast.success(response.message || 'Login successful');
+      navigate('/profile', { replace: true });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Verification failed';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDisable = () => {
-    setEnabled(false);
-    toast.success('2FA disabled locally');
+  const handleCancel = () => {
+    clearPendingTwoFactorSession();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -52,24 +92,24 @@ const TwoFactor = () => {
         }}
       >
         <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-          Two-Factor Authentication
+          Email verification
         </Typography>
-        <Typography sx={{ mb: 2 }}>Status: {enabled ? 'Enabled' : 'Disabled'}</Typography>
-        <Button onClick={handleSetup} disabled={loading} sx={{ mb: 2 }}>
-          {loading ? 'Preparing...' : 'Setup 2FA'}
-        </Button>
+        <Typography sx={{ mb: 2 }}>
+          We sent a 6-digit verification code to {pendingSession?.email || 'your email'}.
+        </Typography>
         <TextField
           label="Verification Code"
           fullWidth
           margin="normal"
           value={code}
           onChange={(event) => setCode(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 6 } }}
         />
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <Button onClick={handleVerify}>Verify</Button>
-          <Button onClick={handleDisable} disabled={!enabled}>
-            Disable
+          <Button onClick={handleVerify} disabled={loading}>
+            {loading ? 'Verifying...' : 'Verify'}
           </Button>
+          <Button onClick={handleCancel}>Cancel</Button>
         </Box>
       </Box>
     </Box>

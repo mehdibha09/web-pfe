@@ -5,13 +5,22 @@ import {
   CardContent,
   Chip,
   MenuItem,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import Button from '../../../component/MyCustomButton';
-import { createUser, deleteUser, listUsers } from '../../../services/adminService';
+import {
+  assignRoleToUser,
+  createUser,
+  deleteUser,
+  listRoles,
+  listUserRoles,
+  listUsers,
+  removeRoleFromUser,
+} from '../../../services/adminService';
 import { canManageUsers } from '../../../services/authorization';
 import { getStoredUser } from '../../../services/authStorage';
 
@@ -20,6 +29,13 @@ type UserItem = {
   fullName: string;
   email: string;
   status: 'ACTIVE' | 'INVITED' | 'DISABLED';
+  roleName: string | null;
+  roleId: string | null;
+};
+
+type RoleOption = {
+  id: string;
+  name: string;
 };
 
 const toUserItem = (user: any): UserItem => ({
@@ -30,6 +46,8 @@ const toUserItem = (user: any): UserItem => ({
     .replace(/\b\w/g, (character) => character.toUpperCase()),
   email: user.email || '-',
   status: (user.status || 'ACTIVE') as UserItem['status'],
+  roleName: null,
+  roleId: null,
 });
 
 const UsersPage = () => {
@@ -39,6 +57,8 @@ const UsersPage = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [users, setUsers] = useState<UserItem[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
+  const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
 
@@ -48,7 +68,24 @@ const UsersPage = () => {
     setLoading(true);
     try {
       const response = await listUsers();
-      setUsers(response.map(toUserItem));
+      const baseUsers = response.map(toUserItem);
+
+      const usersWithRoles = await Promise.all(
+        baseUsers.map(async (user) => {
+          try {
+            const userRoles = await listUserRoles(user.id);
+            return {
+              ...user,
+              roleName: userRoles[0]?.name || null,
+              roleId: userRoles[0]?.id ? String(userRoles[0].id) : null,
+            };
+          } catch {
+            return user;
+          }
+        }),
+      );
+
+      setUsers(usersWithRoles);
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || 'Failed to load users';
       toast.error(message);
@@ -57,7 +94,23 @@ const UsersPage = () => {
     }
   };
 
+  const loadRoles = async () => {
+    try {
+      const response = await listRoles();
+      setAvailableRoles(
+        response.map((role) => ({
+          id: String(role.id),
+          name: role.name || '-',
+        })),
+      );
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to load roles';
+      toast.error(message);
+    }
+  };
+
   useEffect(() => {
+    loadRoles();
     loadUsers();
   }, []);
 
@@ -115,6 +168,44 @@ const UsersPage = () => {
       await loadUsers();
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || 'Failed to create user';
+      toast.error(message);
+    }
+  };
+
+  const handleAssignRole = async (userId: string) => {
+    if (!allowManageUsers) {
+      toast.error('You do not have permission to manage user roles');
+      return;
+    }
+
+    const roleId = selectedRoleByUser[userId];
+    if (!roleId) {
+      toast.error('Select a role first');
+      return;
+    }
+
+    try {
+      await assignRoleToUser(userId, roleId);
+      toast.success('Role assigned');
+      await loadUsers();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to assign role';
+      toast.error(message);
+    }
+  };
+
+  const handleRemoveRole = async (userId: string, roleId: string) => {
+    if (!allowManageUsers) {
+      toast.error('You do not have permission to manage user roles');
+      return;
+    }
+
+    try {
+      await removeRoleFromUser(userId, roleId);
+      toast.success('Role removed');
+      await loadUsers();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to remove role';
       toast.error(message);
     }
   };
@@ -293,6 +384,66 @@ const UsersPage = () => {
                 <Typography variant="body2" sx={{ color: '#475569' }}>
                   ID: {user.id}
                 </Typography>
+
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>
+                    Roles
+                  </Typography>
+
+                  {!user.roleName ? (
+                    <Typography sx={{ color: '#64748B', mt: 0.5 }}>No role assigned</Typography>
+                  ) : (
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+                      <Chip
+                        label={user.roleName}
+                        onDelete={
+                          allowManageUsers && user.roleId
+                            ? () => handleRemoveRole(user.id, user.roleId as string)
+                            : undefined
+                        }
+                        size="small"
+                        sx={{
+                          backgroundColor: '#EEF2FF',
+                          color: '#4338CA',
+                          fontWeight: 700,
+                          mb: 1,
+                        }}
+                      />
+                    </Stack>
+                  )}
+
+                  {allowManageUsers ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        gap: 1,
+                        mt: 1.5,
+                      }}
+                    >
+                      <TextField
+                        select
+                        size="small"
+                        label="Role"
+                        value={selectedRoleByUser[user.id] || ''}
+                        onChange={(event) =>
+                          setSelectedRoleByUser((previous) => ({
+                            ...previous,
+                            [user.id]: event.target.value,
+                          }))
+                        }
+                      >
+                        <MenuItem value="">Select role</MenuItem>
+                        {availableRoles.map((role) => (
+                          <MenuItem key={role.id} value={role.id}>
+                            {role.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Button onClick={() => handleAssignRole(user.id)}>Set Role</Button>
+                    </Box>
+                  ) : null}
+                </Box>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
                 {allowManageUsers ? (

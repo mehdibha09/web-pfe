@@ -1,8 +1,25 @@
-import { Box, Card, CardActions, CardContent, Chip, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Card,
+  CardActions,
+  CardContent,
+  Chip,
+  MenuItem,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import Button from '../../../component/MyCustomButton';
-import { createRole, deleteRole, listRoles } from '../../../services/adminService';
+import {
+  addPermissionToRole,
+  createRole,
+  deleteRole,
+  listPermissions,
+  listRoles,
+  removePermissionFromRole,
+  updateRole,
+} from '../../../services/adminService';
 
 type RoleItem = {
   id: string;
@@ -12,6 +29,12 @@ type RoleItem = {
   usersCount: number;
 };
 
+type PermissionItem = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 const RolesPage = () => {
   const [roleName, setRoleName] = useState('');
   const [description, setDescription] = useState('');
@@ -19,6 +42,14 @@ const RolesPage = () => {
   const [filterPermission, setFilterPermission] = useState('');
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editingDescription, setEditingDescription] = useState('');
+  const [permissions, setPermissions] = useState<PermissionItem[]>([]);
+  const [selectedPermissionByRole, setSelectedPermissionByRole] = useState<Record<string, string>>(
+    {},
+  );
+  const [newPermissionByRole, setNewPermissionByRole] = useState<Record<string, string>>({});
 
   const loadRoles = async () => {
     setLoading(true);
@@ -41,8 +72,26 @@ const RolesPage = () => {
   };
 
   useEffect(() => {
+    loadPermissions();
     loadRoles();
   }, []);
+
+  const loadPermissions = async () => {
+    try {
+      const response = await listPermissions();
+      setPermissions(
+        response.map((permission) => ({
+          id: String(permission.id),
+          name: permission.name || '-',
+          description: permission.description || '',
+        })),
+      );
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to load permissions';
+      toast.error(message);
+    }
+  };
 
   const filteredRoles = useMemo(() => {
     return roles.filter((role) => {
@@ -89,6 +138,84 @@ const RolesPage = () => {
       await loadRoles();
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || 'Failed to delete role';
+      toast.error(message);
+    }
+  };
+
+  const startEditRole = (role: RoleItem) => {
+    setEditingRoleId(role.id);
+    setEditingName(role.name);
+    setEditingDescription(role.description || '');
+  };
+
+  const cancelEditRole = () => {
+    setEditingRoleId(null);
+    setEditingName('');
+    setEditingDescription('');
+  };
+
+  const handleUpdateRole = async (id: string) => {
+    if (!editingName.trim()) {
+      toast.error('Role name is required');
+      return;
+    }
+
+    try {
+      await updateRole(id, {
+        name: editingName.trim(),
+        description: editingDescription.trim(),
+      });
+      toast.success('Role updated');
+      cancelEditRole();
+      await loadRoles();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to update role';
+      toast.error(message);
+    }
+  };
+
+  const handleAddPermission = async (roleId: string) => {
+    const selectedPermissionId = selectedPermissionByRole[roleId] || '';
+    const newPermissionName = (newPermissionByRole[roleId] || '').trim();
+
+    if (!selectedPermissionId && !newPermissionName) {
+      toast.error('Select a permission or enter a new permission name');
+      return;
+    }
+
+    try {
+      if (selectedPermissionId) {
+        await addPermissionToRole(roleId, { permissionId: selectedPermissionId });
+      } else {
+        await addPermissionToRole(roleId, { permissionName: newPermissionName });
+      }
+
+      toast.success('Permission added to role');
+      setSelectedPermissionByRole((previous) => ({ ...previous, [roleId]: '' }));
+      setNewPermissionByRole((previous) => ({ ...previous, [roleId]: '' }));
+      await loadPermissions();
+      await loadRoles();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to add permission';
+      toast.error(message);
+    }
+  };
+
+  const handleRemovePermission = async (roleId: string, permissionName: string) => {
+    const permission = permissions.find((item) => item.name === permissionName);
+    if (!permission) {
+      toast.error('Permission identifier not found');
+      return;
+    }
+
+    try {
+      await removePermissionFromRole(roleId, permission.id);
+      toast.success('Permission removed from role');
+      await loadRoles();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to remove permission';
       toast.error(message);
     }
   };
@@ -203,10 +330,29 @@ const RolesPage = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
-                      {role.name}
-                    </Typography>
-                    <Typography sx={{ color: '#64748B' }}>{role.description || '-'}</Typography>
+                    {editingRoleId === role.id ? (
+                      <Box sx={{ display: 'grid', gap: 1 }}>
+                        <TextField
+                          size="small"
+                          label="Role name"
+                          value={editingName}
+                          onChange={(event) => setEditingName(event.target.value)}
+                        />
+                        <TextField
+                          size="small"
+                          label="Description"
+                          value={editingDescription}
+                          onChange={(event) => setEditingDescription(event.target.value)}
+                        />
+                      </Box>
+                    ) : (
+                      <>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                          {role.name}
+                        </Typography>
+                        <Typography sx={{ color: '#64748B' }}>{role.description || '-'}</Typography>
+                      </>
+                    )}
                   </Box>
                   <Chip
                     label={`${role.permissions.length} permissions`}
@@ -224,14 +370,58 @@ const RolesPage = () => {
                       <Chip
                         key={permission}
                         label={permission}
+                        onDelete={() => handleRemovePermission(role.id, permission)}
                         size="small"
                         sx={{ backgroundColor: '#EEF2FF', color: '#4338CA', fontWeight: 700 }}
                       />
                     ))
                   )}
                 </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1.5, mt: 2 }}>
+                  <TextField
+                    select
+                    size="small"
+                    label="Existing permission"
+                    value={selectedPermissionByRole[role.id] || ''}
+                    onChange={(event) =>
+                      setSelectedPermissionByRole((previous) => ({
+                        ...previous,
+                        [role.id]: event.target.value,
+                      }))
+                    }
+                  >
+                    <MenuItem value="">Select permission</MenuItem>
+                    {permissions.map((permission) => (
+                      <MenuItem key={permission.id} value={permission.id}>
+                        {permission.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    size="small"
+                    label="New permission"
+                    placeholder="e.g. USER_EXPORT"
+                    value={newPermissionByRole[role.id] || ''}
+                    onChange={(event) =>
+                      setNewPermissionByRole((previous) => ({
+                        ...previous,
+                        [role.id]: event.target.value,
+                      }))
+                    }
+                  />
+                  <Button onClick={() => handleAddPermission(role.id)}>Add Permission</Button>
+                </Box>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
+                {editingRoleId === role.id ? (
+                  <>
+                    <Button onClick={cancelEditRole}>Cancel</Button>
+                    <Button onClick={() => handleUpdateRole(role.id)}>Save</Button>
+                  </>
+                ) : (
+                  <Button onClick={() => startEditRole(role)}>Edit</Button>
+                )}
                 <Button onClick={() => handleRemoveRole(role.id)}>Delete</Button>
               </CardActions>
             </Card>

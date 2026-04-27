@@ -27,11 +27,11 @@ type SessionItem = {
 
 const toSessionItem = (session: any): SessionItem => ({
   id: String(session.id),
-  deviceType: 'Unknown Device',
-  browser: 'Unknown Browser',
-  os: 'Unknown OS',
+  deviceType: session.os || 'Unknown Device',
+  browser: session.browser || 'Unknown Browser',
+  os: session.os || 'Unknown OS',
   ipAddress: session.ipAddress || '-',
-  location: 'Unknown',
+  location: session.localization || 'Unknown',
   createdAt: session.createdAt ? new Date(session.createdAt).toLocaleString() : '-',
   lastActive: session.expirationDate ? new Date(session.expirationDate).toLocaleString() : '-',
   status: session.revokedAt ? 'REVOKED' : 'ACTIVE',

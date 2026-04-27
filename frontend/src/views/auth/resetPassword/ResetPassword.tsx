@@ -126,17 +126,20 @@ const ResetPassword = () => {
           error={!!errors.confirmPassword}
           helperText={errors.confirmPassword?.message}
         />
-        <Button
-          onClick={handleSubmit(handleResetPassword)}
-          disabled={loading}
-          sx={{
-            my: 2,
-            padding: '0.5rem 2rem',
-            alignSelf: 'flex-end',
-          }}
-        >
-          {loading ? 'Saving...' : 'Reset Password'}
-        </Button>
+        <Box>
+          <Button
+            onClick={handleSubmit(handleResetPassword)}
+            disabled={loading}
+            sx={{
+              my: 2,
+              padding: '0.5rem 2rem',
+              alignSelf: 'flex-end',
+            }}
+          >
+            {loading ? 'Saving...' : 'Reset Password'}
+          </Button>
+        </Box>
+
         <Typography
           variant="body2"
           component={Link}

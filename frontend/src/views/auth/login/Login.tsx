@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 // import LogoAscend from '../../../assets/Logos/logofullascend_noir.svg';
 import Button from '../../../component/MyCustomButton';
 import { login } from '../../../services/authService';
-import { saveSession } from '../../../services/authStorage';
+import { saveSession, setPendingTwoFactorSession } from '../../../services/authStorage';
 // import LoginAnimation from '../component/LoginAnimation';
 
 type LoginForm = {
@@ -24,12 +24,26 @@ const Login = () => {
   const navigate = useNavigate();
 
   const handleLogin = async (input: LoginForm) => {
+    const normalizedEmail = input.email.trim().toLowerCase();
     setLoading(true);
     try {
       const response = await login({
         email: input.email,
         password: input.password,
       });
+
+      if (response.twoFaRequired) {
+        setPendingTwoFactorSession({
+          email: normalizedEmail,
+        });
+        toast.info(response.message || 'A verification code has been sent to your email address');
+        navigate('/two-fa');
+        return;
+      }
+
+      if (!response.tokens) {
+        throw new Error('Missing authentication tokens');
+      }
 
       saveSession(response.tokens.accessToken, response.tokens.refreshToken, response.me);
       toast.success('Login successful');
