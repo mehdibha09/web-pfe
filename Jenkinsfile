@@ -176,13 +176,13 @@ stage('Build') {
         // }
 
         // ─────────────────────────────────────────────
-        stage('Wait for VM') {
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-            steps {
-                echo 'Attente 60 secondes pour le démarrage de la Security VM...'
-                sleep(time: 60, unit: 'SECONDS')
-            }
-        }
+        // stage('Wait for VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         echo 'Attente 60 secondes pour le démarrage de la Security VM...'
+        //         sleep(time: 60, unit: 'SECONDS')
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
