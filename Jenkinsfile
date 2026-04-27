@@ -9,16 +9,17 @@ pipeline {
     }
 
     environment {
-        // Mode focus DevOps: pipeline centrée sur authService uniquement
-        CHANGED_AUTH       = 'true'  // Forcer le déclenchement du pipeline pour authService
+        // TEST MODE: Force all stages to run (set to 'true' for testing, use change detection in production)
+        CHANGED_AUTH       = 'true'
         CHANGED_PRICER     = 'false'
         CHANGED_DASHBOARD  = 'false'
         CHANGED_FRONTEND   = 'false'
         CHANGED_K8S        = 'false'
         CHANGED_MONITORING = 'false'
-        CHANGED_BACKEND    = 'false'
-        CHANGED_ANY_IMAGE  = 'false'
-        CHANGED_DEPLOY     = 'false'
+        // Aggregate flags - set to true for full pipeline testing
+        CHANGED_BACKEND    = 'true'
+        CHANGED_ANY_IMAGE  = 'true'
+        CHANGED_DEPLOY     = 'true'
     }
 
     stages {
