@@ -154,25 +154,25 @@ stage('Build') {
         
 
         // ─────────────────────────────────────────────
-        stage('Start Security VM') {
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-            steps {
-                sh '''
-                    set -x
-                    ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-                        -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-                    STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-                    if echo "$STATE" | grep -q poweroff; then
-                        echo "Démarrage Security VM"
-                        VBoxManage startvm securite --type headless
-                        sleep 15
-                    else
-                        echo "Security VM déjà en cours"
-                    fi
-                    '
-                '''
-            }
-        }
+        // stage('Start Security VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         sh '''
+        //             set -x
+        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+        //             if echo "$STATE" | grep -q poweroff; then
+        //                 echo "Démarrage Security VM"
+        //                 VBoxManage startvm securite --type headless
+        //                 sleep 15
+        //             else
+        //                 echo "Security VM déjà en cours"
+        //             fi
+        //             '
+        //         '''
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
         stage('Wait for VM') {
