@@ -95,7 +95,7 @@ pipeline {
 
         // ─────────────────────────────────────────────
         stage('Build') {
-
+            steps {
                 stage('authService') {
                     when { expression { env.CHANGED_AUTH == 'true' } }
                     steps {
@@ -135,7 +135,7 @@ pipeline {
                         }
                     }
                 }
-
+            }
             
         }
 
