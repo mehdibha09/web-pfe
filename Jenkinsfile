@@ -183,10 +183,11 @@ stage('Build') {
             }
         }
 
-        ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
 
+            stages {
                 stage('Sonar authService') {
                     when { expression { env.CHANGED_AUTH == 'true' } }
                     steps {
@@ -266,7 +267,7 @@ stage('Build') {
                         failure { echo "Sonar dashboard : échec d'exécution." }
                     }
                 }
-
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -350,7 +351,7 @@ stage('Build') {
             }
         }
 
-        ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         stage('Security Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -406,7 +407,7 @@ stage('Build') {
             }
         }
 
-        ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         stage('Publish Security Reports trivey') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
