@@ -1,36 +1,249 @@
-# Kubernetes deployment
+# Kubernetes Deployment Configuration
 
-## Images
+This directory contains Kubernetes manifests for deploying the app-pfe application.
 
-- Backend: `app-pfe-authservice:latest`
-- Frontend: `app-pfe-frontend:latest`
+## 📌 Overview
 
-## Folder structure
+Kubernetes resources for the app-pfe application are organized into separate manifest files for easier management:
 
-- [shared](shared)
-  - namespace
-  - ingress
-- [backend](backend)
-  - PostgreSQL secret/service/statefulset
-  - backend configmap/deployment/service
-- [frontend](frontend)
-  - frontend deployment/service
+- **namespace.yaml** - Namespace definition
+- **authService.yaml** - AuthService with PostgreSQL database
+- **frontend.yaml** - Frontend UI with Ingress
 
-## Environment
+## 📁 Directory Structure
 
-- Backend uses PostgreSQL inside the cluster by default (`postgres` service).
-- Frontend serves on port `7070` inside Kubernetes and calls the API via `/api/v1` so it works behind the ingress.
+```
+k8s/
+├── namespace.yaml              # Kubernetes namespace definition
+├── authService.yaml            # AuthService (with PostgreSQL, ConfigMap, Secret)
+├── frontend.yaml               # Frontend (with Deployment, Service, Ingress)
+├── README.md                   # This file
+├── PIPELINE_REVIEW.md          # Detailed review & recommendations
+├── backend/                    # (Legacy - kept for reference)
+├── frontend/                   # (Legacy - kept for reference)
+└── shared/                     # (Legacy - kept for reference)
+```
 
-## Notes
+## 🚀 Quick Start
 
-- If you want to use an external PostgreSQL server instead of the in-cluster one, change `DB_HOST` in [backend/configmap.yaml](backend/configmap.yaml).
-- The ingress host is set to `192.168.56.40`.
-- Frontend service port is `7070`.
+### Deploy All Resources (Recommended)
 
-## Apply order
+```bash
+# Deploy in order
+kubectl apply -f namespace.yaml
+kubectl apply -f authService.yaml
+kubectl apply -f frontend.yaml
 
-1. shared/namespace
-2. backend/postgres secret + service + statefulset
-3. backend/configmap + deployment + service
-4. frontend/deployment + service
-5. shared/ingress
+# Or deploy all at once
+kubectl apply -f namespace.yaml authService.yaml frontend.yaml
+
+# Verify deployment
+kubectl get all -n app-pfe
+kubectl get ingress -n app-pfe
+```
+
+### What Gets Deployed
+
+The separate manifest files include:
+
+1. **namespace.yaml**: `app-pfe` namespace for isolation
+
+2. **authService.yaml** contains:
+   - ConfigMap: `backend-config` (Spring profiles and database config)
+   - Secret: `postgres-secret` (Database credentials)
+   - StatefulSet: PostgreSQL database
+   - Service: postgres
+   - Deployment: auth-service
+   - Service: auth-service
+
+3. **frontend.yaml** contains:
+   - Deployment: frontend web UI
+   - Service: frontend
+   - Ingress: Routes `/api/v1` → auth-service, `/` → frontend
+
+## 🎯 Images
+
+- Backend: `192.168.56.30/auth-service:latest`
+- Frontend: `192.168.56.30/expense-frontend:latest`
+- Database: `postgres:16-alpine`
+
+## 🔐 Security Notes
+
+⚠️ **Important**: Database credentials in secrets should not be committed to Git in production.
+
+### Better Approaches:
+
+```bash
+# Option 1: Create secret separately using kubectl
+kubectl create secret generic postgres-secret \
+  --from-literal=POSTGRES_USER=auth_user \
+  --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 32) \
+  -n app-pfe
+
+# Option 2: Use external secret management (Vault, AWS Secrets Manager)
+# Implement using External Secrets Operator (ESO)
+
+# Option 3: Use sealed-secrets for GitOps
+# Install: kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/...
+```
+
+## 📋 Validation & Testing
+
+### Dry Run (No Changes)
+
+```bash
+kubectl apply -f all-resources.yaml --dry-run=client
+```
+
+### View All Resources
+
+```bash
+kubectl get all -n app-pfe -o wide
+```
+
+### Check Pod Status
+
+```bash
+# Watch deployment rollout
+kubectl rollout status deployment/auth-service -n app-pfe
+kubectl rollout status deployment/frontend -n app-pfe
+
+# View pod logs
+kubectl logs -n app-pfe deployment/auth-service -f
+kubectl logs -n app-pfe deployment/frontend -f
+
+# Check events
+kubectl describe pod -n app-pfe <pod-name>
+```
+
+### Test Connectivity
+
+```bash
+# Port forward to auth-service
+kubectl port-forward -n app-pfe svc/auth-service 7070:7070
+
+# In another terminal
+curl http://localhost:7070/actuator/health
+
+# Port forward to frontend
+kubectl port-forward -n app-pfe svc/frontend 8080:80
+
+# In another terminal
+curl http://localhost:8080
+```
+
+## 🔄 Updates & Changes
+
+### Update a Specific Resource
+
+```bash
+# Edit and apply just one service
+kubectl set image deployment/auth-service \
+  -n app-pfe \
+  auth-service=192.168.56.30/auth-service:v2.0
+```
+
+### Rollback a Deployment
+
+```bash
+kubectl rollout undo deployment/auth-service -n app-pfe
+```
+
+### Delete All Resources
+
+```bash
+kubectl delete -f all-resources.yaml
+```
+
+## 📊 Resource Limits
+
+Current resource allocation:
+
+| Service      | CPU Request | Memory Request | CPU Limit | Memory Limit |
+| ------------ | ----------- | -------------- | --------- | ------------ |
+| auth-service | 250m        | 256Mi          | 500m      | 512Mi        |
+| frontend     | 100m        | 128Mi          | 200m      | 256Mi        |
+| postgresql   | 250m        | 512Mi\*        | 500m      | 1Gi\*        |
+
+\*PostgreSQL limits not enforced in manifest for data safety. Update as needed.
+
+## 🛠️ Troubleshooting
+
+### PostgreSQL Connection Issues
+
+```bash
+# Check PostgreSQL pod
+kubectl exec -it -n app-pfe postgres-0 -- psql -U auth_user -d auth_service
+
+# Check metadata
+kubectl describe statefulset postgres -n app-pfe
+kubectl describe pvc -n app-pfe
+```
+
+### Service to Service Communication
+
+```bash
+# Test from auth-service pod
+kubectl exec -it -n app-pfe deployment/auth-service -- curl http://postgres:5432
+
+# Check service DNS
+kubectl get svc -n app-pfe
+```
+
+### Image Pull Errors
+
+```bash
+# Verify nexus-regcred secret exists
+kubectl get secrets -n app-pfe
+
+# Check image availability
+docker login 192.168.56.30
+docker pull 192.168.56.30/auth-service:latest
+```
+
+## 🔧 Configuration Management
+
+### Updating ConfigMap Data
+
+```bash
+# Edit inline
+kubectl edit configmap backend-config -n app-pfe
+
+# Or update YAML and apply
+# Then restart pods to pick up changes:
+kubectl rollout restart deployment/auth-service -n app-pfe
+```
+
+### Updating Secrets
+
+```bash
+# Delete and recreate (temporary solution)
+kubectl delete secret postgres-secret -n app-pfe
+kubectl create secret generic postgres-secret \
+  --from-literal=POSTGRES_USER=auth_user \
+  --from-literal=POSTGRES_PASSWORD=<new-password> \
+  -n app-pfe
+
+# Then restart database
+kubectl delete pod postgres-0 -n app-pfe
+```
+
+## 📈 Next Steps
+
+See [PIPELINE_REVIEW.md](./PIPELINE_REVIEW.md) for detailed recommendations on:
+
+- Database migrations setup
+- StorageClass configuration
+- Health endpoint improvements
+- Monitoring integration
+- Production hardening
+
+## 🚨 Known Issues & TODO
+
+- [ ] Fix frontend port configuration (ensure nginx listens on port 80)
+- [ ] Implement proper database migrations (Flyway/Liquibase)
+- [ ] Add StorageClass specification for PostgreSQL
+- [ ] Implement health check endpoints for frontend
+- [ ] Migrate credentials to external secret management
+- [ ] Set up Helm charts for better reusability
+- [ ] Implement Network Policies for security

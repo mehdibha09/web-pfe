@@ -15,6 +15,7 @@ public final class ApiRoutes {
         public static final String REFRESH = "/refresh";
         public static final String LOGOUT = "/logout";
         public static final String ME = "/me";
+        public static final String UPDATE_EMAIL = "/update-email";
         public static final String CHANGE_PASSWORD = "/change-password";
         public static final String FORGOT_PASSWORD = "/forgot-password";
         public static final String RESET_PASSWORD = "/reset-password";

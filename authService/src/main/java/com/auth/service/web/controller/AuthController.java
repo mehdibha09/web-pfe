@@ -27,6 +27,7 @@ import com.auth.service.web.dto.AuthTokensResponse;
 import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
 import com.auth.service.web.dto.AuthTwoFaSetupResponse;
 import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
+import com.auth.service.web.dto.AuthUpdateEmailRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -122,8 +123,16 @@ public class AuthController {
         return ResponseEntity.ok(authService.changePassword(authorizationHeader, request));
     }
 
+    @PostMapping(ApiRoutes.Auth.UPDATE_EMAIL)
+    public ResponseEntity<AuthActionResponse> updateEmail(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @Valid @RequestBody AuthUpdateEmailRequest request
+    ) {
+        return ResponseEntity.ok(authService.updateEmail(authorizationHeader, request));
+    }
+
     @PostMapping(ApiRoutes.Auth.FORGOT_PASSWORD)
-    public ResponseEntity<com.service.auth.web.dto.PasswordResetResponse> forgotPassword(
+    public ResponseEntity<com.auth.service.web.dto.PasswordResetResponse> forgotPassword(
             @Valid @RequestBody AuthForgotPasswordRequest request
     ) {
         return ResponseEntity.ok(authService.forgotPassword(request));

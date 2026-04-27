@@ -466,24 +466,23 @@ stage('Build') {
                             sh '''
                                 set -x
 
-                                kubectl apply -f shared/namespace.yaml
+                                # Create namespace
+                                kubectl apply -f namespace.yaml
 
+                                # Create Docker registry secret for Nexus
                                 kubectl -n app-pfe create secret docker-registry nexus-regcred \
                                     --docker-server=192.168.56.30 \
                                     --docker-username=$NEXUS_USER \
                                     --docker-password=$NEXUS_PASSWORD \
                                     --docker-email=devnull@example.com \
                                     --dry-run=client -o yaml | kubectl apply -f -
-                            '''
 
-                            // Redéployer uniquement les services dont les manifests K8s changent
-                            if (env.CHANGED_K8S == 'true') {
-                                sh '''
-                                    set -x
-                                    kubectl apply -f backend/
-                                    kubectl apply -f frontend/
-                                    kubectl apply -f shared/ingress.yaml
-                                '''
+                                # Deploy authService with database
+                                kubectl apply -f authService.yaml
+
+                                # Deploy frontend
+                                kubectl apply -f frontend.yaml
+                            '''
                             }
 
                             // Mettre à jour l'image uniquement pour les services reconstruits

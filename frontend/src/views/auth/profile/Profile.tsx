@@ -10,6 +10,7 @@ import {
   getMe,
   logout,
   setupTwoFa,
+  updateEmail,
   verifyTwoFa,
   type TwoFaSetupResponse,
 } from '../../../services/authService';
@@ -27,6 +28,11 @@ type ChangePasswordForm = {
   confirmPassword: string;
 };
 
+type UpdateEmailForm = {
+  newEmail: string;
+  password: string;
+};
+
 const Profile = () => {
   const [user, setUser] = useState(getStoredUser());
   const navigate = useNavigate();
@@ -36,6 +42,7 @@ const Profile = () => {
   const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -43,6 +50,12 @@ const Profile = () => {
     setError,
     formState: { errors },
   } = useForm<ChangePasswordForm>();
+  const {
+    register: registerEmail,
+    handleSubmit: handleSubmitEmail,
+    reset: resetEmail,
+    formState: { errors: emailErrors },
+  } = useForm<UpdateEmailForm>();
 
   useEffect(() => {
     let mounted = true;
@@ -109,6 +122,26 @@ const Profile = () => {
       toast.error(message);
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const onSubmitEmail = async (values: UpdateEmailForm) => {
+    setEmailLoading(true);
+    try {
+      await updateEmail({
+        newEmail: values.newEmail.trim(),
+        password: values.password,
+      });
+      const me = await getMe();
+      setStoredUser(me);
+      setUser(me);
+      toast.success('Email updated successfully');
+      resetEmail();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Update email failed';
+      toast.error(message);
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -255,6 +288,47 @@ const Profile = () => {
               <Typography sx={{ mt: 0.5, color: '#0F172A', fontWeight: 600 }}>
                 {user.roles?.join(', ') || '-'}
               </Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ borderRadius: 3, border: '1px solid #F5D8E4', mb: 2, boxShadow: 'none' }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+            Update Email
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr auto' },
+              gap: 2,
+            }}
+          >
+            <TextField
+              label="New Email"
+              type="email"
+              {...registerEmail('newEmail', {
+                required: 'New email is required',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Invalid email format',
+                },
+              })}
+              error={!!emailErrors.newEmail}
+              helperText={emailErrors.newEmail?.message}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              {...registerEmail('password', { required: 'Password is required' })}
+              error={!!emailErrors.password}
+              helperText={emailErrors.password?.message}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Button onClick={handleSubmitEmail(onSubmitEmail)} disabled={emailLoading}>
+                {emailLoading ? 'Saving...' : 'Update'}
+              </Button>
             </Box>
           </Box>
         </CardContent>

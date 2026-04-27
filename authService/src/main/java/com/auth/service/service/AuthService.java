@@ -58,6 +58,7 @@ import com.auth.service.web.dto.AuthTokensResponse;
 import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
 import com.auth.service.web.dto.AuthTwoFaSetupResponse;
 import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
+import com.auth.service.web.dto.AuthUpdateEmailRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -409,8 +410,38 @@ public class AuthService {
         return new AuthActionResponse("Password changed successfully");
     }
 
+    public AuthActionResponse updateEmail(String authorizationHeader, AuthUpdateEmailRequest request) {
+        User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
+        
+        if (!passwordMatches(request.password(), user.getPassword())) {
+            throw new UnauthorizedException("Password is invalid");
+        }
+
+        String newEmail = request.newEmail().toLowerCase().trim();
+        
+        if (newEmail.equals(user.getEmail())) {
+            throw new BadRequestException("New email must be different from current email");
+        }
+
+        List<User> existingUsers = userRepository.findByEmail(newEmail);
+        if (!existingUsers.isEmpty()) {
+            throw new BadRequestException("Email already in use");
+        }
+
+        String oldEmail = user.getEmail();
+        user.setEmail(newEmail);
+        userRepository.save(user);
+        
+        writeAudit(user, user.getTenant(), "AUTH_UPDATE_EMAIL", "Email changed from " + oldEmail + " to " + newEmail);
+        
+        // Send email change confirmation emails
+        emailService.sendPasswordChangeEmail(newEmail, oldEmail);
+        
+        return new AuthActionResponse("Email updated successfully");
+    }
+
     @Transactional
-    public com.service.auth.web.dto.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
+    public com.auth.service.web.dto.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
         User user = resolveUserForPasswordReset(request);
         String resetToken = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
         PasswordResetToken token = new PasswordResetToken();
@@ -423,7 +454,7 @@ public class AuthService {
         // Send password reset email
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
         
-        return new com.service.auth.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
+        return new com.auth.service.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
     }
 
     @Transactional

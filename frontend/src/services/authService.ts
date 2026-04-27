@@ -46,6 +46,11 @@ export type ChangePasswordPayload = {
   newPassword: string;
 };
 
+export type UpdateEmailPayload = {
+  newEmail: string;
+  password: string;
+};
+
 export type TwoFaSetupResponse = {
   codeLength: number;
   message: string;
@@ -86,6 +91,11 @@ export const getMe = async (): Promise<AuthUser> => {
 
 export const changePassword = async (payload: ChangePasswordPayload) => {
   const response = await axiosInstance.post('/auth/change-password', payload);
+  return response.data;
+};
+
+export const updateEmail = async (payload: UpdateEmailPayload) => {
+  const response = await axiosInstance.post('/auth/update-email', payload);
   return response.data;
 };
 

@@ -63,3 +63,33 @@ export const canAccessSessions = (user: AuthUser) =>
 
 export const canAccessAuditLogs = (user: AuthUser) =>
   isSuperAdmin(user) || isTenantAdmin(user) || hasPermission(user, 'AUDIT');
+
+export const canDeleteUser = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  isTenantAdmin(user) ||
+  isNormalAdmin(user) ||
+  hasPermission(user, 'USER_DELETE');
+
+export const canModifyUserStatus = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  isTenantAdmin(user) ||
+  isNormalAdmin(user) ||
+  hasPermission(user, 'USER_MODIFY_STATUS');
+
+export const canDeleteRole = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  isTenantAdmin(user) ||
+  isNormalAdmin(user) ||
+  hasPermission(user, 'ROLE_DELETE');
+
+export const canModifyRoleStatus = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  isTenantAdmin(user) ||
+  isNormalAdmin(user) ||
+  hasPermission(user, 'ROLE_MODIFY_STATUS');
+
+export const canRevokeSession = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  isTenantAdmin(user) ||
+  isNormalAdmin(user) ||
+  hasPermission(user, 'SESSION_REVOKE');

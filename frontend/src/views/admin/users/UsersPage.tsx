@@ -20,8 +20,13 @@ import {
   listUserRoles,
   listUsers,
   removeRoleFromUser,
+  updateUser,
 } from '../../../services/adminService';
-import { canManageUsers } from '../../../services/authorization';
+import {
+  canDeleteUser,
+  canManageUsers,
+  canModifyUserStatus,
+} from '../../../services/authorization';
 import { getStoredUser } from '../../../services/authStorage';
 
 type UserItem = {
@@ -61,8 +66,12 @@ const UsersPage = () => {
   const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [editStatusUserId, setEditStatusUserId] = useState<string | null>(null);
+  const [newUserStatus, setNewUserStatus] = useState<'ACTIVE' | 'INVITED' | 'DISABLED'>('ACTIVE');
 
   const allowManageUsers = currentUser ? canManageUsers(currentUser) : false;
+  const allowDeleteUser = currentUser ? canDeleteUser(currentUser) : false;
+  const allowModifyUserStatus = currentUser ? canModifyUserStatus(currentUser) : false;
 
   const loadUsers = async () => {
     setLoading(true);
@@ -145,6 +154,11 @@ const UsersPage = () => {
       return;
     }
 
+    if (!allowModifyUserStatus) {
+      toast.error('You do not have permission to set user status');
+      return;
+    }
+
     if (!email.trim()) {
       toast.error('Email is required');
       return;
@@ -210,8 +224,26 @@ const UsersPage = () => {
     }
   };
 
+  const handleUpdateUserStatus = async (userId: string) => {
+    if (!allowModifyUserStatus) {
+      toast.error('You do not have permission to modify user status');
+      return;
+    }
+
+    try {
+      await updateUser(userId, { status: newUserStatus });
+      toast.success('User status updated');
+      setEditStatusUserId(null);
+      await loadUsers();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to update user status';
+      toast.error(message);
+    }
+  };
+
   const handleDeleteUser = async (id: string) => {
-    if (!allowManageUsers) {
+    if (!allowDeleteUser) {
       toast.error('You do not have permission to delete users');
       return;
     }
@@ -272,7 +304,7 @@ const UsersPage = () => {
         </Card>
       </Box>
 
-      {allowManageUsers ? (
+      {allowManageUsers && allowModifyUserStatus ? (
         <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', mb: 3 }}>
           <CardContent>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
@@ -361,25 +393,62 @@ const UsersPage = () => {
                     </Typography>
                     <Typography sx={{ color: '#64748B' }}>{user.email}</Typography>
                   </Box>
-                  <Chip
-                    label={user.status}
-                    size="small"
-                    sx={{
-                      backgroundColor:
-                        user.status === 'ACTIVE'
-                          ? '#DCFCE7'
-                          : user.status === 'INVITED'
-                            ? '#FEF3C7'
-                            : '#FEE2E2',
-                      color:
-                        user.status === 'ACTIVE'
-                          ? '#166534'
-                          : user.status === 'INVITED'
-                            ? '#92400E'
-                            : '#991B1B',
-                      fontWeight: 700,
-                    }}
-                  />
+                  {editStatusUserId === user.id ? (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <TextField
+                        select
+                        size="small"
+                        value={newUserStatus}
+                        onChange={(event) =>
+                          setNewUserStatus(event.target.value as 'ACTIVE' | 'INVITED' | 'DISABLED')
+                        }
+                        sx={{ width: 120 }}
+                      >
+                        <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+                        <MenuItem value="INVITED">INVITED</MenuItem>
+                        <MenuItem value="DISABLED">DISABLED</MenuItem>
+                      </TextField>
+                      <Button
+                        onClick={() => handleUpdateUserStatus(user.id)}
+                        disabled={!allowModifyUserStatus}
+                      >
+                        Save
+                      </Button>
+                      <Button onClick={() => setEditStatusUserId(null)}>Cancel</Button>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Chip
+                        label={user.status}
+                        size="small"
+                        sx={{
+                          backgroundColor:
+                            user.status === 'ACTIVE'
+                              ? '#DCFCE7'
+                              : user.status === 'INVITED'
+                                ? '#FEF3C7'
+                                : '#FEE2E2',
+                          color:
+                            user.status === 'ACTIVE'
+                              ? '#166534'
+                              : user.status === 'INVITED'
+                                ? '#92400E'
+                                : '#991B1B',
+                          fontWeight: 700,
+                        }}
+                      />
+                      {allowModifyUserStatus && (
+                        <Button
+                          onClick={() => {
+                            setEditStatusUserId(user.id);
+                            setNewUserStatus(user.status);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                    </Box>
+                  )}
                 </Box>
                 <Typography variant="body2" sx={{ color: '#475569' }}>
                   ID: {user.id}
@@ -446,7 +515,7 @@ const UsersPage = () => {
                 </Box>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
-                {allowManageUsers ? (
+                {allowDeleteUser ? (
                   <Button onClick={() => handleDeleteUser(user.id)}>Delete</Button>
                 ) : null}
               </CardActions>

@@ -15,6 +15,7 @@ import {
   createPermission,
   deletePermission,
   listPermissions,
+  updatePermission,
 } from '../../../services/adminService';
 
 type PermissionItem = {
@@ -63,6 +64,9 @@ const PermissionsPage = () => {
 
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingPermissionId, setEditingPermissionId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   const loadPermissions = async () => {
     setLoading(true);
@@ -136,6 +140,41 @@ const PermissionsPage = () => {
         error?.response?.data?.message || error?.message || 'Failed to create permission';
       toast.error(message);
     }
+  };
+
+  const handleUpdatePermission = async (id: string) => {
+    if (!editName.trim()) {
+      toast.error('Permission name is required');
+      return;
+    }
+
+    try {
+      await updatePermission(id, {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      });
+      toast.success('Permission updated');
+      setEditingPermissionId(null);
+      setEditName('');
+      setEditDescription('');
+      await loadPermissions();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to update permission';
+      toast.error(message);
+    }
+  };
+
+  const startEditPermission = (permission: PermissionItem) => {
+    setEditingPermissionId(permission.id);
+    setEditName(permission.key);
+    setEditDescription(permission.description);
+  };
+
+  const cancelEditPermission = () => {
+    setEditingPermissionId(null);
+    setEditName('');
+    setEditDescription('');
   };
 
   const handleRemovePermission = async (id: string) => {
@@ -342,13 +381,32 @@ const PermissionsPage = () => {
             >
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
-                      {permission.key}
-                    </Typography>
-                    <Typography sx={{ color: '#64748B' }}>
-                      {permission.description || '-'}
-                    </Typography>
+                  <Box sx={{ flex: 1 }}>
+                    {editingPermissionId === permission.id ? (
+                      <Box sx={{ display: 'grid', gap: 1 }}>
+                        <TextField
+                          size="small"
+                          label="Permission name"
+                          value={editName}
+                          onChange={(event) => setEditName(event.target.value)}
+                        />
+                        <TextField
+                          size="small"
+                          label="Description"
+                          value={editDescription}
+                          onChange={(event) => setEditDescription(event.target.value)}
+                        />
+                      </Box>
+                    ) : (
+                      <>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                          {permission.key}
+                        </Typography>
+                        <Typography sx={{ color: '#64748B' }}>
+                          {permission.description || '-'}
+                        </Typography>
+                      </>
+                    )}
                   </Box>
                   <Chip
                     label={permission.action || 'N/A'}
@@ -357,18 +415,32 @@ const PermissionsPage = () => {
                   />
                 </Box>
 
-                <Typography variant="body2" sx={{ color: '#475569', mb: 1 }}>
-                  <strong>Resource:</strong> {permission.resource || '-'}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#475569' }}>
-                  <strong>Category:</strong> {permission.category || '-'}
-                </Typography>
+                {editingPermissionId !== permission.id && (
+                  <>
+                    <Typography variant="body2" sx={{ color: '#475569', mb: 1 }}>
+                      <strong>Resource:</strong> {permission.resource || '-'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#475569' }}>
+                      <strong>Category:</strong> {permission.category || '-'}
+                    </Typography>
+                  </>
+                )}
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'space-between' }}>
                 <Typography variant="caption" sx={{ color: '#64748B' }}>
                   ID: {permission.id}
                 </Typography>
-                <Button onClick={() => handleRemovePermission(permission.id)}>Delete</Button>
+                {editingPermissionId === permission.id ? (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button onClick={() => handleUpdatePermission(permission.id)}>Save</Button>
+                    <Button onClick={cancelEditPermission}>Cancel</Button>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button onClick={() => startEditPermission(permission)}>Edit</Button>
+                    <Button onClick={() => handleRemovePermission(permission.id)}>Delete</Button>
+                  </Box>
+                )}
               </CardActions>
             </Card>
           ))

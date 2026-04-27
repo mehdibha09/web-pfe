@@ -15,6 +15,7 @@ import {
   createTenant,
   disableTenant,
   listTenants,
+  updateTenant,
   updateTenantStatus,
 } from '../../../services/adminService';
 
@@ -71,6 +72,10 @@ const TenantsPage = () => {
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPlan, setEditPlan] = useState<TenantItem['plan']>('PRO');
 
   const loadTenants = async () => {
     setLoading(true);
@@ -156,6 +161,41 @@ const TenantsPage = () => {
     } finally {
       setStatusUpdatingId(null);
     }
+  };
+
+  const handleUpdateTenant = async (tenantId: string) => {
+    if (!editName.trim()) {
+      toast.error('Tenant name is required');
+      return;
+    }
+
+    try {
+      await updateTenant(tenantId, {
+        name: editName.trim(),
+        contactEmail: editEmail.trim() || undefined,
+        modeDeployment: editPlan,
+      });
+      toast.success('Tenant updated');
+      setEditingTenantId(null);
+      await loadTenants();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to update tenant';
+      toast.error(message);
+    }
+  };
+
+  const startEditTenant = (tenant: TenantItem) => {
+    setEditingTenantId(tenant.id);
+    setEditName(tenant.name);
+    setEditEmail(tenant.contactEmail);
+    setEditPlan(tenant.plan);
+  };
+
+  const cancelEditTenant = () => {
+    setEditingTenantId(null);
+    setEditName('');
+    setEditEmail('');
+    setEditPlan('PRO');
   };
 
   return (
@@ -316,10 +356,42 @@ const TenantsPage = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
-                      {tenant.name}
-                    </Typography>
-                    <Typography sx={{ color: '#64748B' }}>{tenant.code}</Typography>
+                    {editingTenantId === tenant.id ? (
+                      <Box sx={{ display: 'grid', gap: 1 }}>
+                        <TextField
+                          size="small"
+                          label="Tenant name"
+                          value={editName}
+                          onChange={(event) => setEditName(event.target.value)}
+                        />
+                        <TextField
+                          size="small"
+                          label="Contact email"
+                          value={editEmail}
+                          onChange={(event) => setEditEmail(event.target.value)}
+                        />
+                        <TextField
+                          size="small"
+                          select
+                          label="Plan"
+                          value={editPlan}
+                          onChange={(event) =>
+                            setEditPlan(event.target.value as TenantItem['plan'])
+                          }
+                        >
+                          <MenuItem value="FREE">FREE</MenuItem>
+                          <MenuItem value="PRO">PRO</MenuItem>
+                          <MenuItem value="ENTERPRISE">ENTERPRISE</MenuItem>
+                        </TextField>
+                      </Box>
+                    ) : (
+                      <>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                          {tenant.name}
+                        </Typography>
+                        <Typography sx={{ color: '#64748B' }}>{tenant.code}</Typography>
+                      </>
+                    )}
                   </Box>
                   <Box
                     sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}
@@ -355,17 +427,27 @@ const TenantsPage = () => {
                   <strong>ID:</strong> {tenant.id}
                 </Typography>
               </CardContent>
-              <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
-                <Button
-                  onClick={() =>
-                    tenant.status === 'DISABLED'
-                      ? handleEnableTenant(tenant.id)
-                      : handleDisableTenant(tenant.id)
-                  }
-                  disabled={statusUpdatingId === tenant.id}
-                >
-                  {tenant.status === 'DISABLED' ? 'Enable' : 'Disable'}
-                </Button>
+              <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', gap: 1 }}>
+                {editingTenantId === tenant.id ? (
+                  <>
+                    <Button onClick={() => handleUpdateTenant(tenant.id)}>Save</Button>
+                    <Button onClick={cancelEditTenant}>Cancel</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={() => startEditTenant(tenant)}>Edit</Button>
+                    <Button
+                      onClick={() =>
+                        tenant.status === 'DISABLED'
+                          ? handleEnableTenant(tenant.id)
+                          : handleDisableTenant(tenant.id)
+                      }
+                      disabled={statusUpdatingId === tenant.id}
+                    >
+                      {tenant.status === 'DISABLED' ? 'Enable' : 'Disable'}
+                    </Button>
+                  </>
+                )}
               </CardActions>
             </Card>
           ))

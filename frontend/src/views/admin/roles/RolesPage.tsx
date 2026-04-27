@@ -20,6 +20,8 @@ import {
   removePermissionFromRole,
   updateRole,
 } from '../../../services/adminService';
+import { canDeleteRole } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/authStorage';
 
 type RoleItem = {
   id: string;
@@ -46,10 +48,11 @@ const RolesPage = () => {
   const [editingName, setEditingName] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
-  const [selectedPermissionByRole, setSelectedPermissionByRole] = useState<Record<string, string>>(
-    {},
-  );
-  const [newPermissionByRole, setNewPermissionByRole] = useState<Record<string, string>>({});
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [selectedRoleForPermission, setSelectedRoleForPermission] = useState<string | null>(null);
+  const [selectedPermission, setSelectedPermission] = useState('');
+
+  const allowDeleteRole = currentUser ? canDeleteRole(currentUser) : false;
 
   const loadRoles = async () => {
     setLoading(true);
@@ -74,6 +77,18 @@ const RolesPage = () => {
   useEffect(() => {
     loadPermissions();
     loadRoles();
+  }, []);
+
+  useEffect(() => {
+    const syncUser = () => setCurrentUser(getStoredUser());
+
+    window.addEventListener('authUserUpdated', syncUser);
+    window.addEventListener('storage', syncUser);
+
+    return () => {
+      window.removeEventListener('authUserUpdated', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
   const loadPermissions = async () => {
@@ -132,6 +147,11 @@ const RolesPage = () => {
   };
 
   const handleRemoveRole = async (id: string) => {
+    if (!allowDeleteRole) {
+      toast.error('You do not have permission to delete roles');
+      return;
+    }
+
     try {
       await deleteRole(id);
       toast.success('Role deleted');
@@ -175,25 +195,26 @@ const RolesPage = () => {
   };
 
   const handleAddPermission = async (roleId: string) => {
-    const selectedPermissionId = selectedPermissionByRole[roleId] || '';
-    const newPermissionName = (newPermissionByRole[roleId] || '').trim();
+    if (!selectedPermission) {
+      toast.error('Please select a permission');
+      return;
+    }
 
-    if (!selectedPermissionId && !newPermissionName) {
-      toast.error('Select a permission or enter a new permission name');
+    const permission = permissions.find((item) => item.id === selectedPermission);
+    if (!permission) {
+      toast.error('Permission not found');
       return;
     }
 
     try {
-      if (selectedPermissionId) {
-        await addPermissionToRole(roleId, { permissionId: selectedPermissionId });
-      } else {
-        await addPermissionToRole(roleId, { permissionName: newPermissionName });
-      }
-
+      await addPermissionToRole(roleId, {
+        permissionId: selectedPermission,
+        permissionName: permission.name,
+        description: permission.description,
+      });
       toast.success('Permission added to role');
-      setSelectedPermissionByRole((previous) => ({ ...previous, [roleId]: '' }));
-      setNewPermissionByRole((previous) => ({ ...previous, [roleId]: '' }));
-      await loadPermissions();
+      setSelectedRoleForPermission(null);
+      setSelectedPermission('');
       await loadRoles();
     } catch (error: any) {
       const message =
@@ -360,7 +381,7 @@ const RolesPage = () => {
                     sx={{ backgroundColor: '#FCE7EF', color: '#E4477D', fontWeight: 700 }}
                   />
                 </Box>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   {role.permissions.length === 0 ? (
                     <Typography variant="body2" sx={{ color: '#64748B' }}>
                       No permissions assigned
@@ -377,41 +398,27 @@ const RolesPage = () => {
                     ))
                   )}
                 </Box>
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1.5, mt: 2 }}>
-                  <TextField
-                    select
-                    size="small"
-                    label="Existing permission"
-                    value={selectedPermissionByRole[role.id] || ''}
-                    onChange={(event) =>
-                      setSelectedPermissionByRole((previous) => ({
-                        ...previous,
-                        [role.id]: event.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="">Select permission</MenuItem>
-                    {permissions.map((permission) => (
-                      <MenuItem key={permission.id} value={permission.id}>
-                        {permission.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    size="small"
-                    label="New permission"
-                    placeholder="e.g. USER_EXPORT"
-                    value={newPermissionByRole[role.id] || ''}
-                    onChange={(event) =>
-                      setNewPermissionByRole((previous) => ({
-                        ...previous,
-                        [role.id]: event.target.value,
-                      }))
-                    }
-                  />
-                  <Button onClick={() => handleAddPermission(role.id)}>Add Permission</Button>
-                </Box>
+                {selectedRoleForPermission === role.id && (
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, mt: 2 }}>
+                    <TextField
+                      select
+                      size="small"
+                      label="Select permission"
+                      value={selectedPermission}
+                      onChange={(event) => setSelectedPermission(event.target.value)}
+                    >
+                      <MenuItem value="">Select a permission</MenuItem>
+                      {permissions
+                        .filter((perm) => !role.permissions.includes(perm.name))
+                        .map((permission) => (
+                          <MenuItem key={permission.id} value={permission.id}>
+                            {permission.name}
+                          </MenuItem>
+                        ))}
+                    </TextField>
+                    <Button onClick={() => handleAddPermission(role.id)}>Add</Button>
+                  </Box>
+                )}
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
                 {editingRoleId === role.id ? (
@@ -422,7 +429,18 @@ const RolesPage = () => {
                 ) : (
                   <Button onClick={() => startEditRole(role)}>Edit</Button>
                 )}
-                <Button onClick={() => handleRemoveRole(role.id)}>Delete</Button>
+                {selectedRoleForPermission === role.id ? (
+                  <>
+                    <Button onClick={() => setSelectedRoleForPermission(null)}>Cancel</Button>
+                  </>
+                ) : (
+                  <Button onClick={() => setSelectedRoleForPermission(role.id)}>
+                    Add Permission
+                  </Button>
+                )}
+                {allowDeleteRole ? (
+                  <Button onClick={() => handleRemoveRole(role.id)}>Delete</Button>
+                ) : null}
               </CardActions>
             </Card>
           ))

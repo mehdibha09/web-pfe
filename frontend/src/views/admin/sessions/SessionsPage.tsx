@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import Button from '../../../component/MyCustomButton';
 import { listSessions, revokeSession } from '../../../services/adminService';
+import { canRevokeSession } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/authStorage';
 
 type SessionItem = {
   id: string;
@@ -25,9 +27,27 @@ type SessionItem = {
   status: 'ACTIVE' | 'REVOKED';
 };
 
+const getDeviceType = (os: string): string => {
+  if (!os || os === 'Unknown') return 'Desktop';
+  const normalized = os.toLowerCase();
+  if (
+    normalized.includes('mobile') ||
+    normalized.includes('android') ||
+    normalized.includes('ios') ||
+    normalized.includes('iphone') ||
+    normalized.includes('ipad')
+  ) {
+    return 'Mobile Device';
+  }
+  if (normalized.includes('tablet')) {
+    return 'Tablet';
+  }
+  return 'Desktop';
+};
+
 const toSessionItem = (session: any): SessionItem => ({
   id: String(session.id),
-  deviceType: session.os || 'Unknown Device',
+  deviceType: getDeviceType(session.os),
   browser: session.browser || 'Unknown Browser',
   os: session.os || 'Unknown OS',
   ipAddress: session.ipAddress || '-',
@@ -42,6 +62,9 @@ const SessionsPage = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
+
+  const allowRevokeSession = currentUser ? canRevokeSession(currentUser) : false;
 
   const loadSessions = async () => {
     setLoading(true);
@@ -58,6 +81,18 @@ const SessionsPage = () => {
 
   useEffect(() => {
     loadSessions();
+  }, []);
+
+  useEffect(() => {
+    const syncUser = () => setCurrentUser(getStoredUser());
+
+    window.addEventListener('authUserUpdated', syncUser);
+    window.addEventListener('storage', syncUser);
+
+    return () => {
+      window.removeEventListener('authUserUpdated', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
   const filteredSessions = useMemo(() => {
@@ -81,6 +116,11 @@ const SessionsPage = () => {
   }, [filterStatus, search, sessions]);
 
   const handleRevokeSession = async (id: string) => {
+    if (!allowRevokeSession) {
+      toast.error('You do not have permission to revoke sessions');
+      return;
+    }
+
     try {
       await revokeSession(id);
       toast.success('Session revoked');
@@ -246,7 +286,7 @@ const SessionsPage = () => {
               <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
                 <Button
                   onClick={() => handleRevokeSession(session.id)}
-                  disabled={session.status === 'REVOKED'}
+                  disabled={session.status === 'REVOKED' || !allowRevokeSession}
                 >
                   {session.status === 'REVOKED' ? 'Revoked' : 'Revoke'}
                 </Button>

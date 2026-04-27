@@ -32,6 +32,7 @@ const AuditLogsPage = () => {
     const response = await listAuditLogs({
       from: submittedFrom ? new Date(submittedFrom).toISOString() : undefined,
       to: submittedTo ? new Date(submittedTo).toISOString() : undefined,
+      action: submittedAction || undefined,
       resource: submittedResource || undefined,
       userId: submittedUserId || undefined,
     });
@@ -166,10 +167,20 @@ const AuditLogsPage = () => {
               onChange={(event) => setTo(event.target.value)}
             />
             <TextField
+              select
               label="Action"
               value={action}
               onChange={(event) => setAction(event.target.value)}
-            />
+            >
+              <MenuItem value="">All</MenuItem>
+              {Array.from(new Set(logs.map((log) => log.action)))
+                .sort()
+                .map((actionItem) => (
+                  <MenuItem key={actionItem} value={actionItem}>
+                    {actionItem}
+                  </MenuItem>
+                ))}
+            </TextField>
             <TextField
               select
               label="Resource"

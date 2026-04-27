@@ -25,6 +25,7 @@ import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.web.dto.AuthActionResponse;
 import com.auth.service.web.dto.PermissionCreateRequest;
 import com.auth.service.web.dto.PermissionResponse;
+import com.auth.service.web.dto.PermissionUpdateRequest;
 
 @Service
 public class PermissionService {
@@ -86,6 +87,33 @@ public class PermissionService {
         Permission savedPermission = permissionRepository.save(permission);
         writeAudit(currentUser, "PERMISSION_CREATE", "Permission created", savedPermission.getId().toString());
         return toResponse(savedPermission);
+    }
+
+    @Transactional
+    public PermissionResponse updatePermission(String authorizationHeader, UUID permissionId, PermissionUpdateRequest request) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanManagePermissions(currentUser);
+        Permission permission = permissionRepository.findById(permissionId)
+                .orElseThrow(() -> new NotFoundException("Permission not found"));
+
+        if (request.name() != null) {
+            String newName = request.name().trim();
+            if (!newName.isEmpty() && !newName.equals(permission.getName())) {
+                permissionRepository.findByName(newName)
+                        .ifPresent(existing -> {
+                            throw new ConflictException("Permission name already exists");
+                        });
+                permission.setName(newName);
+            }
+        }
+
+        if (request.description() != null) {
+            permission.setDescription(normalizeNullable(request.description()));
+        }
+
+        Permission updatedPermission = permissionRepository.save(permission);
+        writeAudit(currentUser, "PERMISSION_UPDATE", "Permission updated", updatedPermission.getId().toString());
+        return toResponse(updatedPermission);
     }
 
     @Transactional

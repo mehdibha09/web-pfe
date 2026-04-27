@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,6 +19,7 @@ import com.auth.service.service.PermissionService;
 import com.auth.service.web.dto.AuthActionResponse;
 import com.auth.service.web.dto.PermissionCreateRequest;
 import com.auth.service.web.dto.PermissionResponse;
+import com.auth.service.web.dto.PermissionUpdateRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -54,6 +56,15 @@ public class PermissionController {
             @Valid @RequestBody PermissionCreateRequest request
     ) {
         return ResponseEntity.ok(permissionService.createPermission(authorizationHeader, request));
+    }
+
+    @PatchMapping(ApiRoutes.Permissions.BY_ID)
+    public ResponseEntity<PermissionResponse> updatePermission(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable UUID permissionId,
+            @RequestBody PermissionUpdateRequest request
+    ) {
+        return ResponseEntity.ok(permissionService.updatePermission(authorizationHeader, permissionId, request));
     }
 
     @DeleteMapping(ApiRoutes.Permissions.BY_ID)

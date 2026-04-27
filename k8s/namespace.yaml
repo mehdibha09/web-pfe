@@ -1,0 +1,8 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-pfe
+  labels:
+    name: app-pfe

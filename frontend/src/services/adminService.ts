@@ -78,6 +78,11 @@ export const deleteUser = async (userId: string) => {
   return response.data;
 };
 
+export const updateUser = async (userId: string, payload: { status?: string; email?: string }) => {
+  const response = await axiosInstance.patch(`/users/${userId}`, payload);
+  return response.data;
+};
+
 export const listUserRoles = async (userId: string): Promise<RoleResponse[]> => {
   const response = await axiosInstance.get(`/users/${userId}/roles`);
   return response.data || [];
@@ -144,6 +149,14 @@ export const createPermission = async (payload: { name: string; description?: st
   return response.data;
 };
 
+export const updatePermission = async (
+  permissionId: string,
+  payload: { name?: string; description?: string },
+) => {
+  const response = await axiosInstance.patch(`/permissions/${permissionId}`, payload);
+  return response.data;
+};
+
 export const deletePermission = async (permissionId: string) => {
   const response = await axiosInstance.delete(`/permissions/${permissionId}`);
   return response.data;
@@ -171,6 +184,14 @@ export const disableTenant = async (tenantId: string) => {
 
 export const updateTenantStatus = async (tenantId: string, status: 'ACTIVE' | 'DELETED') => {
   const response = await axiosInstance.patch(`/tenants/${tenantId}`, { status });
+  return response.data;
+};
+
+export const updateTenant = async (
+  tenantId: string,
+  payload: { name?: string; contactEmail?: string; modeDeployment?: string },
+) => {
+  const response = await axiosInstance.patch(`/tenants/${tenantId}`, payload);
   return response.data;
 };
 

@@ -1,0 +1,102 @@
+---
+# Frontend Deployment
+# NOTE: Ensure nginx.conf in frontend image listens on port 80
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: app-pfe
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        timestamp: 'will-be-set-by-pipeline'
+    spec:
+      imagePullSecrets:
+        - name: nexus-regcred
+      containers:
+        - name: frontend
+          image: 192.168.56.30/expense-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: '128Mi'
+              cpu: '100m'
+            limits:
+              memory: '256Mi'
+              cpu: '200m'
+
+---
+# Frontend Service - ClusterIP
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: app-pfe
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-pfe-ingress
+  namespace: app-pfe
+  labels:
+    app: app-pfe
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: 192.168.56.40
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 7070
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
