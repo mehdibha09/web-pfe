@@ -26,7 +26,7 @@ pipeline {
         // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/Expense_Tracker.git'
+                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
             }
         }
 
@@ -301,7 +301,7 @@ pipeline {
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
             steps {
-                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/Expense_Tracker.git'
+                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe'
 
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-creds',
