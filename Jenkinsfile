@@ -10,7 +10,7 @@ pipeline {
 
     environment {
         // Mode focus DevOps: pipeline centrée sur authService uniquement
-        CHANGED_AUTH       = 'false'
+        CHANGED_AUTH       = 'true'  // Forcer le déclenchement du pipeline pour authService
         CHANGED_PRICER     = 'false'
         CHANGED_DASHBOARD  = 'false'
         CHANGED_FRONTEND   = 'false'
