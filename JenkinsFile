@@ -376,103 +376,103 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
-        stage('Security Scan') {
-            agent { label 'security' }
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        // stage('Security Scan') {
+        //     agent { label 'security' }
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'nexus-creds',
-                    usernameVariable: 'NEXUS_USER',
-                    passwordVariable: 'NEXUS_PASSWORD'
-                )]) {
-                    script {
-                        sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
+        //     steps {
+        //         withCredentials([usernamePassword(
+        //             credentialsId: 'nexus-creds',
+        //             usernameVariable: 'NEXUS_USER',
+        //             passwordVariable: 'NEXUS_PASSWORD'
+        //         )]) {
+        //             script {
+        //                 sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
 
-                        def images = [
-                            [name: 'auth-service',    changed: env.CHANGED_AUTH],
-                            [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
-                            [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                            [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
-                        ]
+        //                 def images = [
+        //                     [name: 'auth-service',    changed: env.CHANGED_AUTH],
+        //                     [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
+        //                     [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
+        //                     [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+        //                 ]
 
-                        images.each { img ->
-                            if (img.changed == 'true') {
-                                echo "→ Trivy scan : ${img.name}"
-                                sh """
-                                    set -x
-                                    docker run --rm \
-                                        -v /var/run/docker.sock:/var/run/docker.sock \
-                                        -v /opt/trivy-cache:/root/.cache/trivy \
-                                        -v /mnt/nfs/trivy/results:/results \
-                                        aquasec/trivy image \
-                                        --severity HIGH,CRITICAL \
-                                        --format json \
-                                        --output /results/${img.name}.json \
-                                        192.168.56.30/${img.name}:latest
+        //                 images.each { img ->
+        //                     if (img.changed == 'true') {
+        //                         echo "→ Trivy scan : ${img.name}"
+        //                         sh """
+        //                             set -x
+        //                             docker run --rm \
+        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
+        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
+        //                                 -v /mnt/nfs/trivy/results:/results \
+        //                                 aquasec/trivy image \
+        //                                 --severity HIGH,CRITICAL \
+        //                                 --format json \
+        //                                 --output /results/${img.name}.json \
+        //                                 192.168.56.30/${img.name}:latest
 
-                                    docker run --rm \
-                                        -v /var/run/docker.sock:/var/run/docker.sock \
-                                        -v /opt/trivy-cache:/root/.cache/trivy \
-                                        -v /mnt/nfs/trivy/results:/results \
-                                        aquasec/trivy image \
-                                        --severity HIGH,CRITICAL \
-                                        --format template \
-                                        --template "@/contrib/html.tpl" \
-                                        --output /results/${img.name}.html \
-                                        192.168.56.30/${img.name}:latest
-                                """
-                            } else {
-                                echo "→ Aucun changement pour ${img.name}, scan ignoré."
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        //                             docker run --rm \
+        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
+        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
+        //                                 -v /mnt/nfs/trivy/results:/results \
+        //                                 aquasec/trivy image \
+        //                                 --severity HIGH,CRITICAL \
+        //                                 --format template \
+        //                                 --template "@/contrib/html.tpl" \
+        //                                 --output /results/${img.name}.html \
+        //                                 192.168.56.30/${img.name}:latest
+        //                         """
+        //                     } else {
+        //                         echo "→ Aucun changement pour ${img.name}, scan ignoré."
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
-        stage('Publish Security Reports trivey') {
-            agent { label 'security' }
-            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        // stage('Publish Security Reports trivey') {
+        //     agent { label 'security' }
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
-            steps {
-                script {
-                    sh 'mkdir -p reports/trivy reports/zap'
+        //     steps {
+        //         script {
+        //             sh 'mkdir -p reports/trivy reports/zap'
 
-                    def images = [
-                        [name: 'auth-service',    changed: env.CHANGED_AUTH],
-                        [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
-                        [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                        [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
-                    ]
+        //             def images = [
+        //                 [name: 'auth-service',    changed: env.CHANGED_AUTH],
+        //                 [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
+        //                 [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
+        //                 [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+        //             ]
 
-                    images.each { img ->
-                        if (img.changed == 'true') {
-                            sh """
-                                cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
-                                cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
-                            """
-                        }
-                    }
+        //             images.each { img ->
+        //                 if (img.changed == 'true') {
+        //                     sh """
+        //                         cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
+        //                         cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
+        //                     """
+        //                 }
+        //             }
 
-                    archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
+        //             archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
 
-                    images.each { img ->
-                        if (img.changed == 'true') {
-                            publishHTML(target: [
-                                allowMissing: true,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'reports/trivy',
-                                reportFiles: "${img.name}.html",
-                                reportName: "Trivy Report - ${img.name}"
-                            ])
-                        }
-                    }
-                }
-            }
-        }
+        //             images.each { img ->
+        //                 if (img.changed == 'true') {
+        //                     publishHTML(target: [
+        //                         allowMissing: true,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: 'reports/trivy',
+        //                         reportFiles: "${img.name}.html",
+        //                         reportName: "Trivy Report - ${img.name}"
+        //                     ])
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
@@ -480,7 +480,7 @@ pipeline {
             when { expression { env.CHANGED_DEPLOY == 'true' } }
 
             steps {
-                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/Expense_Tracker.git'
+                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
 
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-creds',
