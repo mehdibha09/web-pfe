@@ -94,41 +94,29 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
-        stage('Build') {
+stage('Build') {
             steps {
-                stage('authService') {
-                    when { expression { env.CHANGED_AUTH == 'true' } }
-                    steps {
+                script {
+
+                    if (env.CHANGED_AUTH == 'true') {
                         dir('authService') {
                             sh 'mvn clean install -DskipTests'
                         }
                     }
-                }
 
-                stage('cloudPricer') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_PRICER == 'true' } }
-                    steps {
+                    if (env.CHANGED_PRICER == 'true') {
                         dir('cloudPricer') {
                             sh 'mvn clean install -DskipTests'
                         }
                     }
-                }
 
-                stage('dashboard') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_DASHBOARD == 'true' } }
-                    steps {
+                    if (env.CHANGED_DASHBOARD == 'true') {
                         dir('dashboard') {
                             sh 'mvn clean install -DskipTests'
                         }
                     }
-                }
 
-                stage('frontend') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_FRONTEND == 'true' } }
-                    steps {
+                    if (env.CHANGED_FRONTEND == 'true') {
                         dir('frontend') {
                             sh 'npm install'
                             sh './node_modules/.bin/ng build --configuration production'
@@ -136,45 +124,34 @@ pipeline {
                     }
                 }
             }
-            
         }
 
-        // ─────────────────────────────────────────────
         stage('Test') {
-            when { expression { env.CHANGED_BACKEND == 'true' } }
             steps {
+                script {
 
-                stage('Test authService') {
-                    when { expression { env.CHANGED_AUTH == 'true' } }
-                    steps {
+                    if (env.CHANGED_AUTH == 'true') {
                         dir('authService') {
                             sh 'mvn test'
                         }
                     }
-                }
 
-                stage('Test cloudPricer') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_PRICER == 'true' } }
-                    steps {
+                    if (env.CHANGED_PRICER == 'true') {
                         dir('cloudPricer') {
                             sh 'mvn test'
                         }
                     }
-                }
 
-                stage('Test dashboard') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_DASHBOARD == 'true' } }
-                    steps {
+                    if (env.CHANGED_DASHBOARD == 'true') {
                         dir('dashboard') {
                             sh 'mvn test'
                         }
                     }
                 }
-
             }
         }
+
+        
 
         // ─────────────────────────────────────────────
         stage('Start Security VM') {
