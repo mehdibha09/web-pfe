@@ -59,7 +59,7 @@ The separate manifest files include:
    - ConfigMap: `backend-config` (Spring profiles and database config)
 
 - Secret: `postgres-secret` (Database credentials)
-- Service + Endpoints: `postgres` (points to external DB)
+- Service + EndpointSlice: `postgres` (points to external DB)
 - Deployment: auth-service
 - Service: auth-service
 
@@ -178,7 +178,7 @@ Current resource allocation:
 ```bash
 # Verify the Service/Endpoints that point to the external DB
 kubectl get svc postgres -n app-pfe -o wide
-kubectl get endpoints postgres -n app-pfe -o yaml
+kubectl get endpointslice -n app-pfe -l kubernetes.io/service-name=postgres -o yaml
 ```
 
 ### Service to Service Communication

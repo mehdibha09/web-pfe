@@ -25,12 +25,12 @@ metadata:
     app: postgres
 type: Opaque
 stringData:
-  POSTGRES_USER: auth_user
-  POSTGRES_PASSWORD: auth_password
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: password
   POSTGRES_DB: auth_service
 
 ---
-# PostgreSQL (EXTERNAL) Service + Endpoints
+# PostgreSQL (EXTERNAL) Service + EndpointSlice
 # Points the in-cluster DNS name `postgres` to an external DB at 192.168.56.40:5432.
 apiVersion: v1
 kind: Service
@@ -47,18 +47,21 @@ spec:
   type: ClusterIP
 
 ---
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
-  name: postgres
+  name: postgres-external
   namespace: app-pfe
-subsets:
+  labels:
+    kubernetes.io/service-name: postgres
+addressType: IPv4
+endpoints:
   - addresses:
-      - ip: 192.168.56.40
-    ports:
-      - name: postgres
-        port: 5432
-        protocol: TCP
+      - 192.168.56.40
+ports:
+  - name: postgres
+    port: 5432
+    protocol: TCP
 
 ---
 # Auth Service Deployment
