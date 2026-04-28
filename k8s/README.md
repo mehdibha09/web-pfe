@@ -40,9 +40,13 @@ kubectl apply -f namespace.yaml authService.yaml frontend.yaml
 # Verify deployment
 kubectl get all -n app-pfe
 
-# NodePort access (replace <node-ip> with your cluster node IP)
+# Access
+# - Auth service is exposed via NodePort (replace <node-ip> with your cluster node IP)
 curl http://<node-ip>:30707/actuator/health
-curl http://<node-ip>:30080/
+
+# - Frontend + API are exposed via Ingress (replace <ingress-ip-or-dns> with your ingress controller address)
+curl http://<ingress-ip-or-dns>/
+curl http://<ingress-ip-or-dns>/api/v1
 ```
 
 ### What Gets Deployed
@@ -126,7 +130,10 @@ kubectl describe pod -n app-pfe <pod-name>
 ```bash
 # NodePort access (replace <node-ip> with your cluster node IP)
 curl http://<node-ip>:30707/actuator/health
-curl http://<node-ip>:30080/
+
+# Ingress access (replace <ingress-ip-or-dns> with your ingress controller address)
+curl http://<ingress-ip-or-dns>/
+curl http://<ingress-ip-or-dns>/api/v1
 ```
 
 ## 🔄 Updates & Changes

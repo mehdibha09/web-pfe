@@ -210,7 +210,7 @@ spec:
               cpu: '200m'
 
 ---
-# Frontend Service - NodePort
+# Frontend Service - ClusterIP
 apiVersion: v1
 kind: Service
 metadata:
@@ -225,5 +225,34 @@ spec:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30080
-  type: NodePort
+  type: ClusterIP
+
+---
+# Ingress
+# NOTE: Do not set `spec.rules[].host` to an IP address.
+# If you want host-based routing, use a DNS name (e.g. app-pfe.local) and
+# configure your DNS or /etc/hosts accordingly.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-pfe-ingress
+  namespace: app-pfe
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 7070
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
