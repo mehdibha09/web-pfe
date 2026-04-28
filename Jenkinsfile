@@ -20,6 +20,9 @@ pipeline {
         CHANGED_BACKEND    = 'true'
         CHANGED_ANY_IMAGE  = 'true'
         CHANGED_DEPLOY     = 'true'
+
+        // Kubernetes rollout timeout (e.g. '600s', '10m')
+        K8S_ROLLOUT_TIMEOUT = '600s'
     }
 
     stages {
@@ -504,7 +507,7 @@ stage('Build') {
                                             ${svc.container}=192.168.56.30/${svc.image}:${BUILD_NUMBER}
 
                                         kubectl -n app-pfe rollout status \
-                                            deployment/${svc.deployment} --timeout=180s
+                                            deployment/${svc.deployment} --timeout=${env.K8S_ROLLOUT_TIMEOUT}
                                     """
                                 } else {
                                     echo "→ Déploiement ignoré pour ${svc.deployment} (aucun changement)"
