@@ -10,4 +10,5 @@ spec:
     - name: http
       port: 7070
       targetPort: 7070
-  type: ClusterIP
+      nodePort: 30707
+  type: NodePort

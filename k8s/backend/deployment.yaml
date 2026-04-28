@@ -13,9 +13,11 @@ spec:
       labels:
         app: auth-service
     spec:
+      imagePullSecrets:
+        - name: nexus-regcred
       containers:
         - name: auth-service
-          image: app-pfe-authservice:latest
+          image: 192.168.56.30/auth-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 7070

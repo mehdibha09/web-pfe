@@ -8,6 +8,7 @@ spec:
     app: frontend
   ports:
     - name: http
-      port: 7070
-      targetPort: 7070
-  type: ClusterIP
+      port: 80
+      targetPort: 80
+      nodePort: 30080
+  type: NodePort

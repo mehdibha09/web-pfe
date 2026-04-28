@@ -7,8 +7,8 @@ This directory contains Kubernetes manifests for deploying the app-pfe applicati
 Kubernetes resources for the app-pfe application are organized into separate manifest files for easier management:
 
 - **namespace.yaml** - Namespace definition
-- **authService.yaml** - AuthService with PostgreSQL database
-- **frontend.yaml** - Frontend UI with Ingress
+- **authService.yaml** - AuthService (connects to external PostgreSQL)
+- **frontend.yaml** - Frontend UI (NodePort) + Ingress
 
 ## 📁 Directory Structure
 
@@ -39,7 +39,10 @@ kubectl apply -f namespace.yaml authService.yaml frontend.yaml
 
 # Verify deployment
 kubectl get all -n app-pfe
-kubectl get ingress -n app-pfe
+
+# NodePort access (replace <node-ip> with your cluster node IP)
+curl http://<node-ip>:30707/actuator/health
+curl http://<node-ip>:30080/
 ```
 
 ### What Gets Deployed
@@ -50,22 +53,24 @@ The separate manifest files include:
 
 2. **authService.yaml** contains:
    - ConfigMap: `backend-config` (Spring profiles and database config)
-   - Secret: `postgres-secret` (Database credentials)
-   - StatefulSet: PostgreSQL database
-   - Service: postgres
-   - Deployment: auth-service
-   - Service: auth-service
+
+- Secret: `postgres-secret` (Database credentials)
+- Service + Endpoints: `postgres` (points to external DB)
+- Deployment: auth-service
+- Service: auth-service
 
 3. **frontend.yaml** contains:
    - Deployment: frontend web UI
    - Service: frontend
-   - Ingress: Routes `/api/v1` → auth-service, `/` → frontend
+
+- Ingress: `app-pfe-ingress`
+
+> Note: Ingress `spec.rules[].host` must be a DNS name (or omitted). Do not set it to an IP address.
 
 ## 🎯 Images
 
 - Backend: `192.168.56.30/auth-service:latest`
 - Frontend: `192.168.56.30/expense-frontend:latest`
-- Database: `postgres:16-alpine`
 
 ## 🔐 Security Notes
 
@@ -119,17 +124,9 @@ kubectl describe pod -n app-pfe <pod-name>
 ### Test Connectivity
 
 ```bash
-# Port forward to auth-service
-kubectl port-forward -n app-pfe svc/auth-service 7070:7070
-
-# In another terminal
-curl http://localhost:7070/actuator/health
-
-# Port forward to frontend
-kubectl port-forward -n app-pfe svc/frontend 8080:80
-
-# In another terminal
-curl http://localhost:8080
+# NodePort access (replace <node-ip> with your cluster node IP)
+curl http://<node-ip>:30707/actuator/health
+curl http://<node-ip>:30080/
 ```
 
 ## 🔄 Updates & Changes
@@ -172,19 +169,19 @@ Current resource allocation:
 ### PostgreSQL Connection Issues
 
 ```bash
-# Check PostgreSQL pod
-kubectl exec -it -n app-pfe postgres-0 -- psql -U auth_user -d auth_service
-
-# Check metadata
-kubectl describe statefulset postgres -n app-pfe
-kubectl describe pvc -n app-pfe
+# Verify the Service/Endpoints that point to the external DB
+kubectl get svc postgres -n app-pfe -o wide
+kubectl get endpoints postgres -n app-pfe -o yaml
 ```
 
 ### Service to Service Communication
 
 ```bash
-# Test from auth-service pod
-kubectl exec -it -n app-pfe deployment/auth-service -- curl http://postgres:5432
+# Test connectivity to external DB from inside the cluster
+kubectl run -it --rm -n app-pfe pg-check \
+  --image=postgres:16-alpine \
+  --restart=Never \
+  -- sh -lc 'pg_isready -h postgres -p 5432'
 
 # Check service DNS
 kubectl get svc -n app-pfe

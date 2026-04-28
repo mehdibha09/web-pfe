@@ -13,9 +13,11 @@ spec:
       labels:
         app: frontend
     spec:
+      imagePullSecrets:
+        - name: nexus-regcred
       containers:
         - name: frontend
-          image: app-pfe-frontend:latest
+          image: 192.168.56.30/expense-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 7070
+            - containerPort: 80

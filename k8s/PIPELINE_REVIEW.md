@@ -14,23 +14,19 @@
 
 ## 🔴 Issues & Recommendations
 
-### 1. **Frontend Port Configuration Mismatch**
+### 1. **Frontend Port Configuration**
 
-**Problem**: Frontend deployment exposes port 7070, but Ingress routes to port 80
-
-**Fix - Update Jenkinsfile or frontend Dockerfile**:
+**Status**: Frontend is aligned to port 80 and exposed via NodePort.
 
 ```yaml
-# Option A: Frontend runs on port 80 (recommended)
+# Frontend runs on port 80
 - containerPort: 80
-- Ingress routes to port 80
 
-# Option B: Keep frontend on 7070
-- Update all services to use consistent port
-- Ingress: port: 7070
+# Service exposes NodePort
+- nodePort: 30080
 ```
 
-**Recommended**: Update frontend nginx.conf to listen on port 80 and change deployment accordingly.
+**Recommended**: Keep nginx.conf listening on port 80.
 
 ---
 
@@ -56,8 +52,7 @@ frontend:
   limits: cpu: 200m, memory: 256Mi
 
 PostgreSQL:
-  requests: cpu: 250m, memory: 512Mi
-  limits: cpu: 500m, memory: 1Gi
+  (external) managed outside the cluster
 ```
 
 ---
@@ -167,31 +162,18 @@ volumes:
 
 ---
 
-### 8. **Ingress Hostname Configuration**
+### 8. **Service Exposure (NodePort)**
 
-**Current**: `host: 192.168.56.40` (IP-based routing)
-**Problem**: Not production-ready, difficult to manage across environments
-
-**Improvement**:
-
-```yaml
-# Option A: Use DNS names
-- host: app-pfe.local
-  http:
-    paths: [...]
-
-# Option B: Parameterize host
-- host: ${INGRESS_HOST} # Set via Kustomize/Helm
-```
+**Current**: Services are exposed via NodePort (no Ingress)
+**Notes**: Simple for local/dev; for production, prefer an Ingress/LoadBalancer with DNS.
 
 ---
 
 ### 9. **ImagePullPolicy**
 
-**Fixed in consolidated manifest**: Changed to `Always` ✅
+**Current**: `IfNotPresent`
 
-- Ensures latest image is always pulled
-- Critical for CI/CD pipelines
+- Works well when you deploy immutable tags (e.g., `${BUILD_NUMBER}`) as the pipeline does.
 
 ---
 
@@ -211,7 +193,7 @@ volumes:
 
 ### Phase 1: Immediate Fixes (This Sprint)
 
-- [ ] Fix frontend port (80 vs 7070)
+- [x] Fix frontend port (80 vs 7070)
 - [ ] Add resource requests/limits
 - [ ] Update probe configurations
 - [ ] Secure database credentials
@@ -219,8 +201,7 @@ volumes:
 ### Phase 2: Medium-term (Next Sprint)
 
 - [ ] Implement database migrations properly
-- [ ] Add StorageClass configuration
-- [ ] Set up parameterized Ingress hostnames
+- [ ] Add StorageClass configuration (only if you run stateful workloads)
 - [ ] Implement health check endpoints
 
 ### Phase 3: Long-term (Stabilization)
