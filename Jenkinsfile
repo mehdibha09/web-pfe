@@ -244,7 +244,6 @@ stage('Build') {
                         failure { echo "Sonar cloudPricer : échec d'exécution." }
                     }
                 }
-
                 stage('Sonar dashboard') {
                     // Désactivé temporairement: focus authService only
                     when { expression { env.CHANGED_DASHBOARD == 'true' } }
@@ -294,7 +293,7 @@ stage('Build') {
                             [folder: 'authService',  image: 'auth-service',    changed: env.CHANGED_AUTH],
                             [folder: 'cloudPricer',  image: 'cloud-pricer',    changed: env.CHANGED_PRICER],
                             [folder: 'dashboard',    image: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                            [folder: 'frontend',     image: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+                            [folder: 'frontend',     image: 'frontend', changed: env.CHANGED_FRONTEND],
                         ]
 
                         services.each { svc ->
@@ -373,7 +372,7 @@ stage('Build') {
                             [name: 'auth-service',    changed: env.CHANGED_AUTH],
                             [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
                             [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                            [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+                            [name: 'frontend', changed: env.CHANGED_FRONTEND],
                         ]
 
                         images.each { img ->
@@ -424,7 +423,7 @@ stage('Build') {
                         [name: 'auth-service',    changed: env.CHANGED_AUTH],
                         [name: 'cloud-pricer',    changed: env.CHANGED_PRICER],
                         [name: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                        [name: 'expense-frontend', changed: env.CHANGED_FRONTEND],
+                        [name: 'frontend', changed: env.CHANGED_FRONTEND],
                     ]
 
                     images.each { img ->
