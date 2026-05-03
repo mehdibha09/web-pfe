@@ -13,7 +13,7 @@ pipeline {
         CHANGED_AUTH       = 'true'
         CHANGED_PRICER     = 'false'
         CHANGED_DASHBOARD  = 'false'
-        CHANGED_FRONTEND   = 'false'
+        CHANGED_FRONTEND   = 'true'
         CHANGED_K8S        = 'false'
         CHANGED_MONITORING = 'false'
         // Aggregate flags - set to true for full pipeline testing
