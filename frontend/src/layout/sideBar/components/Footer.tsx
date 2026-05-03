@@ -1,10 +1,13 @@
-import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../../services/authService';
 import { clearSession, getRefreshToken } from '../../../services/authStorage';
 import Module from './Module';
 
-const Footer = ({ isMenuClosed }) => {
+interface FooterProps {
+  isMenuClosed: boolean;
+}
+
+const Footer = ({ isMenuClosed }: FooterProps) => {
   const navigate = useNavigate();
 
   return (
@@ -24,10 +27,6 @@ const Footer = ({ isMenuClosed }) => {
       }}
     />
   );
-};
-
-Footer.propTypes = {
-  isMenuClosed: PropTypes.bool,
 };
 
 export default Footer;

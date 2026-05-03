@@ -6,7 +6,6 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import Person2Icon from '@mui/icons-material/Person2';
 import { Box } from '@mui/material';
-import propTypes from 'prop-types';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getStoredUser } from '../../../services/authStorage';
@@ -20,7 +19,11 @@ import {
 } from '../../../services/authorization';
 import Module from './Module';
 
-const Body = ({ isMenuClosed }) => {
+interface BodyProps {
+  isMenuClosed: boolean;
+}
+
+const Body = ({ isMenuClosed }: BodyProps) => {
   const location = useLocation();
   const currentLink = location.pathname.replace(/^\//, '');
   const [user, setUser] = useState(getStoredUser());
@@ -98,10 +101,6 @@ const Body = ({ isMenuClosed }) => {
       ))}
     </Box>
   );
-};
-
-Body.propTypes = {
-  isMenuClosed: propTypes.bool.isRequired,
 };
 
 export default Body;

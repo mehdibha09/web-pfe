@@ -1,5 +1,4 @@
 import { Box, Typography } from '@mui/material';
-import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 
 const vericalCenterStyle = {
@@ -10,7 +9,12 @@ const vericalCenterStyle = {
   height: '100%',
 };
 
-const Header = ({ isMenuClosed, setMenuClosing }) => {
+interface HeaderProps {
+  isMenuClosed: boolean;
+  setMenuClosing: () => void;
+}
+
+const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
   return (
     <Box
       sx={{
@@ -84,11 +88,6 @@ const Header = ({ isMenuClosed, setMenuClosing }) => {
       </Box>
     </Box>
   );
-};
-
-Header.propTypes = {
-  isMenuClosed: PropTypes.bool,
-  setMenuClosing: PropTypes.func,
 };
 
 export default Header;

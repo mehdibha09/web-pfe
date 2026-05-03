@@ -1,6 +1,14 @@
+import type { SxProps, Theme } from '@mui/material';
 import { Button } from '@mui/material';
-import PropTypes from 'prop-types';
-const MyCustomButton = ({ children, sx = {}, ...otherProps }) => {
+import type { ReactNode } from 'react';
+
+interface MyCustomButtonProps {
+  children: ReactNode;
+  sx?: SxProps<Theme>;
+  [key: string]: any;
+}
+
+const MyCustomButton = ({ children, sx = {}, ...otherProps }: MyCustomButtonProps) => {
   return (
     <Button
       sx={{
@@ -20,10 +28,6 @@ const MyCustomButton = ({ children, sx = {}, ...otherProps }) => {
       {children}
     </Button>
   );
-};
-MyCustomButton.propTypes = {
-  children: PropTypes.node.isRequired,
-  sx: PropTypes.object,
 };
 
 export default MyCustomButton;

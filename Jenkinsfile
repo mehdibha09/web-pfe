@@ -611,3 +611,5 @@ stage('Build') {
         failure { echo 'Pipeline en échec. Consulter les logs.' }
     }
 }
+
+

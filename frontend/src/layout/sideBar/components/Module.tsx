@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import PropTypes from 'prop-types';
+import type { ElementType } from 'react';
 import { NavLink } from 'react-router-dom';
 
 const vericalCenterStyle = {
@@ -10,14 +10,23 @@ const vericalCenterStyle = {
   justifyContent: 'space-between',
 };
 
+interface ModuleProps {
+  label: string;
+  link: string;
+  selectedIndex: string;
+  isMenuClosed: boolean;
+  onClick?: () => void;
+  icon?: ElementType;
+}
+
 const Module = ({
   label,
   link,
   selectedIndex,
   isMenuClosed,
   onClick = () => {},
-  icon: Icon = null,
-}) => {
+  icon: Icon = undefined,
+}: ModuleProps) => {
   const isSelected = link === selectedIndex;
 
   return (
@@ -104,15 +113,6 @@ const Module = ({
       </Box>
     </Box>
   );
-};
-
-Module.propTypes = {
-  label: PropTypes.string.isRequired,
-  link: PropTypes.string.isRequired,
-  selectedIndex: PropTypes.string.isRequired,
-  isMenuClosed: PropTypes.bool.isRequired,
-  onClick: PropTypes.func,
-  icon: PropTypes.elementType,
 };
 
 export default Module;

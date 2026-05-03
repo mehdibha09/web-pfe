@@ -143,7 +143,6 @@ const Login = () => {
           helperText={errors.email?.message}
         />
         <TextField
-          name="password"
           label="Password"
           variant="outlined"
           id="outlined-basic"
