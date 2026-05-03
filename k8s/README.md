@@ -17,11 +17,10 @@ k8s/
 ├── namespace.yaml              # Kubernetes namespace definition
 ├── authService.yaml            # AuthService (with PostgreSQL, ConfigMap, Secret)
 ├── frontend.yaml               # Frontend (with Deployment, Service, Ingress)
+├── all-resources.yaml          # Optional consolidated manifest (manual use)
 ├── README.md                   # This file
 ├── PIPELINE_REVIEW.md          # Detailed review & recommendations
-├── backend/                    # (Legacy - kept for reference)
-├── frontend/                   # (Legacy - kept for reference)
-└── shared/                     # (Legacy - kept for reference)
+└── (no legacy subfolders)
 ```
 
 ## 🚀 Quick Start
@@ -101,7 +100,7 @@ kubectl create secret generic postgres-secret \
 ### Dry Run (No Changes)
 
 ```bash
-kubectl apply -f all-resources.yaml --dry-run=client
+kubectl apply -f namespace.yaml -f authService.yaml -f frontend.yaml --dry-run=client
 ```
 
 ### View All Resources
@@ -156,7 +155,7 @@ kubectl rollout undo deployment/auth-service -n app-pfe
 ### Delete All Resources
 
 ```bash
-kubectl delete -f all-resources.yaml
+kubectl delete -f frontend.yaml -f authService.yaml -f namespace.yaml
 ```
 
 ## 📊 Resource Limits
@@ -167,9 +166,8 @@ Current resource allocation:
 | ------------ | ----------- | -------------- | --------- | ------------ |
 | auth-service | 250m        | 256Mi          | 500m      | 512Mi        |
 | frontend     | 100m        | 128Mi          | 200m      | 256Mi        |
-| postgresql   | 250m        | 512Mi\*        | 500m      | 1Gi\*        |
 
-\*PostgreSQL limits not enforced in manifest for data safety. Update as needed.
+PostgreSQL is external in this setup and is not managed by these manifests.
 
 ## 🛠️ Troubleshooting
 
@@ -228,8 +226,8 @@ kubectl create secret generic postgres-secret \
   --from-literal=POSTGRES_PASSWORD=<new-password> \
   -n app-pfe
 
-# Then restart database
-kubectl delete pod postgres-0 -n app-pfe
+# Restart app to reload env vars from Secret
+kubectl rollout restart deployment/auth-service -n app-pfe
 ```
 
 ## 📈 Next Steps

@@ -123,7 +123,7 @@ stage('Build') {
                     if (env.CHANGED_FRONTEND == 'true') {
                         dir('frontend') {
                             sh 'npm install'
-                            sh 'npm run build -- --configuration production'
+                            sh 'npm run build'
                         }
                     }
                 }
