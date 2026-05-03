@@ -611,7 +611,3 @@ stage('Build') {
         failure { echo 'Pipeline en échec. Consulter les logs.' }
     }
 }
-
-
-+ ./node_modules/.bin/ng build --configuration production
-/var/jenkins_home/workspace/expense-tracker-pipeline/frontend@tmp/durable-1ff4fd82/script.sh.copy: 1: ./node_modules/.bin/ng: not found
