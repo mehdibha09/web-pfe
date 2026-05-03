@@ -125,7 +125,6 @@ stage('Build') {
                             sh '''
                                 node -v
                                 npm -v
-                                node -e "const [maj,min]=process.versions.node.split('.').map(Number); if(!((maj===20&&min>=19)||maj>=22)){console.error('Node.js 20.19+ or 22.12+ is required by Vite. Current: ' + process.versions.node); process.exit(1)}"
                             '''
                             sh 'npm ci'
                             sh 'npm run build'

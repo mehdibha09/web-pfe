@@ -26,6 +26,13 @@ spec:
         - name: frontend
           image: 192.168.56.30/expense-frontend:latest
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: frontend-config
+                optional: true
+            - secretRef:
+                name: frontend-secret
+                optional: true
           ports:
             - containerPort: 80
               name: http

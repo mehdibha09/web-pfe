@@ -14,38 +14,6 @@ metadata:
   labels:
     name: app-pfe
 
----
-# ConfigMap - Backend Configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: backend-config
-  namespace: app-pfe
-  labels:
-    app: backend
-data:
-  SPRING_PROFILES_ACTIVE: prod
-  DB_HOST: postgres
-  DB_PORT: '5432'
-  DB_NAME: auth_service
-  SERVER_PORT: '7070'
-
----
-# Secret - Database Credentials
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: app-pfe
-  labels:
-    app: postgres
-type: Opaque
-stringData:
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: password
-  POSTGRES_DB: auth_service
-
----
 # PostgreSQL (EXTERNAL) Service + EndpointSlice
 # Points the in-cluster DNS name `postgres` to an external DB at 192.168.56.40:5432.
 apiVersion: v1
@@ -185,6 +153,13 @@ spec:
         - name: frontend
           image: 192.168.56.30/expense-frontend:latest
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: frontend-config
+                optional: true
+            - secretRef:
+                name: frontend-secret
+                optional: true
           ports:
             - containerPort: 80
               name: http
