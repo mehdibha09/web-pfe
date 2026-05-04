@@ -24,7 +24,7 @@ spec:
         - name: nexus-regcred
       containers:
         - name: frontend
-          image: 192.168.56.30/expense-frontend:latest
+          image: 192.168.56.30/frontend:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
