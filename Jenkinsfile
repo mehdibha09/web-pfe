@@ -499,9 +499,9 @@ stage('Build') {
                                 # Create postgres-secret with database credentials
                                 kubectl -n app-pfe create secret generic postgres-secret \
                                     --from-literal=POSTGRES_USER=auth_user \
-                                    --from-literal=POSTGRES_PASSWORD=auth_password \
+                                    --from-literal=POSTGRES_PASSWORD=password \
                                     --from-literal=DB_USERNAME=auth_user \
-                                    --from-literal=DB_PASSWORD=auth_password \
+                                    --from-literal=DB_PASSWORD=password \
                                     --dry-run=client -o yaml | kubectl apply -f -
 
                                 # Deploy authService with database

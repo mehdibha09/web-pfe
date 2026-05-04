@@ -53,7 +53,7 @@ metadata:
 type: Opaque
 stringData:
   SPRING_DATASOURCE_USERNAME: auth_user
-  SPRING_DATASOURCE_PASSWORD: auth_password
+  SPRING_DATASOURCE_PASSWORD: password
 
 ---
 apiVersion: apps/v1
