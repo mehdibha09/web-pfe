@@ -611,6 +611,26 @@ SQL
                                     --docker-email=devnull@example.com \
                                     --dry-run=client -o yaml | kubectl apply -f -
 
+                                # Verify postgres-secret exists with required keys
+                                echo "Checking postgres-secret..."
+                                if ! kubectl -n app-pfe get secret postgres-secret &>/dev/null; then
+                                    echo "ERROR: postgres-secret does not exist in namespace app-pfe"
+                                    echo "Create it manually with:"
+                                    echo "kubectl -n app-pfe create secret generic postgres-secret \\"
+                                    echo "  --from-literal=SPRING_DATASOURCE_USERNAME=auth_user \\"
+                                    echo "  --from-literal=SPRING_DATASOURCE_PASSWORD=password \\"
+                                    echo "  --from-literal=MAIL_PASSWORD=<your-brevo-api-key>"
+                                    exit 1
+                                fi
+                                
+                                # Verify all required keys exist
+                                for key in SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD MAIL_PASSWORD; do
+                                    if ! kubectl -n app-pfe get secret postgres-secret -o jsonpath="{.data.$key}" &>/dev/null; then
+                                        echo "ERROR: Key '$key' missing in postgres-secret"
+                                        exit 1
+                                    fi
+                                done
+                                echo "✓ postgres-secret verified with all required keys"
 
                                 # Deploy authService with database
                                 kubectl apply -f authService.yaml
