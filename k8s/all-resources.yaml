@@ -14,8 +14,10 @@ metadata:
   labels:
     name: app-pfe
 
+
 # PostgreSQL (EXTERNAL) Service + EndpointSlice
 # Points the in-cluster DNS name `postgres` to an external DB at 192.168.56.40:5432.
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -151,7 +153,7 @@ spec:
         - name: nexus-regcred
       containers:
         - name: frontend
-          image: 192.168.56.30/expense-frontend:latest
+          image: 192.168.56.30/frontend:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

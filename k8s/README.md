@@ -73,7 +73,7 @@ The separate manifest files include:
 ## 🎯 Images
 
 - Backend: `192.168.56.30/auth-service:latest`
-- Frontend: `192.168.56.30/expense-frontend:latest`
+- Frontend: `192.168.56.30/frontend:latest`
 
 ## 🔐 Security Notes
 
