@@ -356,19 +356,6 @@ stage('Build') {
                             // Safety net for schema drift: ensure full auth_service schema exists
                             sh '''
 psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
--- Drop and recreate schema to ensure correct ownership
-DROP TABLE IF EXISTS sso_identities CASCADE;
-DROP TABLE IF EXISTS password_reset_tokens CASCADE;
-DROP TABLE IF EXISTS user_two_factor CASCADE;
-DROP TABLE IF EXISTS audit_logs CASCADE;
-DROP TABLE IF EXISTS role_permissions CASCADE;
-DROP TABLE IF EXISTS user_roles CASCADE;
-DROP TABLE IF EXISTS sessions CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS roles CASCADE;
-DROP TABLE IF EXISTS permissions CASCADE;
-DROP TABLE IF EXISTS tenants CASCADE;
-
 CREATE TABLE IF NOT EXISTS tenants (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
@@ -632,14 +619,10 @@ SQL
                                     --from-literal=DB_NAME=auth_service \
                                     --from-literal=MAIL_HOST=smtp-relay.brevo.com \
                                     --from-literal=MAIL_PORT=587 \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-
-                                # Create postgres-secret with database credentials
-                                kubectl -n app-pfe create secret generic postgres-secret \
-                                    --from-literal=POSTGRES_USER=auth_user \
-                                    --from-literal=POSTGRES_PASSWORD=password \
-                                    --from-literal=DB_USERNAME=auth_user \
-                                    --from-literal=DB_PASSWORD=password \
+                                    --from-literal=MAIL_USERNAME=apikey \
+                                    --from-literal=MAIL_FROM=noreply@auth-service.local \
+                                    --from-literal=FRONTEND_BASE_URL=http://frontend \
+                                    --from-literal=MANAGEMENT_HEALTH_MAIL_ENABLED=false \
                                     --dry-run=client -o yaml | kubectl apply -f -
 
                                 # Deploy authService with database
