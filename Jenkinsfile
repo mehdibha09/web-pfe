@@ -356,8 +356,6 @@ stage('Build') {
                             // Safety net for schema drift: ensure full auth_service schema exists
                             sh '''
 psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 CREATE TABLE IF NOT EXISTS tenants (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
