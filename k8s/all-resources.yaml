@@ -1,36 +1,20 @@
-# ============================================================================
-# Consolidated Kubernetes Manifests for app-pfe
-# ============================================================================
-# This file consolidates all Kubernetes resources for the app-pfe application.
-# Deploy all resources with: kubectl apply -f all-resources.yaml
-# ============================================================================
-
----
-# Namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: app-pfe
-  labels:
-    name: app-pfe
 
-
-# PostgreSQL (EXTERNAL) Service + EndpointSlice
-# Points the in-cluster DNS name `postgres` to an external DB at 192.168.56.40:5432.
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: postgres
   namespace: app-pfe
-  labels:
-    app: postgres
 spec:
+  type: ClusterIP
   ports:
     - name: postgres
       port: 5432
       targetPort: 5432
-  type: ClusterIP
 
 ---
 apiVersion: discovery.k8s.io/v1
@@ -50,14 +34,33 @@ ports:
     protocol: TCP
 
 ---
-# Auth Service Deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: app-pfe
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: '7070'
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: app-pfe
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_USERNAME: auth_user
+  SPRING_DATASOURCE_PASSWORD: auth_password
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-service
   namespace: app-pfe
-  labels:
-    app: auth-service
 spec:
   replicas: 1
   selector:
@@ -67,62 +70,62 @@ spec:
     metadata:
       labels:
         app: auth-service
-      annotations:
-        timestamp: 'will-be-set-by-pipeline'
     spec:
       imagePullSecrets:
         - name: nexus-regcred
-      tolerations:
-        - operator: Exists
-          effect: NoExecute
-        - operator: Exists
-          effect: NoSchedule
       containers:
         - name: auth-service
           image: 192.168.56.30/auth-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 7070
-              name: http
-          envFrom:
-            - configMapRef:
-                name: backend-config
-            - secretRef:
-                name: postgres-secret
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: SERVER_PORT
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 7070
             initialDelaySeconds: 20
             periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 7070
             initialDelaySeconds: 40
             periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
-          resources:
-            requests:
-              memory: '256Mi'
-              cpu: '250m'
-            limits:
-              memory: '512Mi'
-              cpu: '500m'
 
 ---
-# Auth Service - NodePort Service
 apiVersion: v1
 kind: Service
 metadata:
   name: auth-service
   namespace: app-pfe
-  labels:
-    app: auth-service
 spec:
+  type: NodePort
   selector:
     app: auth-service
   ports:
@@ -130,119 +133,3 @@ spec:
       port: 7070
       targetPort: 7070
       nodePort: 30707
-  type: NodePort
-
----
-# Frontend Deployment
-# NOTE: Ensure nginx.conf in frontend image listens on port 80
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: frontend
-  namespace: app-pfe
-  labels:
-    app: frontend
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-      annotations:
-        timestamp: 'will-be-set-by-pipeline'
-    spec:
-      imagePullSecrets:
-        - name: nexus-regcred
-      tolerations:
-        - operator: Exists
-          effect: NoExecute
-        - operator: Exists
-          effect: NoSchedule
-      containers:
-        - name: frontend
-          image: 192.168.56.30/frontend:latest
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - configMapRef:
-                name: frontend-config
-                optional: true
-            - secretRef:
-                name: frontend-secret
-                optional: true
-          ports:
-            - containerPort: 80
-              name: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 80
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 80
-            initialDelaySeconds: 30
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
-          resources:
-            requests:
-              memory: '128Mi'
-              cpu: '100m'
-            limits:
-              memory: '256Mi'
-              cpu: '200m'
-
----
-# Frontend Service - ClusterIP
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-  namespace: app-pfe
-  labels:
-    app: frontend
-spec:
-  selector:
-    app: frontend
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80
-  type: ClusterIP
-
----
-# Ingress
-# NOTE: Do not set `spec.rules[].host` to an IP address.
-# If you want host-based routing, use a DNS name (e.g. app-pfe.local) and
-# configure your DNS or /etc/hosts accordingly.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: app-pfe-ingress
-  namespace: app-pfe
-spec:
-  ingressClassName: nginx
-  rules:
-    - http:
-        paths:
-          - path: /api/v1
-            pathType: Prefix
-            backend:
-              service:
-                name: auth-service
-                port:
-                  number: 7070
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80
