@@ -611,19 +611,6 @@ SQL
                                     --docker-email=devnull@example.com \
                                     --dry-run=client -o yaml | kubectl apply -f -
 
-                                # Create backend ConfigMap with Spring configuration
-                                kubectl -n app-pfe create configmap backend-config \
-                                    --from-literal=SPRING_PROFILES_ACTIVE=prod \
-                                    --from-literal=DB_HOST=postgres \
-                                    --from-literal=DB_PORT=5432 \
-                                    --from-literal=DB_NAME=auth_service \
-                                    --from-literal=MAIL_HOST=smtp-relay.brevo.com \
-                                    --from-literal=MAIL_PORT=587 \
-                                    --from-literal=MAIL_USERNAME=apikey \
-                                    --from-literal=MAIL_FROM=noreply@auth-service.local \
-                                    --from-literal=FRONTEND_BASE_URL=http://frontend \
-                                    --from-literal=MANAGEMENT_HEALTH_MAIL_ENABLED=false \
-                                    --dry-run=client -o yaml | kubectl apply -f -
 
                                 # Deploy authService with database
                                 kubectl apply -f authService.yaml
