@@ -486,6 +486,24 @@ stage('Build') {
                                     --docker-email=devnull@example.com \
                                     --dry-run=client -o yaml | kubectl apply -f -
 
+                                # Create backend ConfigMap with Spring configuration
+                                kubectl -n app-pfe create configmap backend-config \
+                                    --from-literal=SPRING_PROFILES_ACTIVE=prod \
+                                    --from-literal=DB_HOST=postgres \
+                                    --from-literal=DB_PORT=5432 \
+                                    --from-literal=DB_NAME=auth_service \
+                                    --from-literal=MAIL_HOST=smtp-relay.brevo.com \
+                                    --from-literal=MAIL_PORT=587 \
+                                    --dry-run=client -o yaml | kubectl apply -f -
+
+                                # Create postgres-secret with database credentials
+                                kubectl -n app-pfe create secret generic postgres-secret \
+                                    --from-literal=POSTGRES_USER=auth_user \
+                                    --from-literal=POSTGRES_PASSWORD=auth_password \
+                                    --from-literal=DB_USERNAME=auth_user \
+                                    --from-literal=DB_PASSWORD=auth_password \
+                                    --dry-run=client -o yaml | kubectl apply -f -
+
                                 # Deploy authService with database
                                 kubectl apply -f authService.yaml
 
