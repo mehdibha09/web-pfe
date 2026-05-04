@@ -498,7 +498,7 @@ stage('Build') {
                                 [image: 'auth-service',    deployment: 'auth-service',    container: 'auth-service',    changed: env.CHANGED_AUTH],
                                 [image: 'cloud-pricer',    deployment: 'cloud-pricer',    container: 'cloud-pricer',    changed: env.CHANGED_PRICER],
                                 [image: 'dashboard',       deployment: 'dashboard',       container: 'dashboard',       changed: env.CHANGED_DASHBOARD],
-                                [image: 'expense-frontend', deployment: 'frontend',        container: 'frontend',        changed: env.CHANGED_FRONTEND],
+                                [image: 'frontend', deployment: 'frontend',        container: 'frontend',        changed: env.CHANGED_FRONTEND],
                             ]
 
                             services.each { svc ->
