@@ -1,222 +1,513 @@
 ================================================================================
-AUTH SERVICE API DOCUMENTATION
+AUTH SERVICE API DOCUMENTATION (Code-aligned)
 ================================================================================
-Date: April 21, 2026
-Base URL: http://localhost:8080/api/v1
+Base URL (default): http://localhost:7070/api/v1
 
-================================================================================
-TOKEN AUTHENTICATION RULES
-================================================================================
-- Auth token (Bearer access token): header "Authorization: Bearer <access_token>"
-- Refresh token: in request body on refresh/logout endpoints
-- No token required: login, forgot-password, reset-password, SSO endpoints
+This document reflects the endpoints and DTOs implemented in the codebase.
 
 ================================================================================
-AUTH APIS
+AUTHENTICATION MODEL
+================================================================================
+The backend persists sessions in the database.
+
+- Access token: send in header
+    Authorization: Bearer <accessToken>
+
+- Refresh token: sent in request body (JSON) for refresh;
+  optionally sent on logout.
+
+Token TTL (hardcoded in AuthService):
+- Access token: 7 days
+- Refresh token: 7 days (rotation on refresh)
+
+Public (no token):
+- POST /auth/login
+- POST /auth/2fa/email/verify
+- POST /auth/forgot-password
+- POST /auth/reset-password
+- GET /auth/sso/{provider}/redirect
+- GET /auth/sso/{provider}/callback
+
+Protected (requires Bearer token):
+- GET /auth/me
+- POST /auth/change-password
+- POST /auth/update-email
+- POST /auth/2fa/setup
+- POST /auth/2fa/verify
+- DELETE /auth/2fa
+
+All admin endpoints require Bearer token.
+
+================================================================================
+ERROR FORMAT
+================================================================================
+Errors are returned as JSON:
+
+{
+  "timestamp": "2026-05-05T12:34:56.789Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/auth/login",
+  "code": "VALIDATION_ERROR",
+  "fields": [
+    { "field": "email", "message": "must not be blank" }
+  ]
+}
+
+================================================================================
+DEFAULT SEED DATA (DEV)
+================================================================================
+On startup, the service seeds tenants, roles, permissions, and users.
+
+- Default password: test
+- Example users:
+  - superadmin@gmail.com (role: super-admin)
+  - admin@gmail.com (role: admin)
+
+================================================================================
+HEADERS USED BY THE BACKEND
+================================================================================
+During login/refresh/2FA-email-verify, the backend records metadata (if present):
+- X-Forwarded-For / X-Real-IP / Remote IP (for IP address)
+- User-Agent
+- Accept-Language
+- X-Client-Timezone
+
+================================================================================
+AUTH ENDPOINTS
 ================================================================================
 
-
-
-
-6. POST /auth/forgot-password
-   URL: http://localhost:8080/api/v1/auth/forgot-password
-   Token needed: NO
-   Body example:
+1) POST /auth/login
+   Public: YES
+   Body:
    {
-     "email": "admin@example.com",
-     "tenantId": "11111111-1111-1111-1111-111111111111",
-     "tenantName": "acme"
+     "email": "admin@gmail.com",
+     "password": "test",
+     "tenantId": "<optional UUID>",
+     "tenantName": "<optional tenant name>"
    }
-   Notes: email (required), tenantId (optional), tenantName (optional)
 
-7. POST /auth/reset-password
-   URL: http://localhost:8080/api/v1/auth/reset-password
-   Token needed: NO
-   Body example:
+   Response (2FA not required):
    {
-     "token": "reset-token-from-email",
+     "tokens": {
+       "accessToken": "atk_...",
+       "refreshToken": "rtk_...",
+       "tokenType": "Bearer",
+       "expiresIn": 604800
+     },
+     "me": {
+       "userId": "...",
+       "email": "...",
+       "tenantId": "...",
+       "tenantName": "...",
+       "status": "ACTIVE",
+       "roles": ["admin"],
+       "permissions": ["USER_READ", "USER_MANAGE"],
+       "twoFaEnabled": false
+     },
+     "twoFaRequired": false,
+     "message": null
+   }
+
+   Response (2FA required):
+   {
+     "tokens": null,
+     "me": { "...": "..." },
+     "twoFaRequired": true,
+     "message": "A verification code has been sent to your email address"
+   }
+
+2) POST /auth/2fa/email/verify
+   Public: YES
+   Used when login returned twoFaRequired=true.
+
+   Body:
+   {
+     "email": "admin@gmail.com",
+     "code": "123456"
+   }
+
+   Response: same shape as /auth/login success (includes tokens).
+
+3) POST /auth/refresh
+   Public: YES
+   Rotates refresh token: revokes old session, creates a new one.
+
+   Body:
+   {
+     "refreshToken": "rtk_..."
+   }
+
+   Response:
+   {
+     "accessToken": "atk_...",
+     "refreshToken": "rtk_...",
+     "tokenType": "Bearer",
+     "expiresIn": 604800
+   }
+
+4) POST /auth/logout
+   Public: YES (but must provide refreshToken or Authorization)
+   Revokes the session referenced by:
+   - refreshToken (preferred), or
+   - Authorization Bearer access token
+
+   Body (optional):
+   {
+     "refreshToken": "rtk_..."
+   }
+
+   Response:
+   { "message": "Logout successful" }
+
+5) GET /auth/me
+   Protected: YES
+   Response:
+   {
+     "userId": "...",
+     "email": "...",
+     "tenantId": "...",
+     "tenantName": "...",
+     "status": "ACTIVE",
+     "roles": ["admin"],
+     "permissions": ["..."],
+     "twoFaEnabled": false
+   }
+
+6) POST /auth/change-password
+   Protected: YES
+   Body:
+   {
+     "currentPassword": "old",
+     "newPassword": "new"
+   }
+   Response:
+   { "message": "Password changed successfully" }
+
+7) POST /auth/update-email
+   Protected: YES
+   Body:
+   {
+     "newEmail": "new@example.com",
+     "password": "your_password"
+   }
+   Response:
+   { "message": "Email updated successfully" }
+
+8) POST /auth/forgot-password
+   Public: YES
+   If the email exists, backend sends an email and also returns a reset token.
+
+   Body:
+   {
+     "email": "user@example.com",
+     "tenantId": "<optional UUID>",
+     "tenantName": "<optional>"
+   }
+
+   Response:
+   {
+     "message": "Password reset email sent",
+     "resetToken": "<token>"
+   }
+
+   Notes:
+   - If the same email exists in multiple tenants, tenantId or tenantName is required.
+
+9) POST /auth/reset-password
+   Public: YES
+   Body:
+   {
+     "token": "<resetToken>",
      "newPassword": "New@123"
    }
-   Notes: token (required), newPassword (required)
+   Response:
+   { "message": "Password reset successfully" }
 
-8. GET /auth/sso/{provider}/redirect
-   URL: http://localhost:8080/api/v1/auth/sso/{provider}/redirect
-   Query params: tenantId (optional), tenantName (optional)
-   Token needed: NO
-   Body: none
-   Example: http://localhost:8080/api/v1/auth/sso/google/redirect?tenantId=11111111-1111-1111-1111-111111111111
+10) GET /auth/sso/{provider}/redirect
+    Public: YES
+    Returns an authorization URL and the generated state.
+    Query params: tenantId (optional), tenantName (optional)
 
-9. GET /auth/sso/{provider}/callback
-   URL: http://localhost:8080/api/v1/auth/sso/{provider}/callback
-   Query params: code (optional), state (optional), tenantId (optional), tenantName (optional)
-   Token needed: NO
-   Body: none
-
-10. POST /auth/2fa/setup
-    URL: http://localhost:8080/api/v1/auth/2fa/setup
-    Token needed: AUTH TOKEN
-    Body: none
-    Notes: Setup two-factor authentication
-
-11. POST /auth/2fa/verify
-    URL: http://localhost:8080/api/v1/auth/2fa/verify
-    Token needed: AUTH TOKEN
-    Body example:
+    Response:
     {
-      "code": "123456"
+      "provider": "google",
+      "redirectUrl": "https://...",
+      "state": "..."
     }
-    Notes: code (required)
 
-12. DELETE /auth/2fa
-    URL: http://localhost:8080/api/v1/auth/2fa
-    Token needed: AUTH TOKEN
-    Body: none
-    Notes: Disable two-factor authentication
-==================================================
-ROLES APIS
+11) GET /auth/sso/{provider}/callback
+    Public: YES
+    Exchanges authorization code, loads user profile, creates session.
+
+    Query params:
+    - code (required)
+    - state (optional)
+    - tenantId (optional)
+    - tenantName (optional)
+
+    Response: same as /auth/login success (AuthLoginResponse)
+
+    Provider configuration required (properties):
+    - auth.sso.<provider>.authorization-uri
+    - auth.sso.<provider>.token-uri
+    - auth.sso.<provider>.user-info-uri
+    - auth.sso.<provider>.client-id
+    - auth.sso.<provider>.client-secret
+    - auth.sso.<provider>.redirect-uri
+    - auth.sso.<provider>.scope (optional)
+
+12) POST /auth/2fa/setup
+    Protected: YES
+    Sends a 6-digit activation code by email.
+
+    Response:
+    {
+      "codeLength": 6,
+      "message": "A 6-digit activation code has been sent to your email address"
+    }
+
+13) POST /auth/2fa/verify
+    Protected: YES
+    Enables 2FA after setup.
+
+    Body:
+    { "code": "123456" }
+
+    Response:
+    { "message": "Two-factor authentication enabled" }
+
+14) DELETE /auth/2fa
+    Protected: YES
+    Disables 2FA.
+
+    Response:
+    { "message": "Two-factor authentication disabled" }
+
+================================================================================
+USERS ENDPOINTS
 ================================================================================
 
+All are protected (Authorization required).
+Most user management actions require USER_MANAGE (or super-admin).
 
+1) GET /users
+   Response: UserResponse[]
 
-7. POST /roles/{roleId}/users
-   URL: http://localhost:8080/api/v1/roles/44444444-4444-4444-4444-444444444444/users
-   Token needed: AUTH TOKEN
-   Body example:
+2) POST /users
+   Body:
    {
-     "userId": "33333333-3333-3333-3333-333333333333"
+     "email": "new.user@example.com",
+     "password": "TempPass",
+     "status": "ACTIVE"  // optional
    }
-   Notes: userId (required UUID)
+   Response: UserResponse
+
+3) GET /users/{userId}
+   Response: UserResponse
+
+4) PATCH /users/{userId}
+   Body (any optional):
+   {
+     "email": "user@example.com",
+     "password": "NewPass",
+     "status": "DISABLED"
+   }
+   Response: UserResponse
+
+5) DELETE /users/{userId}
+   Marks user status as DELETED.
+   Response: { "message": "User deleted successfully" }
+
+6) GET /users/{userId}/roles
+   Response: RoleResponse[]
+
+7) POST /users/{userId}/roles
+   Assigns a role to the user (replaces existing role assignment).
+   Body:
+   { "roleId": "<UUID>" }
+   Response: { "message": "Role assigned to user" }
+
+8) PATCH /users/{userId}/roles
+   Replaces the user's roles with provided roleIds.
+   Body:
+   { "roleIds": ["<UUID>"] }
+   Response: RoleResponse[]
+
+9) DELETE /users/{userId}/roles/{roleId}
+   Response: { "message": "Role removed from user" }
+
+   Also supported (legacy convenience):
+   - POST /users/{userId}/roles/{roleId} (does the same removal)
 
 ================================================================================
-TENANTS APIS
+ROLES ENDPOINTS
 ================================================================================
 
-1. GET /tenants
-   URL: http://localhost:8080/api/v1/tenants
-   Token needed: AUTH TOKEN
-   Body: none
+All are protected.
+Role management requires ROLE_MANAGE (or super-admin).
 
-2. GET /tenants/{tenantId}
-   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
-   Token needed: AUTH TOKEN
-   Body: none
+1) GET /roles
+   Response: RoleResponse[]
 
-3. POST /tenants
-   URL: http://localhost:8080/api/v1/tenants
-   Token needed: AUTH TOKEN
-   Body example:
+2) POST /roles
+   Body:
+   { "name": "manager", "description": "..." }
+   Response: RoleResponse
+
+3) PATCH /roles/{roleId}
+   Body:
+   { "name": "new-name", "description": "..." }
+   Response: RoleResponse
+
+4) DELETE /roles/{roleId}
+   Response: { "message": "Role deleted successfully" }
+
+5) POST /roles/{roleId}/permissions
+   Adds a permission to a role.
+   Body:
+   {
+     "permissionId": "<UUID>",
+     "permissionName": "<optional alternative>",
+     "description": "<optional>"
+   }
+   Response: RoleResponse
+
+6) DELETE /roles/{roleId}/permissions/{permissionId}
+   Response: { "message": "Permission removed from role" }
+
+7) POST /roles/{roleId}/users
+   Assigns a user to the role.
+   Body: { "userId": "<UUID>" }
+   Response: { "message": "User assigned to role" }
+
+8) DELETE /roles/{roleId}/users/{userId}
+   Response: { "message": "User unassigned from role" }
+
+================================================================================
+PERMISSIONS ENDPOINTS
+================================================================================
+
+All are protected.
+Permission management requires PERMISSION_MANAGE (or super-admin).
+
+1) GET /permissions
+   Response: PermissionResponse[]
+
+2) GET /permissions/{permissionId}
+   Response: PermissionResponse
+
+3) POST /permissions
+   Body: { "name": "USER_READ", "description": "Read users" }
+   Response: PermissionResponse
+
+4) PATCH /permissions/{permissionId}
+   Body: { "name": "...", "description": "..." }
+   Response: PermissionResponse
+
+5) DELETE /permissions/{permissionId}
+   Response: { "message": "Permission deleted successfully" }
+
+================================================================================
+TENANTS ENDPOINTS
+================================================================================
+
+All are protected.
+Tenant management is restricted to super-admin.
+
+1) GET /tenants
+   Response: TenantResponse[]
+
+2) GET /tenants/{tenantId}
+   Response: TenantResponse
+
+3) POST /tenants
+   Body:
    {
      "name": "acme",
      "contactEmail": "ops@acme.com",
-     "modeDeployment": "CLOUD",
+     "modeDeployment": "VM",
      "status": "ACTIVE"
    }
-   Notes: name (required), contactEmail (optional), modeDeployment (optional), status (optional)
+   Response: TenantResponse
 
-4. PATCH /tenants/{tenantId}
-   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
-   Token needed: AUTH TOKEN
-   Body example:
+4) PATCH /tenants/{tenantId}
+   Body: any of (all optional)
    {
      "name": "acme-new",
      "contactEmail": "new@acme.com",
-     "modeDeployment": "HYBRID",
+     "modeDeployment": "VM",
      "status": "ACTIVE"
    }
-   Notes: name (optional), contactEmail (optional), modeDeployment (optional), status (optional)
+   Response: TenantResponse
 
-5. DELETE /tenants/{tenantId}
-   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111
-   Token needed: AUTH TOKEN
-   Body: none
+5) DELETE /tenants/{tenantId}
+   Disables tenant by setting status to DELETED.
+   Response: TenantResponse
 
-6. GET /tenants/{tenantId}/users
-   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111/users
-   Token needed: AUTH TOKEN
-   Body: none
+6) GET /tenants/{tenantId}/users
+   Response: UserResponse[]
 
-7. GET /tenants/{tenantId}/roles
-   URL: http://localhost:8080/api/v1/tenants/11111111-1111-1111-1111-111111111111/roles
-   Token needed: AUTH TOKEN
-   Body: none
+7) GET /tenants/{tenantId}/roles
+   Response: RoleResponse[]
 
 ================================================================================
-AUDIT LOGS APIS
+SESSIONS ENDPOINTS
 ================================================================================
 
-1. GET /audit-logs
-   URL: http://localhost:8080/api/v1/audit-logs
-   Token needed: AUTH TOKEN
+All are protected.
+These endpoints operate on the *current user's sessions*.
+
+1) GET /sessions
+   Response: SessionResponse[]
+
+2) DELETE /sessions/{sessionId}
+   Revokes a session if:
+   - it belongs to the current user
+   - it is not the current session
+
+   Response: { "message": "Session revoked successfully" }
+
+================================================================================
+AUDIT LOGS ENDPOINTS
+================================================================================
+
+All are protected.
+Requires AUDIT_READ permission (or super-admin).
+
+1) GET /audit-logs
    Query params (all optional):
-     - from: ISO 8601 timestamp
-     - to: ISO 8601 timestamp
-     - action: string (e.g., "LOGIN", "USER_CREATE")
-     - resource: string (e.g., "USER", "ROLE")
-     - userId: UUID
-   Body: none
-   
-   Examples:
-   http://localhost:8080/api/v1/audit-logs
-   http://localhost:8080/api/v1/audit-logs?action=LOGIN
-   http://localhost:8080/api/v1/audit-logs?from=2026-04-21T00:00:00Z&to=2026-04-21T23:59:59Z
-   http://localhost:8080/api/v1/audit-logs?action=USER_CREATE&resource=USER
+   - from: ISO-8601 instant (e.g., 2026-05-05T00:00:00Z)
+   - to: ISO-8601 instant
+   - action: string
+   - resource: string
+   - userId: UUID
+
+   Notes:
+   - Default time window if omitted: last 30 days.
+   - Returned logs are tenant-scoped.
+
+2) GET /audit-logs/resources
+   Returns distinct audit resources in the tenant.
 
 ================================================================================
-POSTMAN SETUP HINTS
+POSTMAN QUICK SETUP
 ================================================================================
+Variables:
+- {{base_url}} = http://localhost:7070/api/v1
+- {{access_token}} = <value from login>
+- {{refresh_token}} = <value from login>
 
-1. Create a Postman Collection
-2. Add a variable: {{base_url}} = http://localhost:8080/api/v1
-3. Add a variable: {{auth_token}} = (set after login response)
-4. Add a variable: {{refresh_token}} = (set after login response)
-
-5. For each request with AUTH TOKEN:
-   Header: Authorization
-   Value: Bearer {{auth_token}}
-
-6. Copy-paste the URLs and bodies from this file into Postman
-
-================================================================================
-EXAMPLE LOGIN FLOW
-================================================================================
-
-Step 1: Login (no token needed)
-  POST http://localhost:8080/api/v1/auth/login
-  Body:
-  {
-    "email": "admin@example.com",
-    "password": "Admin@123"
-  }
-  Response will contain:
-  {
-    "accessToken": "eyJhbGc...",
-    "refreshToken": "eyJhbGc...",
-    "expiresIn": 3600,
-    "tokenType": "Bearer"
-  }
-
-Step 2: Save tokens and use in next requests
-  - Copy accessToken
-  - Set it in Postman variable {{auth_token}}
-  - Use in header: Authorization: Bearer {{auth_token}}
-
-Step 3: Refresh token when expires
-  POST http://localhost:8080/api/v1/auth/refresh
-  Body:
-  {
-    "refreshToken": "{{refresh_token}}"
-  }
+Auth header for protected endpoints:
+- Authorization: Bearer {{access_token}}
 
 ================================================================================
 NOTES
 ================================================================================
-
-- All timestamps should be in ISO 8601 format: 2026-04-21T11:00:00Z
-- All IDs are UUIDs (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-- Replace {userId}, {roleId}, {permissionId}, {tenantId}, {sessionId}, {provider} with actual values
-- Content-Type header: application/json (for all POST/PATCH/PUT/DELETE)
-- Database: H2 in-memory (jdbc:h2:mem:auth_users)
-- H2 Console: http://localhost:8080/h2-console
-- Swagger UI: http://localhost:8080/swagger-ui.html
+- Content-Type: application/json
+- IDs are UUIDs
+- Swagger UI (if enabled): http://localhost:7070/swagger-ui.html
+- OpenAPI JSON: http://localhost:7070/v3/api-docs
 
 ================================================================================

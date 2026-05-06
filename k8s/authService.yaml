@@ -1,150 +1,125 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: app-pfe
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: app-pfe
-spec:
-  type: ClusterIP
-  ports:
-    - name: postgres
-      port: 5432
-      targetPort: 5432
-
----
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: postgres-external
-  namespace: app-pfe
-  labels:
-    kubernetes.io/service-name: postgres
-addressType: IPv4
-endpoints:
-  - addresses:
-      - 192.168.56.40
-ports:
-  - name: postgres
-    port: 5432
-    protocol: TCP
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: backend-config
-  namespace: app-pfe
-data:
-  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service
-  SPRING_PROFILES_ACTIVE: prod
-  SERVER_PORT: '7070'
-  MAIL_HOST: smtp-relay.brevo.com
-  MAIL_PORT: '587'
-  MAIL_USERNAME: apikey
-  MAIL_FROM: noreply@auth-service.local
-  FRONTEND_BASE_URL: http://frontend
-  MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
-
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-service
   namespace: app-pfe
+
 spec:
   replicas: 1
   revisionHistoryLimit: 1
+
   strategy:
     type: Recreate
+
   selector:
     matchLabels:
       app: auth-service
+
   template:
     metadata:
       labels:
         app: auth-service
+
+      annotations:
+        # Monitoring
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '7070'
+        prometheus.io/path: '/actuator/prometheus'
+
     spec:
       imagePullSecrets:
         - name: nexus-regcred
+
       containers:
         - name: auth-service
           image: 192.168.56.30/auth-service:latest
           imagePullPolicy: IfNotPresent
+
           ports:
             - containerPort: 7070
+
           env:
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: SPRING_DATASOURCE_URL
+
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: SPRING_DATASOURCE_USERNAME
+
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: SPRING_DATASOURCE_PASSWORD
+
             - name: SPRING_PROFILES_ACTIVE
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: SPRING_PROFILES_ACTIVE
+
             - name: SERVER_PORT
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: SERVER_PORT
+
             - name: MAIL_HOST
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: MAIL_HOST
+
             - name: MAIL_PORT
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: MAIL_PORT
+
             - name: MAIL_USERNAME
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: MAIL_USERNAME
+
             - name: MAIL_FROM
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: MAIL_FROM
+
             - name: FRONTEND_BASE_URL
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: FRONTEND_BASE_URL
+
             - name: MANAGEMENT_HEALTH_MAIL_ENABLED
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
                   key: MANAGEMENT_HEALTH_MAIL_ENABLED
+
             - name: MAIL_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: MAIL_PASSWORD
                   optional: true
+
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 7070
             initialDelaySeconds: 20
             periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /actuator/health
@@ -155,15 +130,24 @@ spec:
 ---
 apiVersion: v1
 kind: Service
+
 metadata:
   name: auth-service
   namespace: app-pfe
+
 spec:
   type: NodePort
+
   selector:
     app: auth-service
+
   ports:
     - name: http
       port: 7070
       targetPort: 7070
       nodePort: 30707
+
+    # Monitoring
+    - name: metrics
+      port: 7070
+      targetPort: 7070

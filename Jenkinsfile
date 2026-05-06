@@ -27,18 +27,14 @@ pipeline {
 
     stages {
 
-        // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
                 git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Detect Changes') {
             steps {
                 script {
-                    // Sur le premier commit il n'y a pas de HEAD~1 → fallback sur tous les fichiers
                     def changedFiles = sh(
                         script: '''
                             git diff --name-only HEAD~1 HEAD 2>/dev/null \
@@ -49,10 +45,8 @@ pipeline {
 
                     echo "Fichiers modifiés :\n${changedFiles}"
 
-                    // ✅ Service actif
                     env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
 
-                    // ⛔ Services désactivés temporairement (focus authService only)
                     // env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/') ? 'true' : 'false'
                     // env.CHANGED_DASHBOARD  = changedFiles.contains('dashboard/')   ? 'true' : 'false'
                     // env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')    ? 'true' : 'false'
@@ -80,25 +74,10 @@ pipeline {
                         env.CHANGED_ANY_IMAGE == 'true' ||
                         env.CHANGED_K8S       == 'true'
                     ) ? 'true' : 'false'
-
-                    echo """
-                        ┌──────────────────────────────┐
-                        │  Résumé des changements       │
-                        ├──────────────────┬───────────┤
-                        │ authService      │ ${env.CHANGED_AUTH}     │
-                        │ cloudPricer      │ ${env.CHANGED_PRICER}     │
-                        │ dashboard        │ ${env.CHANGED_DASHBOARD}     │
-                        │ frontend         │ ${env.CHANGED_FRONTEND}     │
-                        │ k8s              │ ${env.CHANGED_K8S}     │
-                        │ monitoring       │ ${env.CHANGED_MONITORING}     │
-                        └──────────────────┴───────────┘
-                    """
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
-stage('Build') {
+        stage('Build') {
             steps {
                 script {
 
@@ -133,65 +112,6 @@ stage('Build') {
                 }
             }
         }
-
-        // stage('Test') {
-        //     steps {
-        //         script {
-
-        //             if (env.CHANGED_AUTH == 'true') {
-        //                 dir('authService') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
-
-        //             if (env.CHANGED_PRICER == 'true') {
-        //                 dir('cloudPricer') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
-
-        //             if (env.CHANGED_DASHBOARD == 'true') {
-        //                 dir('dashboard') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-
-        
-
-        // ─────────────────────────────────────────────
-        // stage('Start Security VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         sh '''
-        //             set -x
-        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-        //             if echo "$STATE" | grep -q poweroff; then
-        //                 echo "Démarrage Security VM"
-        //                 VBoxManage startvm securite --type headless
-        //                 sleep 15
-        //             else
-        //                 echo "Security VM déjà en cours"
-        //             fi
-        //             '
-        //         '''
-        //     }
-        // }
-
-        // ─────────────────────────────────────────────
-        // stage('Wait for VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         echo 'Attente 60 secondes pour le démarrage de la Security VM...'
-        //         sleep(time: 60, unit: 'SECONDS')
-        //     }
-        // }
-
-        // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
 
@@ -276,8 +196,6 @@ stage('Build') {
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -323,8 +241,6 @@ stage('Build') {
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Create DBs') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_BACKEND == 'true' } }
@@ -355,135 +271,133 @@ stage('Build') {
 
                             // Safety net for schema drift: ensure full auth_service schema exists
                             sh '''
-psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
-CREATE TABLE IF NOT EXISTS tenants (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL,
-    contact_email text,
-    mode_deployment text,
-    status text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT tenants_name_uk UNIQUE (name)
-);
+                psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name text NOT NULL,
+                    contact_email text,
+                    mode_deployment text,
+                    status text NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    updated_at timestamptz NOT NULL DEFAULT now(),
+                    CONSTRAINT tenants_name_uk UNIQUE (name)
+                );
 
-CREATE TABLE IF NOT EXISTS permissions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL,
-    description text,
-    CONSTRAINT permissions_name_uk UNIQUE (name)
-);
+                CREATE TABLE IF NOT EXISTS permissions (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name text NOT NULL,
+                    description text,
+                    CONSTRAINT permissions_name_uk UNIQUE (name)
+                );
 
-CREATE TABLE IF NOT EXISTS roles (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    description text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT roles_tenant_name_uk UNIQUE (tenant_id, name)
-);
+                CREATE TABLE IF NOT EXISTS roles (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    name text NOT NULL,
+                    description text,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    CONSTRAINT roles_tenant_name_uk UNIQUE (tenant_id, name)
+                );
 
-CREATE TABLE IF NOT EXISTS users (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    email text NOT NULL,
-    password text NOT NULL,
-    status text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT users_tenant_email_uk UNIQUE (tenant_id, email)
-);
+                CREATE TABLE IF NOT EXISTS users (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    email text NOT NULL,
+                    password text NOT NULL,
+                    status text NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    updated_at timestamptz NOT NULL DEFAULT now(),
+                    CONSTRAINT users_tenant_email_uk UNIQUE (tenant_id, email)
+                );
 
-CREATE TABLE IF NOT EXISTS user_roles (
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    assigned_at timestamptz NOT NULL DEFAULT now(),
-    assigned_by uuid,
-    PRIMARY KEY (user_id, role_id)
-);
+                CREATE TABLE IF NOT EXISTS user_roles (
+                    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                    assigned_at timestamptz NOT NULL DEFAULT now(),
+                    assigned_by uuid,
+                    PRIMARY KEY (user_id, role_id)
+                );
 
-CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    assigned_at timestamptz NOT NULL DEFAULT now(),
-    assigned_by uuid,
-    PRIMARY KEY (role_id, permission_id)
-);
+                CREATE TABLE IF NOT EXISTS role_permissions (
+                    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                    permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+                    assigned_at timestamptz NOT NULL DEFAULT now(),
+                    assigned_by uuid,
+                    PRIMARY KEY (role_id, permission_id)
+                );
 
-CREATE TABLE IF NOT EXISTS sessions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    access_token text NOT NULL,
-    refresh_token text NOT NULL,
-    expiration_date timestamptz NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    ip_address text,
-    revoked_at timestamptz,
-    browser text,
-    os text,
-    localization text,
-    CONSTRAINT sessions_access_token_uk UNIQUE (access_token),
-    CONSTRAINT sessions_refresh_token_uk UNIQUE (refresh_token)
-);
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    access_token text NOT NULL,
+                    refresh_token text NOT NULL,
+                    expiration_date timestamptz NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    ip_address text,
+                    revoked_at timestamptz,
+                    browser text,
+                    os text,
+                    localization text,
+                    CONSTRAINT sessions_access_token_uk UNIQUE (access_token),
+                    CONSTRAINT sessions_refresh_token_uk UNIQUE (refresh_token)
+                );
 
-CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+                CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid REFERENCES users(id) ON DELETE SET NULL,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    action text NOT NULL,
-    timestamp timestamptz NOT NULL DEFAULT now(),
-    details text,
-    resource text,
-    resource_id text
-);
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+                    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    action text NOT NULL,
+                    timestamp timestamptz NOT NULL DEFAULT now(),
+                    details text,
+                    resource text,
+                    resource_id text
+                );
 
-CREATE INDEX IF NOT EXISTS audit_logs_tenant_ts_idx ON audit_logs(tenant_id, timestamp);
+                CREATE INDEX IF NOT EXISTS audit_logs_tenant_ts_idx ON audit_logs(tenant_id, timestamp);
 
-CREATE TABLE IF NOT EXISTS user_two_factor (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    secret text NOT NULL,
-    enabled boolean NOT NULL DEFAULT false,
-    backup_codes_json text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
+                CREATE TABLE IF NOT EXISTS user_two_factor (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    secret text NOT NULL,
+                    enabled boolean NOT NULL DEFAULT false,
+                    backup_codes_json text,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    updated_at timestamptz NOT NULL DEFAULT now()
+                );
 
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash text NOT NULL UNIQUE,
-    expires_at timestamptz NOT NULL,
-    used_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash text NOT NULL UNIQUE,
+                    expires_at timestamptz NOT NULL,
+                    used_at timestamptz,
+                    created_at timestamptz NOT NULL DEFAULT now()
+                );
 
-CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens(user_id);
+                CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens(user_id);
 
-CREATE TABLE IF NOT EXISTS sso_identities (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider text NOT NULL,
-    subject text NOT NULL,
-    email text NOT NULL,
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT sso_identities_provider_subject_uk UNIQUE (provider, subject)
-);
+                CREATE TABLE IF NOT EXISTS sso_identities (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    provider text NOT NULL,
+                    subject text NOT NULL,
+                    email text NOT NULL,
+                    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    updated_at timestamptz NOT NULL DEFAULT now(),
+                    CONSTRAINT sso_identities_provider_subject_uk UNIQUE (provider, subject)
+                );
 
-CREATE INDEX IF NOT EXISTS sso_identities_provider_email_idx ON sso_identities(provider, email);
-SQL
-                            '''
+                CREATE INDEX IF NOT EXISTS sso_identities_provider_email_idx ON sso_identities(provider, email);
+                SQL
+                                            '''
                         }
                     }
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Security Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -538,8 +452,6 @@ SQL
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Publish Security Reports trivey') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -581,8 +493,6 @@ SQL
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_DEPLOY == 'true' } }
@@ -652,8 +562,6 @@ SQL
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
         stage('OWASP ZAP Full Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -688,8 +596,6 @@ SQL
                 }
             }
         }
-
-        // // ─────────────────────────────────────────────
         stage('Publish Security Reports owasp zap') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -713,26 +619,6 @@ SQL
                 ])
             }
         }
-
-        // // ─────────────────────────────────────────────
-        // stage('Stop Security VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         sh '''
-        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-        //             if echo "$STATE" | grep -q running; then
-        //                 echo "Arrêt Security VM"
-        //                 VBoxManage controlvm securite acpipowerbutton
-        //             else
-        //                 echo "Security VM déjà arrêtée"
-        //             fi
-        //             '
-        //         '''
-        //     }
-        // }
-
     }
 
     post {
