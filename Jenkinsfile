@@ -27,15 +27,19 @@ pipeline {
 
     stages {
 
+        // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
                 git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('Detect Changes') {
             steps {
                 script {
-sc                    def changedFiles = sh(
+                    // Sur le premier commit il n'y a pas de HEAD~1 → fallback sur tous les fichiers
+                    def changedFiles = sh(
                         script: '''
                             git diff --name-only HEAD~1 HEAD 2>/dev/null \
                             || git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD
@@ -45,8 +49,10 @@ sc                    def changedFiles = sh(
 
                     echo "Fichiers modifiés :\n${changedFiles}"
 
+                    // ✅ Service actif
                     env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
 
+                    // ⛔ Services désactivés temporairement (focus authService only)
                     // env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/') ? 'true' : 'false'
                     // env.CHANGED_DASHBOARD  = changedFiles.contains('dashboard/')   ? 'true' : 'false'
                     // env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')    ? 'true' : 'false'
@@ -74,10 +80,25 @@ sc                    def changedFiles = sh(
                         env.CHANGED_ANY_IMAGE == 'true' ||
                         env.CHANGED_K8S       == 'true'
                     ) ? 'true' : 'false'
+
+                    echo """
+                        ┌──────────────────────────────┐
+                        │  Résumé des changements       │
+                        ├──────────────────┬───────────┤
+                        │ authService      │ ${env.CHANGED_AUTH}     │
+                        │ cloudPricer      │ ${env.CHANGED_PRICER}     │
+                        │ dashboard        │ ${env.CHANGED_DASHBOARD}     │
+                        │ frontend         │ ${env.CHANGED_FRONTEND}     │
+                        │ k8s              │ ${env.CHANGED_K8S}     │
+                        │ monitoring       │ ${env.CHANGED_MONITORING}     │
+                        └──────────────────┴───────────┘
+                    """
                 }
             }
         }
-        stage('Build') {
+
+        // ─────────────────────────────────────────────
+stage('Build') {
             steps {
                 script {
 
@@ -112,6 +133,65 @@ sc                    def changedFiles = sh(
                 }
             }
         }
+
+        // stage('Test') {
+        //     steps {
+        //         script {
+
+        //             if (env.CHANGED_AUTH == 'true') {
+        //                 dir('authService') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
+
+        //             if (env.CHANGED_PRICER == 'true') {
+        //                 dir('cloudPricer') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
+
+        //             if (env.CHANGED_DASHBOARD == 'true') {
+        //                 dir('dashboard') {
+        //                     sh 'mvn test'
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+        
+
+        // ─────────────────────────────────────────────
+        // stage('Start Security VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         sh '''
+        //             set -x
+        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+        //             if echo "$STATE" | grep -q poweroff; then
+        //                 echo "Démarrage Security VM"
+        //                 VBoxManage startvm securite --type headless
+        //                 sleep 15
+        //             else
+        //                 echo "Security VM déjà en cours"
+        //             fi
+        //             '
+        //         '''
+        //     }
+        // }
+
+        // ─────────────────────────────────────────────
+        // stage('Wait for VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         echo 'Attente 60 secondes pour le démarrage de la Security VM...'
+        //         sleep(time: 60, unit: 'SECONDS')
+        //     }
+        // }
+
+        // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
 
@@ -196,6 +276,8 @@ sc                    def changedFiles = sh(
                 }
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -241,6 +323,8 @@ sc                    def changedFiles = sh(
                 }
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('Create DBs') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_BACKEND == 'true' } }
@@ -399,6 +483,7 @@ SQL
             }
         }
 
+        // ─────────────────────────────────────────────
         stage('Security Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -453,6 +538,8 @@ SQL
                 }
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('Publish Security Reports trivey') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -494,6 +581,8 @@ SQL
                 }
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_DEPLOY == 'true' } }
@@ -563,6 +652,8 @@ SQL
                 }
             }
         }
+
+        // ─────────────────────────────────────────────
         stage('OWASP ZAP Full Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -597,6 +688,8 @@ SQL
                 }
             }
         }
+
+        // // ─────────────────────────────────────────────
         stage('Publish Security Reports owasp zap') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -620,6 +713,26 @@ SQL
                 ])
             }
         }
+
+        // // ─────────────────────────────────────────────
+        // stage('Stop Security VM') {
+        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+        //     steps {
+        //         sh '''
+        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+        //             if echo "$STATE" | grep -q running; then
+        //                 echo "Arrêt Security VM"
+        //                 VBoxManage controlvm securite acpipowerbutton
+        //             else
+        //                 echo "Security VM déjà arrêtée"
+        //             fi
+        //             '
+        //         '''
+        //     }
+        // }
+
     }
 
     post {
@@ -627,5 +740,4 @@ SQL
         failure { echo 'Pipeline en échec. Consulter les logs.' }
     }
 }
-
 
