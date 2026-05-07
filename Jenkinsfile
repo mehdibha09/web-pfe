@@ -475,9 +475,8 @@ CREATE TABLE IF NOT EXISTS sso_identities (
 );
 
 CREATE INDEX IF NOT EXISTS sso_identities_provider_email_idx ON sso_identities(provider, email);
-
 SQL
-'''
+                            '''
                         }
                     }
                 }
