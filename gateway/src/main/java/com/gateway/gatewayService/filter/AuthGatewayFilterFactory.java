@@ -26,11 +26,11 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
     private final WebClient webClient;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private static final String AUTH_SERVICE_URL = "http://localhost:7070";
-
-    public AuthGatewayFilterFactory(WebClient.Builder webClientBuilder) {
+    public AuthGatewayFilterFactory(WebClient.Builder webClientBuilder,
+                                     org.springframework.core.env.Environment env) {
         super(Config.class);
-        this.webClient = webClientBuilder.baseUrl(AUTH_SERVICE_URL).build();
+        String authUrl = env.getProperty("AUTH_SERVICE_URL", "http://localhost:7070");
+        this.webClient = webClientBuilder.baseUrl(authUrl).build();
     }
 
     private static String resolveToken(ServerWebExchange exchange) {

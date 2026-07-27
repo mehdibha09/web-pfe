@@ -50,6 +50,24 @@ spec:
                   name: backend-config
                   key: GATEWAY_SERVER_PORT
 
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: AUTH_SERVICE_URL
+
+            - name: DEPLOYMENT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DEPLOYMENT_SERVICE_URL
+
+            - name: CLOUD_PRICER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: CLOUD_PRICER_SERVICE_URL
+
           readinessProbe:
             httpGet:
               path: /actuator/health

@@ -18,6 +18,9 @@ data:
   FRONTEND_BASE_URL: http://frontend
   MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
   ALERT_DISPATCH_ENABLED: 'false'
+  AUTH_SERVICE_URL: http://auth-service:7070
+  DEPLOYMENT_SERVICE_URL: http://deployment-service:8082
+  CLOUD_PRICER_SERVICE_URL: http://cloud-pricer-service:8090
 ---
 apiVersion: v1
 kind: ConfigMap

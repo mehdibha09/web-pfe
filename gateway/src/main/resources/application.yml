@@ -11,7 +11,7 @@ spring:
                 - CorrelationId
             routes:
                 - id: auth-login
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/auth/login
                   filters:
@@ -21,7 +21,7 @@ spring:
                             windowMs: 60000
 
                 - id: auth-forgot-password
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/auth/forgot-password,/api/v1/auth/reset-password
                   filters:
@@ -31,54 +31,54 @@ spring:
                             windowMs: 60000
 
                 - id: auth-public
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/auth/refresh,/api/v1/auth/sso/**
 
                 - id: auth-service
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/auth/**
                   filters:
                       - Auth
 
                 - id: auth-users
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/users/**
                   filters:
                       - Auth
 
                 - id: auth-roles
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/roles/**
                   filters:
                       - Auth
 
                 - id: auth-permissions
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/permissions/**
                   filters:
                       - Auth
 
                 - id: auth-tenants
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/tenants/**
                   filters:
                       - Auth
 
                 - id: auth-sessions
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/sessions/**
                   filters:
                       - Auth
 
                 - id: auth-audit
-                  uri: http://localhost:7070
+                  uri: ${AUTH_SERVICE_URL:http://localhost:7070}
                   predicates:
                       - Path=/api/v1/audit-logs/**
                   filters:
@@ -89,35 +89,35 @@ spring:
                             windowMs: 60000
 
                 - id: services
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/services/**
                   filters:
                       - Auth
 
                 - id: environments
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/environments/**
                   filters:
                       - Auth
 
                 - id: service-environments
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/service-environments/**
                   filters:
                       - Auth
 
                 - id: deployments
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/deployments/**
                   filters:
                       - Auth
 
                 - id: metrics
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/metrics/**
                   filters:
@@ -128,77 +128,77 @@ spring:
                             windowMs: 60000
 
                 - id: vm
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/vms/**
                   filters:
                       - Auth
 
                 - id: backups
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/backups/**
                   filters:
                       - Auth
 
                 - id: ssh
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/ws/ssh/**
                   filters:
                       - Auth
 
                 - id: k8s
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/k8s/**
                   filters:
                       - Auth
 
                 - id: deployment-templates
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/deployment-templates/**
                   filters:
                       - Auth
 
                 - id: costs
-                  uri: http://localhost:8090
+                  uri: ${CLOUD_PRICER_SERVICE_URL:http://localhost:8090}
                   predicates:
                       - Path=/api/v1/costs/**
                   filters:
                       - Auth
 
                 - id: quotas
-                  uri: http://localhost:8090
+                  uri: ${CLOUD_PRICER_SERVICE_URL:http://localhost:8090}
                   predicates:
                       - Path=/api/v1/quotas/**
                   filters:
                       - Auth
 
                 - id: pricing
-                  uri: http://localhost:8090
+                  uri: ${CLOUD_PRICER_SERVICE_URL:http://localhost:8090}
                   predicates:
                       - Path=/api/v1/pricing/**
                   filters:
                       - Auth
 
                 - id: alerts-pricer
-                  uri: http://localhost:8090
+                  uri: ${CLOUD_PRICER_SERVICE_URL:http://localhost:8090}
                   predicates:
                       - Path=/api/v1/alerts/**
                   filters:
                       - Auth
 
                 - id: notifications
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/notifications/**
                   filters:
                       - Auth
 
                 - id: test
-                  uri: http://localhost:8082
+                  uri: ${DEPLOYMENT_SERVICE_URL:http://localhost:8082}
                   predicates:
                       - Path=/api/v1/test/**
 
@@ -210,8 +210,7 @@ spring:
                 corsConfigurations:
                     '[/**]':
                         allowedOriginPatterns:
-                            - 'http://localhost:*'
-                            - 'http://127.0.0.1:*'
+                            - '*'
                         allowedMethods:
                             - GET
                             - POST
