@@ -39,10 +39,7 @@ spec:
 
           env:
             - name: DB_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: DB_HOST
+              value: postgres
 
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
