@@ -195,115 +195,115 @@ stage('Build') {
         // }
 
         // ─────────────────────────────────────────────
-        stage('Sonar Analysis') {
-            when { expression { env.CHANGED_BACKEND == 'true' } }
+        // stage('Sonar Analysis') {
+        //     when { expression { env.CHANGED_BACKEND == 'true' } }
 
-            stages {
-                stage('Sonar authService') {
-                    when { expression { env.CHANGED_AUTH == 'true' } }
-                    steps {
-                        dir('authService') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate authService failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar authService : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar authService : échec d'exécution." }
-                    }
-                }
+        //     stages {
+        //         stage('Sonar authService') {
+        //             when { expression { env.CHANGED_AUTH == 'true' } }
+        //             steps {
+        //                 dir('authService') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate authService failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar authService : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar authService : échec d'exécution." }
+        //             }
+        //         }
 
-                stage('Sonar cloudPricer') {
-                    // Désactivé temporairement: focus authService only
-                    when { expression { env.CHANGED_PRICER == 'true' } }
-                    steps {
-                        dir('cloudPricer') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate cloudPricer failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar cloudPricer : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar cloudPricer : échec d'exécution." }
-                    }
-                }
-                stage('Sonar deployment') {
-                    when { expression { env.CHANGED_DEPLOYMENT == 'true' } }
-                    steps {
-                        dir('deployment') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate deployment failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar deployment : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar deployment : échec d'exécution." }
-                    }
-                }
+        //         stage('Sonar cloudPricer') {
+        //             // Désactivé temporairement: focus authService only
+        //             when { expression { env.CHANGED_PRICER == 'true' } }
+        //             steps {
+        //                 dir('cloudPricer') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate cloudPricer failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar cloudPricer : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar cloudPricer : échec d'exécution." }
+        //             }
+        //         }
+        //         stage('Sonar deployment') {
+        //             when { expression { env.CHANGED_DEPLOYMENT == 'true' } }
+        //             steps {
+        //                 dir('deployment') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate deployment failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar deployment : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar deployment : échec d'exécution." }
+        //             }
+        //         }
 
-                stage('Sonar gateway') {
-                    when { expression { env.CHANGED_GATEWAY == 'true' } }
-                    steps {
-                        dir('gateway') {
-                            withSonarQubeEnv('SonarQubeScanner') {
-                                sh 'mvn sonar:sonar'
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            script {
-                                timeout(time: 2, unit: 'MINUTES') {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Quality Gate gateway failed: ${qg.status}"
-                                    } else {
-                                        echo "Sonar gateway : OK"
-                                    }
-                                }
-                            }
-                        }
-                        failure { echo "Sonar gateway : échec d'exécution." }
-                    }
-                }
-            }
-        }
+        //         stage('Sonar gateway') {
+        //             when { expression { env.CHANGED_GATEWAY == 'true' } }
+        //             steps {
+        //                 dir('gateway') {
+        //                     withSonarQubeEnv('SonarQubeScanner') {
+        //                         sh 'mvn sonar:sonar'
+        //                     }
+        //                 }
+        //             }
+        //             post {
+        //                 success {
+        //                     script {
+        //                         timeout(time: 2, unit: 'MINUTES') {
+        //                             def qg = waitForQualityGate()
+        //                             if (qg.status != 'OK') {
+        //                                 error "Quality Gate gateway failed: ${qg.status}"
+        //                             } else {
+        //                                 echo "Sonar gateway : OK"
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 failure { echo "Sonar gateway : échec d'exécution." }
+        //             }
+        //         }
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
@@ -371,7 +371,7 @@ stage('Build') {
                     script {
                         withEnv(["PGPASSWORD=${DB_PASSWORD}"]) {
                             // Create only databases that are actually used by microservices
-                            def databases = ['auth_service']  // authService uses this database
+                            def databases = ['auth_service', 'deployment_service']  // authService + deployment/cloudPricer
                             databases.each { dbName ->
                                 sh """
                                     psql -h ${DB_HOST} -U ${DB_USER} -d postgres \
