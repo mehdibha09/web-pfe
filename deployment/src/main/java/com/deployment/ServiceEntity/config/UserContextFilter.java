@@ -26,7 +26,8 @@ public class UserContextFilter extends OncePerRequestFilter {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final List<String> PUBLIC_PREFIXES = List.of(
-            "/api/v1/test"
+            "/api/v1/test",
+            "/actuator"
     );
 
     private final AuthTokenResolver tokenResolver;

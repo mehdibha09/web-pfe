@@ -25,6 +25,12 @@ public class UserContextFilter extends OncePerRequestFilter {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/actuator");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
