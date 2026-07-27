@@ -311,7 +311,7 @@ stage('Build') {
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
             steps {
-                git branch: 'main',  url: 'https://github.com/mehdibha09/web-pfe.'
+                git branch: 'main',  url: 'https://github.com/mehdibha09/web-pfe'
 
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-creds',
