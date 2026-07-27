@@ -5,10 +5,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
+import com.auth.service.domain.RolePermission;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.Tenant;
 import com.auth.service.domain.TenantStatus;
@@ -20,16 +25,19 @@ import com.auth.service.exception.ForbiddenException;
 import com.auth.service.exception.NotFoundException;
 import com.auth.service.exception.UnauthorizedException;
 import com.auth.service.repository.AuditLogRepository;
+import com.auth.service.repository.RolePermissionRepository;
 import com.auth.service.repository.RoleRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.TenantRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.TenantCreateRequest;
-import com.auth.service.web.dto.TenantResponse;
-import com.auth.service.web.dto.TenantUpdateRequest;
-import com.auth.service.web.dto.UserResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
+import com.auth.service.web.dto.role.RoleResponse;
+import com.auth.service.web.dto.tenant.TenantCreateRequest;
+import com.auth.service.web.dto.tenant.TenantResponse;
+import com.auth.service.web.dto.tenant.TenantUpdateRequest;
+import com.auth.service.web.dto.user.UserResponse;
 
 @Service
 public class TenantService {
@@ -42,6 +50,7 @@ public class TenantService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final AuditLogRepository auditLogRepository;
+    private final RolePermissionRepository rolePermissionRepository;
 
     public TenantService(
             TenantRepository tenantRepository,
@@ -49,7 +58,8 @@ public class TenantService {
             UserRoleRepository userRoleRepository,
                 UserRepository userRepository,
                 RoleRepository roleRepository,
-            AuditLogRepository auditLogRepository
+            AuditLogRepository auditLogRepository,
+            RolePermissionRepository rolePermissionRepository
     ) {
         this.tenantRepository = tenantRepository;
         this.sessionRepository = sessionRepository;
@@ -57,6 +67,7 @@ public class TenantService {
             this.userRepository = userRepository;
             this.roleRepository = roleRepository;
         this.auditLogRepository = auditLogRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
     }
 
             @Transactional(readOnly = true)
@@ -101,12 +112,19 @@ public class TenantService {
     @Transactional(readOnly = true)
     public List<TenantResponse> listTenants(String authorizationHeader) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        requireSuperAdmin(currentUser);
+        requireSuperAdminOrTenantManage(currentUser);
 
         return tenantRepository.findAll()
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TenantResponse> listTenants(String authorizationHeader, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        requireSuperAdminOrTenantManage(currentUser);
+        return tenantRepository.findAll(pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -124,7 +142,7 @@ public class TenantService {
     @Transactional
     public TenantResponse createTenant(String authorizationHeader, TenantCreateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        requireSuperAdmin(currentUser);
+        requireSuperAdminOrTenantManage(currentUser);
 
         String tenantName = normalizeName(request.name());
         tenantRepository.findByNameIgnoreCase(tenantName)
@@ -146,7 +164,7 @@ public class TenantService {
     @Transactional
     public TenantResponse updateTenant(String authorizationHeader, UUID tenantId, TenantUpdateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        requireSuperAdmin(currentUser);
+        requireSuperAdminOrTenantManage(currentUser);
 
         Tenant tenant = requireTenant(tenantId);
 
@@ -181,7 +199,7 @@ public class TenantService {
     @Transactional
     public TenantResponse disableTenant(String authorizationHeader, UUID tenantId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        requireSuperAdmin(currentUser);
+        requireSuperAdminOrTenantManage(currentUser);
 
         Tenant tenant = requireTenant(tenantId);
         tenant.setStatus(TenantStatus.DELETED);
@@ -217,9 +235,22 @@ public class TenantService {
         return session;
     }
 
-    private void requireSuperAdmin(User currentUser) {
-        if (!isSuperAdmin(currentUser)) {
-            throw new ForbiddenException("Super-admin privileges required");
+    private void requireSuperAdminOrTenantManage(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canManage = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("TENANT_MANAGE"));
+
+        if (!canManage) {
+            throw new ForbiddenException("Tenant management permission required");
         }
     }
 
@@ -300,6 +331,24 @@ public class TenantService {
         auditLog.setDetails(details);
         auditLog.setResource("tenant");
         auditLog.setResourceId(resourceId);
+        auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    private String resolveClientIp() {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

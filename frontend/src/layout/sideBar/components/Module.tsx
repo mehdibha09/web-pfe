@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import type { ElementType } from 'react';
 import { NavLink } from 'react-router-dom';
+import { C} from '../../../theme/tokens';
 
 const vericalCenterStyle = {
   display: 'flex',
@@ -51,8 +52,8 @@ const Module = ({
           justifyContent: 'space-between',
           transition: 'ease 0.5s',
           alignItems: 'center',
-          color: '#64748B',
-          backgroundColor: isSelected ? '#FCE7F3' : 'transparent',
+          color: C.muted,
+          backgroundColor: isSelected ? `${C.brandLight}` : 'transparent',
           border: isSelected ? '1px solid #F8CADD' : '1px solid transparent',
           margin: '8px 10px',
           borderRadius: '10px',
@@ -76,7 +77,7 @@ const Module = ({
             <Icon
               sx={{
                 fontSize: '19px',
-                color: isSelected ? '#e4477d' : '#64748B',
+                color: isSelected ? `${C.brand}` : `${C.muted}`,
                 minWidth: '18px',
                 display: 'block',
               }}
@@ -87,7 +88,7 @@ const Module = ({
               marginLeft: isMenuClosed ? '0' : '10px',
               fontSize: isMenuClosed ? '0' : '13px',
               fontWeight: isSelected ? '700' : '600',
-              color: isSelected ? '#e4477d' : '#64748B',
+              color: isSelected ? `${C.brand}` : `${C.muted}`,
               whiteSpace: 'nowrap',
               transition: 'ease 0.5s',
               opacity: isMenuClosed ? 0 : 1,
@@ -103,7 +104,7 @@ const Module = ({
           sx={{
             marginRight: '15px',
             fontWeight: '700',
-            color: isSelected ? '#e4477d' : '#64748B',
+            color: isSelected ? `${C.brand}` : `${C.muted}`,
             display: isMenuClosed ? 'none' : 'flex',
             fontSize: '12px',
           }}

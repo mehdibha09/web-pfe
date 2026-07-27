@@ -44,6 +44,9 @@ public class AuditLog {
 
     private String resourceId;
 
+    @Column(name = "ip_address")
+    private String ipAddress;
+
     @PrePersist
     void onCreate() {
         if (id == null) {

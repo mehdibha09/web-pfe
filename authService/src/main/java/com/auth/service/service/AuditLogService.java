@@ -18,8 +18,8 @@ import com.auth.service.repository.AuditLogRepository;
 import com.auth.service.repository.RolePermissionRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.AuditLogQuery;
-import com.auth.service.web.dto.AuditLogResponse;
+import com.auth.service.web.dto.audit.AuditLogQuery;
+import com.auth.service.web.dto.audit.AuditLogResponse;
 
 @Service
 public class AuditLogService {
@@ -111,7 +111,8 @@ public class AuditLogService {
                 log.getTimestamp(),
                 log.getDetails(),
                 log.getResource(),
-                log.getResourceId()
+                log.getResourceId(),
+                log.getIpAddress()
         );
     }
 

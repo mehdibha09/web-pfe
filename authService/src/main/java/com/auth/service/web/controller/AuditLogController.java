@@ -5,6 +5,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.AuditLogService;
-import com.auth.service.web.dto.AuditLogQuery;
-import com.auth.service.web.dto.AuditLogResponse;
+import com.auth.service.web.dto.audit.AuditLogQuery;
+import com.auth.service.web.dto.audit.AuditLogResponse;
 import com.auth.service.web.routes.ApiRoutes;
 
 @RestController
@@ -30,16 +34,21 @@ public class AuditLogController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AuditLogResponse>> listAuditLogs(
+    public ResponseEntity<Page<AuditLogResponse>> listAuditLogs(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resource,
-            @RequestParam(required = false) UUID userId
+            @RequestParam(required = false) UUID userId,
+            @PageableDefault(size = 10) Pageable pageable
     ) {
         AuditLogQuery query = new AuditLogQuery(from, to, action, resource, userId);
-        return ResponseEntity.ok(auditLogService.listAuditLogs(authorizationHeader, query));
+        List<AuditLogResponse> list = auditLogService.listAuditLogs(authorizationHeader, query);
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), list.size());
+        List<AuditLogResponse> content = start < list.size() ? list.subList(start, end) : List.of();
+        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
     }
 
     @GetMapping(ApiRoutes.AuditLogs.RESOURCES)

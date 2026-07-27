@@ -1,0 +1,61 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CloudPricerApplication",
+            "request": "launch",
+            "mainClass": "com.cloud_pricer.CloudPricerApplication",
+            "projectName": "com.cloud_pricer-cloud_pricer"
+        },
+        {
+            "type": "java",
+            "name": "ServiceApplication",
+            "request": "launch",
+            "mainClass": "com.deployment.ServiceEntity.ServiceApplication",
+            "projectName": "com.deployment_monitoring-service"
+        },
+        {
+            "type": "java",
+            "name": "AuthServiceApplication",
+            "request": "launch",
+            "mainClass": "com.auth.service.AuthServiceApplication",
+            "projectName": "com.auth-service"
+        },
+        {
+            "type": "java",
+            "name": "GatewayApplication",
+            "request": "launch",
+            "mainClass": "com.gateway.gatewayService.GatewayApplication",
+            "projectName": "com.deployment-gateway"
+        },
+        {
+            "type": "java",
+            "name": "AuthServiceApplication",
+            "request": "launch",
+            "mainClass": "com.auth.service.AuthServiceApplication",
+            "projectName": "auth-service"
+        },
+        {
+            "type": "java",
+            "name": "DeploymentServiceApplication",
+            "request": "launch",
+            "mainClass": "com.deployment.ServiceEntity.ServiceApplication",
+            "projectName": "deployment"
+        },
+        {
+            "type": "java",
+            "name": "GatewayApplication",
+            "request": "launch",
+            "mainClass": "com.gateway.gatewayService.GatewayApplication",
+            "projectName": "gateway"
+        },
+        {
+            "type": "java",
+            "name": "CloudPricerApplication",
+            "request": "launch",
+            "mainClass": "com.cloud_pricer.CloudPricerApplication",
+            "projectName": "cloud_pricer"
+        }
+    ]
+}

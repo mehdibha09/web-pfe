@@ -1,0 +1,143 @@
+package com.cloud_pricer.service;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import com.cloud_pricer.domain.Alert;
+import com.cloud_pricer.domain.Quota;
+import com.cloud_pricer.domain.ServiceEnvironment;
+import com.cloud_pricer.repository.AlertRepository;
+import com.cloud_pricer.repository.QuotaRepository;
+import com.cloud_pricer.repository.ServiceEnvironmentRepository;
+import com.cloud_pricer.web.dto.cost.MetricSnapshot;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AlertGeneratorService {
+
+    private final QuotaRepository quotaRepository;
+    private final AlertRepository alertRepository;
+    private final ServiceEnvironmentRepository serviceEnvironmentRepository;
+
+    private final RestClient restClient = RestClient.builder()
+            .baseUrl("http://localhost:8082")
+            .build();
+
+    private static final double WARN_CPU = 80.0;
+    private static final double CRIT_CPU = 90.0;
+    private static final double WARN_RAM = 80.0;
+    private static final double CRIT_RAM = 90.0;
+    private static final double WARN_DISK = 85.0;
+    private static final double CRIT_DISK = 95.0;
+
+    @Scheduled(fixedRateString = "${alert.check.interval:60000}", initialDelay = 30000)
+    public void checkQuotas() {
+        List<Quota> activeQuotas = quotaRepository.findByIsActiveTrue();
+        if (activeQuotas.isEmpty()) {
+            return;
+        }
+
+        log.info("Running quota check for {} active quotas", activeQuotas.size());
+
+        for (Quota quota : activeQuotas) {
+            try {
+                checkSingleQuota(quota);
+            } catch (Exception e) {
+                log.warn("Failed to check quota {} for service-env {}: {}",
+                        quota.getId(), quota.getServiceEnvironmentId(), e.getMessage());
+            }
+        }
+
+        log.info("Quota check complete");
+    }
+
+    private void checkSingleQuota(Quota quota) {
+        UUID seId = quota.getServiceEnvironmentId();
+
+        MetricSnapshot metric;
+        try {
+            metric = restClient.get()
+                    .uri("/api/v1/metrics/latest/{seId}", seId)
+                    .retrieve()
+                    .body(MetricSnapshot.class);
+        } catch (Exception e) {
+            log.debug("No metrics available for service-env {}", seId);
+            return;
+        }
+
+        if (metric == null) {
+            return;
+        }
+
+        ServiceEnvironment se = serviceEnvironmentRepository.findById(seId).orElse(null);
+        UUID tenantId = se != null ? se.getTenantId() : UUID.randomUUID();
+
+        checkMetric(seId, tenantId, "CPU", metric.cpuUsage(), quota.getMaxCpu(), "percent");
+        checkMetric(seId, tenantId, "RAM", metric.ramUsage(), quota.getMaxRam(), "percent");
+        checkMetric(seId, tenantId, "DISK", metric.diskUsage(), quota.getMaxStorage(), "percent");
+        checkPods(seId, tenantId, metric.pods(), quota.getMaxPods());
+    }
+
+    private void checkMetric(UUID seId, UUID tenantId, String metricName, double actual, double threshold, String unit) {
+        if (threshold <= 0) return;
+
+        double ratio = (actual / threshold) * 100.0;
+
+        if (ratio >= CRIT_CPU && !hasOpenAlert(seId, metricName, "CRITICAL")) {
+            createAlert(seId, tenantId, metricName, threshold, actual, "CRITICAL",
+                    metricName + " usage at " + String.format("%.1f", actual) + unit
+                            + " — exceeds " + String.format("%.1f", threshold) + unit + " threshold (critical)");
+        } else if (ratio >= WARN_CPU && !hasOpenAlert(seId, metricName, "WARNING")) {
+            createAlert(seId, tenantId, metricName, threshold, actual, "WARNING",
+                    metricName + " usage at " + String.format("%.1f", actual) + unit
+                            + " — approaching " + String.format("%.1f", threshold) + unit + " threshold (warning)");
+        }
+    }
+
+    private void checkPods(UUID seId, UUID tenantId, int actualPods, int maxPods) {
+        if (maxPods <= 0) return;
+
+        double ratio = ((double) actualPods / maxPods) * 100.0;
+
+        if (ratio >= CRIT_CPU && !hasOpenAlert(seId, "PODS", "CRITICAL")) {
+            createAlert(seId, tenantId, "PODS", maxPods, actualPods, "CRITICAL",
+                    "Pod count at " + actualPods + " — exceeds limit of " + maxPods + " (critical)");
+        } else if (ratio >= WARN_CPU && !hasOpenAlert(seId, "PODS", "WARNING")) {
+            createAlert(seId, tenantId, "PODS", maxPods, actualPods, "WARNING",
+                    "Pod count at " + actualPods + " — approaching limit of " + maxPods + " (warning)");
+        }
+    }
+
+    private boolean hasOpenAlert(UUID serviceEnvironmentId, String metric, String severity) {
+        return alertRepository.findByServiceEnvironmentId(serviceEnvironmentId)
+                .stream()
+                .anyMatch(a -> a.getMetric().equals(metric)
+                        && a.getSeverity().equals(severity)
+                        && ("OPEN".equals(a.getStatus()) || "ACK".equals(a.getStatus())));
+    }
+
+    private void createAlert(UUID seId, UUID tenantId, String metric, double threshold, double actual,
+                             String severity, String message) {
+        Alert alert = new Alert();
+        alert.setTenantId(tenantId);
+        alert.setServiceEnvironmentId(seId);
+        alert.setType("QUOTA");
+        alert.setMetric(metric);
+        alert.setThreshold(threshold);
+        alert.setActualValue(actual);
+        alert.setSeverity(severity);
+        alert.setStatus("OPEN");
+        alert.setMessage(message);
+        alertRepository.save(alert);
+        log.warn("AUTO-ALERT created: {} {} actual={} threshold={} se={}",
+                severity, metric, actual, threshold, seId);
+    }
+}

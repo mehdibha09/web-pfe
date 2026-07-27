@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Permission;
@@ -22,10 +24,12 @@ import com.auth.service.repository.PermissionRepository;
 import com.auth.service.repository.RolePermissionRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.PermissionCreateRequest;
-import com.auth.service.web.dto.PermissionResponse;
-import com.auth.service.web.dto.PermissionUpdateRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.permission.PermissionCreateRequest;
+import com.auth.service.web.dto.permission.PermissionResponse;
+import com.auth.service.web.dto.permission.PermissionUpdateRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class PermissionService {
@@ -42,8 +46,7 @@ public class PermissionService {
             RolePermissionRepository rolePermissionRepository,
             UserRoleRepository userRoleRepository,
             SessionRepository sessionRepository,
-            AuditLogRepository auditLogRepository
-    ) {
+            AuditLogRepository auditLogRepository) {
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.userRoleRepository = userRoleRepository;
@@ -90,7 +93,8 @@ public class PermissionService {
     }
 
     @Transactional
-    public PermissionResponse updatePermission(String authorizationHeader, UUID permissionId, PermissionUpdateRequest request) {
+    public PermissionResponse updatePermission(String authorizationHeader, UUID permissionId,
+            PermissionUpdateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanManagePermissions(currentUser);
         Permission permission = permissionRepository.findById(permissionId)
@@ -137,8 +141,7 @@ public class PermissionService {
         return new PermissionResponse(
                 permission.getId(),
                 permission.getName(),
-                permission.getDescription()
-        );
+                permission.getDescription());
     }
 
     private User requireCurrentUser(String authorizationHeader) {
@@ -222,6 +225,25 @@ public class PermissionService {
         auditLog.setDetails(details);
         auditLog.setResource("permission");
         auditLog.setResourceId(resourceId);
+        auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    private String resolveClientIp() {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                    .getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

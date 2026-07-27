@@ -21,6 +21,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.PasswordResetToken;
@@ -45,22 +47,25 @@ import com.auth.service.repository.TenantRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.repository.UserTwoFactorRepository;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.AuthChangePasswordRequest;
-import com.auth.service.web.dto.AuthForgotPasswordRequest;
-import com.auth.service.web.dto.AuthLoginRequest;
-import com.auth.service.web.dto.AuthLoginResponse;
-import com.auth.service.web.dto.AuthMeResponse;
-import com.auth.service.web.dto.AuthRefreshRequest;
-import com.auth.service.web.dto.AuthResetPasswordRequest;
-import com.auth.service.web.dto.AuthSsoRedirectResponse;
-import com.auth.service.web.dto.AuthTokensResponse;
-import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
-import com.auth.service.web.dto.AuthTwoFaSetupResponse;
-import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
-import com.auth.service.web.dto.AuthUpdateEmailRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.auth.AuthBackupCodesResponse;
+import com.auth.service.web.dto.auth.AuthChangePasswordRequest;
+import com.auth.service.web.dto.auth.AuthForgotPasswordRequest;
+import com.auth.service.web.dto.auth.AuthLoginRequest;
+import com.auth.service.web.dto.auth.AuthLoginResponse;
+import com.auth.service.web.dto.auth.AuthMeResponse;
+import com.auth.service.web.dto.auth.AuthRefreshRequest;
+import com.auth.service.web.dto.auth.AuthResetPasswordRequest;
+import com.auth.service.web.dto.auth.AuthSsoRedirectResponse;
+import com.auth.service.web.dto.auth.AuthTokensResponse;
+import com.auth.service.web.dto.auth.AuthTwoFaEmailVerifyRequest;
+import com.auth.service.web.dto.auth.AuthTwoFaSetupResponse;
+import com.auth.service.web.dto.auth.AuthTwoFaVerifyRequest;
+import com.auth.service.web.dto.auth.AuthUpdateEmailRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class AuthService {
@@ -80,6 +85,7 @@ public class AuthService {
     private final Environment environment;
     private final ObjectMapper objectMapper;
     private final EmailService emailService;
+    private final TotpService totpService;
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -107,8 +113,8 @@ public class AuthService {
             AuditLogRepository auditLogRepository,
             Environment environment,
             ObjectMapper objectMapper,
-            EmailService emailService
-    ) {
+            EmailService emailService,
+            TotpService totpService) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.sessionRepository = sessionRepository;
@@ -121,16 +127,16 @@ public class AuthService {
         this.environment = environment;
         this.objectMapper = objectMapper;
         this.emailService = emailService;
+        this.totpService = totpService;
     }
 
     @Transactional
-        public AuthLoginResponse login(
+    public AuthLoginResponse login(
             AuthLoginRequest request,
             String ipAddress,
             String userAgent,
             String acceptLanguage,
-            String clientTimezone
-        ) {
+            String clientTimezone) {
         User user = resolveUserForLogin(request);
 
         if (!passwordMatches(request.password(), user.getPassword())) {
@@ -142,21 +148,13 @@ public class AuthService {
         }
 
         if (userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId())) {
-            String code = generateEmailTwoFaCode();
-            String normalizedEmail = normalizeEmail(user.getEmail());
-            pendingEmailTwoFaChallenges.put(
-                normalizedEmail,
-                    new PendingEmailTwoFaContext(user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10)))
-            );
-            emailService.sendLoginTwoFaCodeEmail(user.getEmail(), user.getEmail(), code, 10);
-            writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL", "Email 2FA code sent");
+            writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_TOTP", "TOTP 2FA required");
 
             return new AuthLoginResponse(
                     null,
                     toMeResponse(user),
                     true,
-                    "A verification code has been sent to your email address"
-            );
+                    "Enter the 6-digit code from your authenticator app");
         }
 
         Session session = createSession(user, ipAddress, userAgent, acceptLanguage, clientTimezone);
@@ -165,22 +163,54 @@ public class AuthService {
         return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, null);
     }
 
-    @Transactional
-        public AuthLoginResponse verifyEmailTwoFa(
+    public AuthLoginResponse verifyEmailTwoFa(
             AuthTwoFaEmailVerifyRequest request,
             String ipAddress,
             String userAgent,
             String acceptLanguage,
-            String clientTimezone
-        ) {
+            String clientTimezone) {
         String normalizedEmail = normalizeEmail(request.email());
         String providedCode = request.code() == null ? "" : request.code().trim();
 
-        if (!providedCode.matches("\\d{6}")) {
-            throw new BadRequestException("Invalid verification code format");
+        PendingEmailTwoFaContext challenge = pendingEmailTwoFaChallenges.get(normalizedEmail);
+
+        if (challenge != null && challenge.userId() != null) {
+            User challengedUser = userRepository.findById(challenge.userId())
+                    .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
+            UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(challengedUser.getId()).orElse(null);
+
+            if (userTwoFactor != null && userTwoFactor.isEnabled()) {
+                if (userTwoFactor.getBackupCodesJson() != null) {
+                    List<String> backupCodes = parseBackupCodes(userTwoFactor.getBackupCodesJson());
+                    for (int i = 0; i < backupCodes.size(); i++) {
+                        if (hashToken(providedCode).equals(backupCodes.get(i))) {
+                            List<String> remaining = new java.util.ArrayList<>(backupCodes);
+                            remaining.remove(i);
+                            userTwoFactor.setBackupCodesJson(remaining.isEmpty() ? null : toJson(remaining));
+                            userTwoFactorRepository.save(userTwoFactor);
+                            Session session = createSession(challengedUser, ipAddress, userAgent, acceptLanguage,
+                                    clientTimezone);
+                            writeAudit(challengedUser, challengedUser.getTenant(), "AUTH_LOGIN_2FA_BACKUP",
+                                    "Login via backup code");
+                            return new AuthLoginResponse(toTokens(session), toMeResponse(challengedUser), false,
+                                    "Login successful (backup code used)");
+                        }
+                    }
+                }
+
+                if (totpService.verifyCode(userTwoFactor.getSecret(), providedCode)) {
+                    Session session = createSession(challengedUser, ipAddress, userAgent, acceptLanguage,
+                            clientTimezone);
+                    writeAudit(challengedUser, challengedUser.getTenant(), "AUTH_LOGIN_2FA_TOTP_VERIFY",
+                            "TOTP 2FA verified");
+                    return new AuthLoginResponse(toTokens(session), toMeResponse(challengedUser), false,
+                            "Login successful");
+                }
+
+                throw new UnauthorizedException("Invalid 2FA code. Try again.");
+            }
         }
 
-        PendingEmailTwoFaContext challenge = pendingEmailTwoFaChallenges.get(normalizedEmail);
         if (challenge == null) {
             throw new UnauthorizedException("Invalid or expired verification challenge");
         }
@@ -206,13 +236,12 @@ public class AuthService {
     }
 
     @Transactional
-        public AuthTokensResponse refresh(
+    public AuthTokensResponse refresh(
             AuthRefreshRequest request,
             String ipAddress,
             String userAgent,
             String acceptLanguage,
-            String clientTimezone
-        ) {
+            String clientTimezone) {
         Session existingSession = sessionRepository.findByRefreshToken(request.refreshToken())
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
@@ -229,7 +258,8 @@ public class AuthService {
         existingSession.setRevokedAt(now);
         sessionRepository.save(existingSession);
 
-        Session rotatedSession = createSession(existingSession.getUser(), ipAddress, userAgent, acceptLanguage, clientTimezone);
+        Session rotatedSession = createSession(existingSession.getUser(), ipAddress, userAgent, acceptLanguage,
+                clientTimezone);
         writeAudit(existingSession.getUser(), existingSession.getUser().getTenant(), "AUTH_REFRESH", "Token rotation");
 
         return toTokens(rotatedSession);
@@ -325,56 +355,68 @@ public class AuthService {
     @Transactional
     public AuthTwoFaSetupResponse setupTwoFa(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        String code = generateEmailTwoFaCode();
+        String secret = totpService.generateSecret();
+        String qrCodeUri = totpService.generateQrCodeUri(secret, user.getEmail(), "AppPFE");
+        String qrCodePng = totpService.generateQrCodePngBase64(secret, user.getEmail(), "AppPFE");
 
-        pendingTwoFaSetupChallenges.put(
-            user.getId(),
-                new PendingEmailTwoFaContext(user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10)))
-        );
+        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId()).orElseGet(UserTwoFactor::new);
+        userTwoFactor.setSecret(secret);
+        userTwoFactor.setEnabled(false);
+        userTwoFactor.setUser(user);
+        userTwoFactorRepository.save(userTwoFactor);
 
-        writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "2FA setup initiated");
-        emailService.sendTwoFaSetupCodeEmail(user.getEmail(), user.getEmail(), code, 10);
+        writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "TOTP 2FA setup initiated");
 
         return new AuthTwoFaSetupResponse(
                 6,
-                "A 6-digit activation code has been sent to your email address"
-        );
+                "Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)",
+                secret,
+                qrCodeUri,
+                totpService.generateQrCodePngBase64(secret, user.getEmail(), "AppPFE"));
     }
 
     @Transactional
     public AuthActionResponse verifyTwoFa(String authorizationHeader, AuthTwoFaVerifyRequest request) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        PendingEmailTwoFaContext challenge = pendingTwoFaSetupChallenges.get(user.getId());
-        if (challenge == null || !challenge.userId().equals(user.getId())) {
-            throw new UnauthorizedException("Invalid or expired 2FA activation challenge");
-        }
-
-        if (challenge.expiresAt().isBefore(Instant.now())) {
-            pendingTwoFaSetupChallenges.remove(user.getId());
-            throw new UnauthorizedException("Invalid or expired 2FA activation challenge");
-        }
+        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new BadRequestException("2FA not set up. Generate a setup first."));
 
         String code = request.code().trim();
-        if (code.length() != 6 || !code.chars().allMatch(Character::isDigit)) {
-            throw new BadRequestException("Invalid 2FA code format");
+
+        if (userTwoFactor.getBackupCodesJson() != null) {
+            List<String> backupCodes = parseBackupCodes(userTwoFactor.getBackupCodesJson());
+            for (int i = 0; i < backupCodes.size(); i++) {
+                if (hashToken(code).equals(backupCodes.get(i))) {
+                    List<String> remaining = new java.util.ArrayList<>(backupCodes);
+                    remaining.remove(i);
+                    userTwoFactor.setBackupCodesJson(remaining.isEmpty() ? null : toJson(remaining));
+                    userTwoFactor.setEnabled(true);
+                    userTwoFactorRepository.save(userTwoFactor);
+                    writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified via backup code");
+                    emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
+                    return new AuthActionResponse("2FA verification successful (backup code used)");
+                }
+            }
         }
 
-        if (!hashToken(code).equals(challenge.codeHash())) {
-            throw new UnauthorizedException("Invalid 2FA code");
+        if (!totpService.verifyCode(userTwoFactor.getSecret(), code)) {
+            throw new UnauthorizedException(
+                    "Invalid 2FA code. Make sure your authenticator app shows the correct code.");
         }
 
-        pendingTwoFaSetupChallenges.remove(user.getId());
+        if (!userTwoFactor.isEnabled()) {
+            List<String> backupCodes = generateBackupCodes();
+            userTwoFactor.setBackupCodesJson(toJson(backupCodes));
+            userTwoFactor.setEnabled(true);
+            userTwoFactorRepository.save(userTwoFactor);
 
-        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId()).orElseGet(UserTwoFactor::new);
-        userTwoFactor.setSecret(UUID.randomUUID().toString());
-        userTwoFactor.setEnabled(true);
-        userTwoFactor.setUser(user);
-        userTwoFactorRepository.save(userTwoFactor);
-        writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified");
-        
-        // Send 2FA verification notification
-        emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
-        
+            writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "TOTP 2FA verified");
+            emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
+
+            return new AuthActionResponse("2FA verification successful. Save your backup codes!");
+        }
+
+        writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "TOTP 2FA verified");
         return new AuthActionResponse("2FA verification successful");
     }
 
@@ -385,10 +427,10 @@ public class AuthService {
         userTwoFactorRepository.findByUser_Id(user.getId()).ifPresent(userTwoFactorRepository::delete);
 
         writeAudit(user, user.getTenant(), "AUTH_2FA_DISABLE", "2FA disabled");
-        
+
         // Send 2FA disabled notification email
         emailService.send2FADisabledEmail(user.getEmail(), user.getEmail());
-        
+
         return new AuthActionResponse("2FA disabled");
     }
 
@@ -403,22 +445,22 @@ public class AuthService {
         userRepository.save(user);
         revokeAllUserSessions(user.getId());
         writeAudit(user, user.getTenant(), "AUTH_CHANGE_PASSWORD", "Password changed");
-        
+
         // Send password change confirmation email
         emailService.sendPasswordChangeEmail(user.getEmail(), user.getEmail());
-        
+
         return new AuthActionResponse("Password changed successfully");
     }
 
     public AuthActionResponse updateEmail(String authorizationHeader, AuthUpdateEmailRequest request) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        
+
         if (!passwordMatches(request.password(), user.getPassword())) {
             throw new UnauthorizedException("Password is invalid");
         }
 
         String newEmail = request.newEmail().toLowerCase().trim();
-        
+
         if (newEmail.equals(user.getEmail())) {
             throw new BadRequestException("New email must be different from current email");
         }
@@ -431,17 +473,17 @@ public class AuthService {
         String oldEmail = user.getEmail();
         user.setEmail(newEmail);
         userRepository.save(user);
-        
+
         writeAudit(user, user.getTenant(), "AUTH_UPDATE_EMAIL", "Email changed from " + oldEmail + " to " + newEmail);
-        
+
         // Send email change confirmation emails
         emailService.sendPasswordChangeEmail(newEmail, oldEmail);
-        
+
         return new AuthActionResponse("Email updated successfully");
     }
 
     @Transactional
-    public com.auth.service.web.dto.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
+    public com.auth.service.web.dto.auth.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
         User user = resolveUserForPasswordReset(request);
         String resetToken = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
         PasswordResetToken token = new PasswordResetToken();
@@ -450,11 +492,11 @@ public class AuthService {
         token.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
         passwordResetTokenRepository.save(token);
         writeAudit(user, user.getTenant(), "AUTH_FORGOT_PASSWORD", "Password reset token generated");
-        
+
         // Send password reset email
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
-        
-        return new com.auth.service.web.dto.PasswordResetResponse("Password reset token generated", resetToken);
+
+        return new com.auth.service.web.dto.auth.PasswordResetResponse("Password reset token generated", resetToken);
     }
 
     @Transactional
@@ -471,7 +513,7 @@ public class AuthService {
         passwordResetTokenRepository.save(token);
 
         revokeAllUserSessions(user.getId());
-        
+
         // Send password change confirmation email
         emailService.sendPasswordChangeEmail(user.getEmail(), user.getEmail());
         writeAudit(user, user.getTenant(), "AUTH_RESET_PASSWORD", "Password reset completed");
@@ -488,7 +530,7 @@ public class AuthService {
 
         if (request.tenantName() != null && !request.tenantName().isBlank()) {
             Tenant tenant = tenantRepository.findByName(request.tenantName().trim())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+                    .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
             return userRepository.findByTenant_IdAndEmail(tenant.getId(), email)
                     .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         }
@@ -508,8 +550,7 @@ public class AuthService {
             String ipAddress,
             String userAgent,
             String acceptLanguage,
-            String clientTimezone
-    ) {
+            String clientTimezone) {
         Session session = new Session();
         session.setUser(user);
         session.setAccessToken(generateAccessToken());
@@ -529,12 +570,18 @@ public class AuthService {
         }
 
         String normalized = userAgent.toLowerCase();
-        if (normalized.contains("edg/")) return "Microsoft Edge";
-        if (normalized.contains("opr/") || normalized.contains("opera")) return "Opera";
-        if (normalized.contains("chrome/")) return "Google Chrome";
-        if (normalized.contains("safari/") && !normalized.contains("chrome/")) return "Safari";
-        if (normalized.contains("firefox/")) return "Firefox";
-        if (normalized.contains("msie") || normalized.contains("trident/")) return "Internet Explorer";
+        if (normalized.contains("edg/"))
+            return "Microsoft Edge";
+        if (normalized.contains("opr/") || normalized.contains("opera"))
+            return "Opera";
+        if (normalized.contains("chrome/"))
+            return "Google Chrome";
+        if (normalized.contains("safari/") && !normalized.contains("chrome/"))
+            return "Safari";
+        if (normalized.contains("firefox/"))
+            return "Firefox";
+        if (normalized.contains("msie") || normalized.contains("trident/"))
+            return "Internet Explorer";
         return "Unknown";
     }
 
@@ -544,11 +591,16 @@ public class AuthService {
         }
 
         String normalized = userAgent.toLowerCase();
-        if (normalized.contains("windows")) return "Windows";
-        if (normalized.contains("mac os") || normalized.contains("macintosh")) return "macOS";
-        if (normalized.contains("android")) return "Android";
-        if (normalized.contains("iphone") || normalized.contains("ipad") || normalized.contains("ios")) return "iOS";
-        if (normalized.contains("linux")) return "Linux";
+        if (normalized.contains("windows"))
+            return "Windows";
+        if (normalized.contains("mac os") || normalized.contains("macintosh"))
+            return "macOS";
+        if (normalized.contains("android"))
+            return "Android";
+        if (normalized.contains("iphone") || normalized.contains("ipad") || normalized.contains("ios"))
+            return "iOS";
+        if (normalized.contains("linux"))
+            return "Linux";
         return "Unknown";
     }
 
@@ -580,8 +632,7 @@ public class AuthService {
                 session.getAccessToken(),
                 session.getRefreshToken(),
                 TOKEN_TYPE,
-                ACCESS_TOKEN_TTL.toSeconds()
-        );
+                ACCESS_TOKEN_TTL.toSeconds());
     }
 
     private AuthMeResponse toMeResponse(User user) {
@@ -613,8 +664,7 @@ public class AuthService {
                 user.getStatus().name(),
                 roles,
                 permissions,
-                userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId())
-        );
+                userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId()));
     }
 
     private Session getValidSessionFromAuthorization(String authorizationHeader) {
@@ -708,11 +758,13 @@ public class AuthService {
         String redirectUri = environment.getProperty(prefix + "redirect-uri");
         String scope = environment.getProperty(prefix + "scope", "openid email profile");
 
-        if (authorizationUri == null || tokenUri == null || userInfoUri == null || clientId == null || clientSecret == null || redirectUri == null) {
+        if (authorizationUri == null || tokenUri == null || userInfoUri == null || clientId == null
+                || clientSecret == null || redirectUri == null) {
             throw new BadRequestException("SSO provider is not configured: " + provider);
         }
 
-        return new SsoProviderSettings(authorizationUri, tokenUri, userInfoUri, clientId, clientSecret, redirectUri, scope);
+        return new SsoProviderSettings(authorizationUri, tokenUri, userInfoUri, clientId, clientSecret, redirectUri,
+                scope);
     }
 
     private String buildAuthorizationUrl(String provider, String state) {
@@ -821,7 +873,8 @@ public class AuthService {
         });
     }
 
-    private record SsoProviderSettings(String authorizationUri, String tokenUri, String userInfoUri, String clientId, String clientSecret, String redirectUri, String scope) {
+    private record SsoProviderSettings(String authorizationUri, String tokenUri, String userInfoUri, String clientId,
+            String clientSecret, String redirectUri, String scope) {
     }
 
     private record SsoUserProfile(String subject, String email, String name) {
@@ -831,7 +884,8 @@ public class AuthService {
         if (rawPassword == null || storedPassword == null) {
             return false;
         }
-        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
+        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")
+                || storedPassword.startsWith("$2y$")) {
             return passwordEncoder.matches(rawPassword, storedPassword);
         }
         return storedPassword.equals(rawPassword);
@@ -850,6 +904,66 @@ public class AuthService {
         return String.format("%06d", code);
     }
 
+    public AuthBackupCodesResponse getBackupCodes(String authorizationHeader) {
+        User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
+        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new BadRequestException("2FA is not enabled"));
+
+        if (userTwoFactor.getBackupCodesJson() == null) {
+            List<String> codes = generateBackupCodes();
+            userTwoFactor.setBackupCodesJson(toJson(codes));
+            userTwoFactorRepository.save(userTwoFactor);
+            return new AuthBackupCodesResponse(codes, "Backup codes generated. Store them safely.");
+        }
+
+        List<String> existingCodes = parseBackupCodes(userTwoFactor.getBackupCodesJson());
+        return new AuthBackupCodesResponse(existingCodes, "Existing backup codes");
+    }
+
+    public AuthBackupCodesResponse regenerateBackupCodes(String authorizationHeader) {
+        User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
+        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new BadRequestException("2FA is not enabled"));
+
+        List<String> codes = generateBackupCodes();
+        userTwoFactor.setBackupCodesJson(toJson(codes));
+        userTwoFactorRepository.save(userTwoFactor);
+
+        writeAudit(user, user.getTenant(), "AUTH_2FA_BACKUP_CODES_REGENERATE", "Backup codes regenerated");
+        return new AuthBackupCodesResponse(codes, "New backup codes generated. Previous codes are invalid.");
+    }
+
+    private List<String> generateBackupCodes() {
+        List<String> codes = new java.util.ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            String code = String.format("%04d-%04d", secureRandom.nextInt(10000), secureRandom.nextInt(10000));
+            codes.add(hashToken(code));
+        }
+        return codes;
+    }
+
+    private List<String> parseBackupCodes(String json) {
+        try {
+            if (json == null || json.isBlank())
+                return new java.util.ArrayList<>();
+            java.util.List<String> codes = new java.util.ArrayList<>();
+            com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>> typeRef = new com.fasterxml.jackson.core.type.TypeReference<>() {
+            };
+            codes.addAll(objectMapper.readValue(json, typeRef));
+            return codes;
+        } catch (Exception e) {
+            return new java.util.ArrayList<>();
+        }
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
     private void writeAudit(User user, Tenant tenant, String action, String details) {
         AuditLog auditLog = new AuditLog();
         auditLog.setUser(user);
@@ -858,6 +972,25 @@ public class AuthService {
         auditLog.setDetails(details);
         auditLog.setResource("auth");
         auditLog.setResourceId(user.getId().toString());
+        auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    private String resolveClientIp() {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                    .getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

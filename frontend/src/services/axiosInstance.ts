@@ -1,16 +1,16 @@
 import { clearSession, getAccessToken, getRefreshToken, setSessionTokens } from './authStorage';
 
 const API_BASE_URL = (() => {
-  const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
-  if (explicitBaseUrl) {
-    return explicitBaseUrl.replace(/\/$/, '');
-  }
+    const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (explicitBaseUrl) {
+        return explicitBaseUrl.replace(/\/$/, '');
+    }
 
-  const apiHost = import.meta.env.VITE_API_HOST || 'localhost';
-  const apiPort = import.meta.env.VITE_API_PORT || '7070';
-  const apiPath = (import.meta.env.VITE_API_PATH || '/api/v1').replace(/^\/+/, '/');
+    const apiHost = import.meta.env.VITE_API_HOST || 'localhost';
+    const apiPort = import.meta.env.VITE_API_PORT || '6060';
+    const apiPath = (import.meta.env.VITE_API_PATH || '/api/v1').replace(/^\/+/, '/');
 
-  return `http://${apiHost}:${apiPort}${apiPath}`.replace(/\/$/, '');
+    return `http://${apiHost}:${apiPort}${apiPath}`.replace(/\/$/, '');
 })();
 
 // ── Refresh state ────────────────────────────────────────────────────────────
@@ -18,139 +18,209 @@ let isRefreshing = false;
 let failedQueue: { resolve: (token: string) => void; reject: (err: Error) => void }[] = [];
 
 const buildClientHeaders = (): Record<string, string> => {
-  const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {};
 
-  try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (timezone) {
-      headers['X-Client-Timezone'] = timezone;
+    try {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (timezone) {
+            headers['X-Client-Timezone'] = timezone;
+        }
+    } catch {
+        // noop
     }
-  } catch {
-    // noop
-  }
 
-  if (typeof navigator !== 'undefined' && navigator.language) {
-    headers['Accept-Language'] = navigator.language;
-  }
+    if (typeof navigator !== 'undefined' && navigator.language) {
+        headers['Accept-Language'] = navigator.language;
+    }
 
-  return headers;
+    return headers;
 };
 
 const processQueue = (error: Error | null, token: string | null = null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else if (token) resolve(token);
-  });
-  failedQueue = [];
+    failedQueue.forEach(({ resolve, reject }) => {
+        if (error) reject(error);
+        else if (token) resolve(token);
+    });
+    failedQueue = [];
 };
 
 // ── Core refresh call (no interceptor – plain fetch to avoid loops) ──────────
 const refreshTokens = async (): Promise<string> => {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) throw new Error('No refresh token');
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token');
 
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...buildClientHeaders() },
-    body: JSON.stringify({ refreshToken }),
-  });
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...buildClientHeaders() },
+        body: JSON.stringify({ refreshToken })
+    });
 
-  if (!response.ok) throw new Error('Refresh failed');
+    if (!response.ok) throw new Error('Refresh failed');
 
-  const data = await response.json();
-  setSessionTokens(data.accessToken, data.refreshToken);
-  return data.accessToken;
+    const data = await response.json();
+    setSessionTokens(data.accessToken, data.refreshToken);
+    return data.accessToken;
 };
+
+// ── Pagination meta ──────────────────────────────────────────────────────────
+interface PaginationMeta {
+    totalElements: number;
+    totalPages: number;
+    page: number;
+    size: number;
+}
 
 // ── Error helper ─────────────────────────────────────────────────────────────
 interface ErrorResponse {
-  message?: string;
-  [key: string]: any;
+    message?: string;
+    error?: string;
+    code?: string;
+    requestId?: string;
+    [key: string]: any;
 }
 
 class AxiosError extends Error {
-  response?: { status: number; data: ErrorResponse | null };
+    response?: { status: number; data: ErrorResponse | null };
 }
 
 const toError = async (response: Response): Promise<AxiosError> => {
-  let data: ErrorResponse | null = null;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+    let data: ErrorResponse | null = null;
+    let rawText: string | null = null;
 
-  const message = data?.message || `Request failed with status ${response.status}`;
-  const error = new AxiosError(message);
-  error.response = { status: response.status, data };
-  return error;
+    try {
+        rawText = await response.text();
+        try {
+            data = rawText ? JSON.parse(rawText) : null;
+        } catch {
+            data = null;
+        }
+    } catch {
+        data = null;
+        rawText = null;
+    }
+
+    const message = data?.message || data?.error || rawText || `Request failed with status ${response.status}`;
+    const error = new AxiosError(message);
+    error.response = { status: response.status, data };
+    return error;
 };
 
 // ── Main request (with automatic 401 → refresh → retry) ─────────────────────
+const REQUEST_TIMEOUT_MS = 30_000;
+
 const request = async <T = any>(
-  method: string,
-  url: string,
-  payload?: any,
-  _retry: boolean = false,
-): Promise<{ data: T }> => {
-  const token = getAccessToken();
+    method: string,
+    url: string,
+    payload?: any,
+    _retry: boolean = false
+): Promise<{ data: T; pagination?: PaginationMeta }> => {
+    const token = getAccessToken();
+    const fullUrl = `${API_BASE_URL}${url}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...buildClientHeaders(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}),
-  });
+    let response: Response;
+    try {
+        response = await fetch(fullUrl, {
+            method,
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/json',
+                ...buildClientHeaders(),
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            ...(payload !== undefined ? { body: JSON.stringify(payload) } : {})
+        });
+    } catch (networkError) {
+        clearTimeout(timeoutId);
+        const isNetworkError = networkError instanceof TypeError
+            && (networkError.message?.includes('fetch') || networkError.message?.includes('network'));
+        const isTimeout = networkError instanceof DOMException && networkError.name === 'AbortError';
+        const error = new AxiosError(
+            isTimeout
+                ? 'La requête a expiré — veuillez réessayer'
+                : isNetworkError
+                    ? 'Impossible de contacter le serveur — vérifiez votre connexion'
+                    : `Erreur réseau : ${(networkError as Error).message}`
+        );
+        error.response = { status: 0, data: null };
+        throw error;
+    }
 
-  // ── Happy path ───────────────────────────────────────────────────────────
-  if (response.ok) {
-    if (response.status === 204) return { data: null as T };
-    const text = await response.text();
-    return { data: (text ? JSON.parse(text) : null) as T };
-  }
+    clearTimeout(timeoutId);
 
-  // ── Not a 401, or already retried, or public request without token → throw
-  if (response.status !== 401 || _retry || !token) {
-    throw await toError(response);
-  }
+    if (!response.ok) {
+        console.debug('[axiosInstance] request failed', {
+            method,
+            url,
+            fullUrl,
+            status: response.status,
+            hasAuthHeader: !!token,
+            retryAttempt: _retry
+        });
+    }
 
-  // ── 401: try to refresh ──────────────────────────────────────────────────
-  if (isRefreshing) {
-    // Another refresh is in flight – queue this request and wait
-    return new Promise((resolve, reject) => {
-      failedQueue.push({
-        resolve: () => resolve(request(method, url, payload, true)),
-        reject,
-      });
-    });
-  }
+    // ── Happy path ───────────────────────────────────────────────────────────
+    if (response.ok) {
+        if (response.status === 204) return { data: null as T };
+        const text = await response.text();
+        const parsed: unknown = text ? JSON.parse(text) : null;
+        const isPage = parsed && typeof parsed === 'object' && 'content' in (parsed as Record<string, unknown>) && Array.isArray((parsed as Record<string, unknown>).content);
+        if (isPage) {
+            const page = parsed as Record<string, unknown>;
+            return {
+                data: page.content as T,
+                pagination: {
+                    totalElements: page.totalElements as number,
+                    totalPages: page.totalPages as number,
+                    page: page.number as number,
+                    size: page.size as number
+                }
+            };
+        }
+        return { data: parsed as T };
+    }
 
-  isRefreshing = true;
+    // ── Not a 401, or already retried, or public request without token → throw
+    if (response.status !== 401 || _retry || !token) {
+        throw await toError(response);
+    }
 
-  try {
-    await refreshTokens();
-    processQueue(null, null);
-    return request(method, url, payload, true); // retry original
-  } catch (err) {
-    processQueue(err as Error);
-    clearSession();
-    window.location.href = '/login'; // or your router's redirect
-    throw err;
-  } finally {
-    isRefreshing = false;
-  }
+    // ── 401: try to refresh ──────────────────────────────────────────────────
+    if (isRefreshing) {
+        // Another refresh is in flight – queue this request and wait
+        return new Promise((resolve, reject) => {
+            failedQueue.push({
+                resolve: () => resolve(request(method, url, payload, true)),
+                reject
+            });
+        });
+    }
+
+    isRefreshing = true;
+
+    try {
+        await refreshTokens();
+        processQueue(null, null);
+        return request(method, url, payload, true); // retry original
+    } catch (err) {
+        processQueue(err as Error);
+        clearSession();
+        window.location.href = '/login'; // or your router's redirect
+        throw err;
+    } finally {
+        isRefreshing = false;
+    }
 };
 
 // ── Public API ───────────────────────────────────────────────────────────────
 const axiosInstance = {
-  get: <T = any>(url: string) => request<T>('GET', url),
-  post: <T = any>(url: string, payload?: any) => request<T>('POST', url, payload),
-  patch: <T = any>(url: string, payload?: any) => request<T>('PATCH', url, payload),
-  put: <T = any>(url: string, payload?: any) => request<T>('PUT', url, payload),
-  delete: <T = any>(url: string, payload?: any) => request<T>('DELETE', url, payload),
+    get: <T = any>(url: string) => request<T>('GET', url),
+    post: <T = any>(url: string, payload?: any) => request<T>('POST', url, payload),
+    patch: <T = any>(url: string, payload?: any) => request<T>('PATCH', url, payload),
+    put: <T = any>(url: string, payload?: any) => request<T>('PUT', url, payload),
+    delete: <T = any>(url: string, payload?: any) => request<T>('DELETE', url, payload)
 };
 
 export default axiosInstance;
+export type { PaginationMeta };

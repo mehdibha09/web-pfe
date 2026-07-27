@@ -1,6 +1,9 @@
 import { Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
+import { C} from '../theme/tokens';
 
 const Footer = () => {
+  const { t } = useTranslation();
   return (
     <Box
       sx={{
@@ -14,11 +17,11 @@ const Footer = () => {
         alignItems: 'center',
       }}
     >
-      <Typography variant="body2" sx={{ color: '#64748B' }}>
-        © 2026 Auth Console. All rights reserved.
+      <Typography variant="body2" sx={{ color: C.muted }}>
+        {t('layout.footer.copyright')}
       </Typography>
-      <Typography variant="body2" sx={{ color: '#64748B' }}>
-        Backend integration later
+      <Typography variant="body2" sx={{ color: C.muted }}>
+        {t('layout.footer.backendInfo')}
       </Typography>
     </Box>
   );

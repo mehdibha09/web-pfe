@@ -21,10 +21,13 @@ public final class ApiRoutes {
         public static final String RESET_PASSWORD = "/reset-password";
         public static final String SSO_REDIRECT = "/sso/{provider}/redirect";
         public static final String SSO_CALLBACK = "/sso/{provider}/callback";
+        public static final String SSO_CALLBACK_POST = "/sso/callback";
         public static final String TWO_FA_SETUP = "/2fa/setup";
         public static final String TWO_FA_VERIFY = "/2fa/verify";
         public static final String TWO_FA_DISABLE = "/2fa";
         public static final String TWO_FA_EMAIL_VERIFY = "/2fa/email/verify";
+        public static final String TWO_FA_BACKUP_CODES = "/2fa/backup-codes";
+        public static final String TWO_FA_BACKUP_CODES_REGENERATE = "/2fa/backup-codes/regenerate";
     }
 
     public static final class Roles {

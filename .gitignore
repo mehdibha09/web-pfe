@@ -1,0 +1,31 @@
+# Environment files with secrets
+.env
+.env-prod
+.env.*.local
+*.env
+
+# Vagrant VMs (machine-specific generated files)
+vms/
+
+# Java
+target/
+*.class
+*.jar
+*.war
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -3,6 +3,9 @@ package com.auth.service.web.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,11 +19,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.TenantService;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.TenantCreateRequest;
-import com.auth.service.web.dto.TenantResponse;
-import com.auth.service.web.dto.TenantUpdateRequest;
-import com.auth.service.web.dto.UserResponse;
+import com.auth.service.web.dto.role.RoleResponse;
+import com.auth.service.web.dto.tenant.TenantCreateRequest;
+import com.auth.service.web.dto.tenant.TenantResponse;
+import com.auth.service.web.dto.tenant.TenantUpdateRequest;
+import com.auth.service.web.dto.user.UserResponse;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -37,8 +40,11 @@ public class TenantController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TenantResponse>> listTenants(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(tenantService.listTenants(authorizationHeader));
+    public ResponseEntity<Page<TenantResponse>> listTenants(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ResponseEntity.ok(tenantService.listTenants(authorizationHeader, pageable));
     }
 
     @GetMapping(ApiRoutes.Tenants.BY_ID)
@@ -61,7 +67,7 @@ public class TenantController {
     public ResponseEntity<TenantResponse> updateTenant(
             @RequestHeader("Authorization") String authorizationHeader,
             @PathVariable UUID tenantId,
-            @RequestBody TenantUpdateRequest request
+            @RequestBody @Valid TenantUpdateRequest request
     ) {
         return ResponseEntity.ok(tenantService.updateTenant(authorizationHeader, tenantId, request));
     }

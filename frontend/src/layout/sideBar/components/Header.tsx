@@ -1,5 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { C} from '../../../theme/tokens';
 
 const vericalCenterStyle = {
   display: 'flex',
@@ -15,13 +17,14 @@ interface HeaderProps {
 }
 
 const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
+  const { t } = useTranslation();
   return (
     <Box
       sx={{
         ...vericalCenterStyle,
         height: '70px',
-        borderBottom: '1px solid #F6DDE7',
-        color: '#64748B',
+        borderBottom: `1px solid ${C.border}`,
+        color: C.muted,
         px: 1.5,
       }}
     >
@@ -31,7 +34,7 @@ const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
             width: 10,
             height: 10,
             borderRadius: '50%',
-            backgroundColor: '#E4477D',
+            backgroundColor: C.brand,
             boxShadow: '0 0 0 4px #FDEAF2',
             display: isMenuClosed ? 'none' : 'block',
             transition: 'all 0.5s ease',
@@ -43,11 +46,11 @@ const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
               width: isMenuClosed ? '0' : '120px',
               overflow: 'hidden',
               transition: 'width 0.5s',
-              color: '#e4477d',
+              color: C.brand,
               fontWeight: 'bold',
             }}
           >
-            Auth Console
+            {t('layout.sidebar.appTitle')}
           </Typography>
         </NavLink>
       </Box>
@@ -69,8 +72,8 @@ const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
             justifyContent: 'center',
             cursor: 'pointer',
             borderRadius: '8px',
-            color: '#BE185D',
-            backgroundColor: '#FCE7F3',
+            color: C.brandDark,
+            backgroundColor: C.brandLight,
             border: '1px solid #F8CADD',
             fontWeight: 'bold',
             fontSize: '18px',
@@ -79,7 +82,7 @@ const Header = ({ isMenuClosed, setMenuClosing }: HeaderProps) => {
             marginLeft: isMenuClosed ? '-100%' : '0',
             '&:hover': {
               backgroundColor: '#F9D7E7',
-              color: '#9D174D',
+              color: C.brandDark,
             },
           }}
         >

@@ -3,6 +3,10 @@ package com.auth.service.web.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,8 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.SessionService;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.SessionResponse;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.session.SessionResponse;
 import com.auth.service.web.routes.ApiRoutes;
 
 @RestController
@@ -29,8 +33,15 @@ public class SessionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<SessionResponse>> listSessions(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(sessionService.listSessions(authorizationHeader));
+    public ResponseEntity<Page<SessionResponse>> listSessions(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        List<SessionResponse> list = sessionService.listSessions(authorizationHeader);
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), list.size());
+        List<SessionResponse> content = start < list.size() ? list.subList(start, end) : List.of();
+        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
     }
 
     @DeleteMapping(ApiRoutes.Sessions.BY_ID)

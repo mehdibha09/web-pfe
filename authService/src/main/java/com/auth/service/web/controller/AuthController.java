@@ -13,21 +13,23 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.AuthService;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.AuthChangePasswordRequest;
-import com.auth.service.web.dto.AuthForgotPasswordRequest;
-import com.auth.service.web.dto.AuthLoginRequest;
-import com.auth.service.web.dto.AuthLoginResponse;
-import com.auth.service.web.dto.AuthLogoutRequest;
-import com.auth.service.web.dto.AuthMeResponse;
-import com.auth.service.web.dto.AuthRefreshRequest;
-import com.auth.service.web.dto.AuthResetPasswordRequest;
-import com.auth.service.web.dto.AuthSsoRedirectResponse;
-import com.auth.service.web.dto.AuthTokensResponse;
-import com.auth.service.web.dto.AuthTwoFaEmailVerifyRequest;
-import com.auth.service.web.dto.AuthTwoFaSetupResponse;
-import com.auth.service.web.dto.AuthTwoFaVerifyRequest;
-import com.auth.service.web.dto.AuthUpdateEmailRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.auth.AuthBackupCodesResponse;
+import com.auth.service.web.dto.auth.AuthChangePasswordRequest;
+import com.auth.service.web.dto.auth.AuthForgotPasswordRequest;
+import com.auth.service.web.dto.auth.AuthLoginRequest;
+import com.auth.service.web.dto.auth.AuthLoginResponse;
+import com.auth.service.web.dto.auth.AuthLogoutRequest;
+import com.auth.service.web.dto.auth.AuthMeResponse;
+import com.auth.service.web.dto.auth.AuthRefreshRequest;
+import com.auth.service.web.dto.auth.AuthResetPasswordRequest;
+import com.auth.service.web.dto.auth.AuthSsoCallbackRequest;
+import com.auth.service.web.dto.auth.AuthSsoRedirectResponse;
+import com.auth.service.web.dto.auth.AuthTokensResponse;
+import com.auth.service.web.dto.auth.AuthTwoFaEmailVerifyRequest;
+import com.auth.service.web.dto.auth.AuthTwoFaSetupResponse;
+import com.auth.service.web.dto.auth.AuthTwoFaVerifyRequest;
+import com.auth.service.web.dto.auth.AuthUpdateEmailRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -104,7 +106,7 @@ public class AuthController {
     @PostMapping(ApiRoutes.Auth.LOGOUT)
     public ResponseEntity<AuthActionResponse> logout(
             @RequestBody(required = false) AuthLogoutRequest request,
-            @RequestHeader(name = "Authorization", required = false) String authorizationHeader
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
         String refreshToken = request == null ? null : request.refreshToken();
         return ResponseEntity.ok(authService.logout(refreshToken, authorizationHeader));
@@ -132,7 +134,7 @@ public class AuthController {
     }
 
     @PostMapping(ApiRoutes.Auth.FORGOT_PASSWORD)
-    public ResponseEntity<com.auth.service.web.dto.PasswordResetResponse> forgotPassword(
+    public ResponseEntity<com.auth.service.web.dto.auth.PasswordResetResponse> forgotPassword(
             @Valid @RequestBody AuthForgotPasswordRequest request
     ) {
         return ResponseEntity.ok(authService.forgotPassword(request));
@@ -163,6 +165,13 @@ public class AuthController {
         return ResponseEntity.ok(authService.ssoCallback(provider, code, state, tenantId, tenantName));
     }
 
+    @PostMapping(ApiRoutes.Auth.SSO_CALLBACK_POST)
+    public ResponseEntity<AuthLoginResponse> ssoCallbackPost(
+            @Valid @RequestBody AuthSsoCallbackRequest request
+    ) {
+        return ResponseEntity.ok(authService.ssoCallback(request.provider(), request.code(), request.state(), null, null));
+    }
+
     @PostMapping(ApiRoutes.Auth.TWO_FA_SETUP)
     public ResponseEntity<AuthTwoFaSetupResponse> setupTwoFa(@RequestHeader("Authorization") String authorizationHeader) {
         return ResponseEntity.ok(authService.setupTwoFa(authorizationHeader));
@@ -179,5 +188,15 @@ public class AuthController {
     @DeleteMapping(ApiRoutes.Auth.TWO_FA_DISABLE)
     public ResponseEntity<AuthActionResponse> disableTwoFa(@RequestHeader("Authorization") String authorizationHeader) {
         return ResponseEntity.ok(authService.disableTwoFa(authorizationHeader));
+    }
+
+    @GetMapping(ApiRoutes.Auth.TWO_FA_BACKUP_CODES)
+    public ResponseEntity<AuthBackupCodesResponse> getBackupCodes(@RequestHeader("Authorization") String authorizationHeader) {
+        return ResponseEntity.ok(authService.getBackupCodes(authorizationHeader));
+    }
+
+    @PostMapping(ApiRoutes.Auth.TWO_FA_BACKUP_CODES_REGENERATE)
+    public ResponseEntity<AuthBackupCodesResponse> regenerateBackupCodes(@RequestHeader("Authorization") String authorizationHeader) {
+        return ResponseEntity.ok(authService.regenerateBackupCodes(authorizationHeader));
     }
 }

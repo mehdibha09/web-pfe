@@ -1,0 +1,508 @@
+Manual API Test Guide (Postman) - ALL ENDPOINTS DOCUMENTED
+
+Base URL:
+http://localhost:6060
+
+Base API Prefix:
+/api/v1
+
+Headers for POST/PUT:
+Content-Type: application/json
+
+SEED DATA (AUTO-CREATED AT APP STARTUP)
+
+tenantId:
+11111111-1111-1111-1111-111111111111
+
+deployedBy (for reference in DB):
+aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+
+Environment IDs:
+
+production: 22222222-2222-2222-2222-222222222222
+staging: 33333333-3333-3333-3333-333333333333
+
+Service IDs:
+
+user-service: 44444444-4444-4444-4444-444444444444
+auth-service: 55555555-5555-5555-5555-555555555555
+
+Service-Environment IDs:
+
+user-service + production: 66666666-6666-6666-6666-666666666666
+auth-service + staging: 77777777-7777-7777  -7777-777777777777
+
+Deployment ID:
+
+88888888-8888-8888-8888-888888888888
+
+Metric ID:
+
+99999999-9999-9999-9999-999999999999
+
+================================================================================
+TEST API
+================================================================================
+
+1.1 Health check
+
+Method: GET
+URL: http://localhost:6060/api/v1/test
+Body: none
+
+1.2 Echo test message
+
+Method: POST
+URL: http://localhost:6060/api/v1/test
+Body:
+{
+  "message": "hello from postman"
+}
+
+================================================================================
+ENVIRONMENTS API
+================================================================================
+
+2.1 Create environment
+
+Method: POST
+URL: http://localhost:6060/api/v1/environments
+Body:
+{
+  "name": "production",
+  "description": "Production environment",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+2.2 Get environment by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/environments/{id}
+
+2.3 Get all environments
+
+Method: GET
+URL: http://localhost:6060/api/v1/environments
+
+2.4 Update environment
+
+Method: PUT
+URL: http://localhost:6060/api/v1/environments/{id}
+Body:
+{
+  "name": "staging",
+  "description": "Staging environment",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+2.5 Delete environment
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/environments/{id}
+
+================================================================================
+SERVICES API
+================================================================================
+
+3.1 Create service
+
+Method: POST
+URL: http://localhost:6060/api/v1/services
+Body:
+{
+  "name": "user-service",
+  "type": "backend",
+  "status": "ACTIVE",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+3.2 Get service by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/services/{id}
+
+3.3 Get all services
+
+Method: GET
+URL: http://localhost:6060/api/v1/services
+
+3.4 Update service
+
+Method: PUT
+URL: http://localhost:6060/api/v1/services/{id}
+Body:
+{
+  "name": "user-service-v2",
+  "type": "backend",
+  "status": "ACTIVE",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+3.5 Delete service
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/services/{id}
+
+================================================================================
+SERVICE-ENVIRONMENTS API
+================================================================================
+
+4.1 Create service-environment relation
+
+Method: POST
+URL: http://localhost:6060/api/v1/service-environments
+Body:
+{
+  "serviceId": "44444444-4444-4444-4444-444444444444",
+  "environmentId": "22222222-2222-2222-2222-222222222222",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+4.2 Get relation by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/service-environments/{id}
+
+4.3 Get all relations
+
+Method: GET
+URL: http://localhost:6060/api/v1/service-environments
+
+4.4 Update relation
+
+Method: PUT
+URL: http://localhost:6060/api/v1/service-environments/{id}
+Body:
+{
+  "serviceId": "{service_id}",
+  "environmentId": "{environment_id}",
+  "tenantId": "11111111-1111-1111-1111-111111111111"
+}
+
+4.5 Delete relation
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/service-environments/{id}
+
+================================================================================
+DEPLOYMENTS API
+================================================================================
+
+5.1 Create deployment
+
+Method: POST
+URL: http://localhost:6060/api/v1/deployments
+Body:
+{
+  "version": "1.0.0",
+  "notes": "Initial deployment",
+  "status": "PENDING",
+  "serviceEnvironmentId": "66666666-6666-6666-6666-666666666666"
+}
+
+5.2 Get deployment by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/deployments/{id}
+
+5.3 Get all deployments
+
+Method: GET
+URL: http://localhost:6060/api/v1/deployments
+
+5.4 Update deployment
+
+Method: PUT
+URL: http://localhost:6060/api/v1/deployments/{id}
+Body:
+{
+  "version": "1.0.1",
+  "notes": "Hotfix deployment",
+  "status": "SUCCESS",
+  "serviceEnvironmentId": "66666666-6666-6666-6666-666666666666"
+}
+
+5.5 Delete deployment
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/deployments/{id}
+
+================================================================================
+METRICS API
+================================================================================
+
+6.1 Create metric
+
+Method: POST
+URL: http://localhost:6060/api/v1/metrics
+Body:
+{
+  "cpuUsage": 42.5,
+  "ramUsage": 71.2,
+  "networkUsage": 18.4,
+  "diskUsage": 55.0,
+  "pods": 3,
+  "serviceEnvironmentId": "66666666-6666-6666-6666-666666666666"
+}
+
+6.2 Get metric by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics/{id}
+
+6.3 Get all metrics
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics?page=0&size=20
+Optional query params:
+  serviceEnvironmentId=...
+  from=...
+  to=...
+
+6.4 Update metric
+
+Method: PUT
+URL: http://localhost:6060/api/v1/metrics/{id}
+Body:
+{
+  "cpuUsage": 45.0,
+  "ramUsage": 72.5,
+  "networkUsage": 20.0,
+  "diskUsage": 56.0,
+  "pods": 4,
+  "serviceEnvironmentId": "66666666-6666-6666-6666-666666666666",
+  "timestamp": "2026-07-01T10:30:00Z"
+}
+
+6.5 Filter metrics
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics?serviceEnvironmentId=...&from=...&to=...&page=0&size=20
+
+6.6 Get latest metric
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics/latest/{service_environment_id}
+
+6.7 Get history metric
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics/service-environment/{id}
+
+6.8 Get summary metrics
+
+Method: GET
+URL: http://localhost:6060/api/v1/metrics/summary/{id}
+
+================================================================================
+VM API
+================================================================================
+
+7.1 Create VM
+
+Method: POST
+URL: http://localhost:6060/api/v1/vms
+Body:
+{
+  "name": "test-vm-1",
+  "cpu": 2,
+  "ram": 2048,
+  "disk": 20,
+  "os": "UBUNTU_22_04",
+  "tenantId": "11111111-1111-1111-1111-111111111111",
+  "serviceEnvironmentId": "22222222-2222-2222-2222-222222222222",
+  "backupEnabled": false
+}
+
+7.2 Get VM
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms/{id}
+
+7.3 Get all VMs
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms
+
+7.4 Get VMs by service environment
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms/service-environment/{serviceEnvironmentId}
+
+7.5 Update VM
+
+Method: PUT
+URL: http://localhost:6060/api/v1/vms/{id}
+Body: (same as create)
+
+7.6 Delete VM
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/vms/{id}
+
+7.7 Start VM
+
+Method: POST
+URL: http://localhost:6060/api/v1/vms/{id}/start
+
+7.8 Stop VM
+
+Method: POST
+URL: http://localhost:6060/api/v1/vms/{id}/stop
+
+7.9 Restart VM
+
+Method: POST
+URL: http://localhost:6060/api/v1/vms/{id}/restart
+
+7.10 VM Status
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms/{id}/status
+
+7.11 VM Metrics
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms/{id}/metrics
+
+================================================================================
+VM SSH API
+================================================================================
+
+7.12 VM SSH Execute
+
+Method: POST
+URL: http://localhost:6060/api/v1/vms/{id}/ssh/execute
+Headers: Content-Type: application/json
+Body:
+{
+  "command": "uname -a"
+}
+Response 200:
+{
+  "vmId": "uuid",
+  "command": "uname -a",
+  "output": "Linux seed-vm-1 5.15.0 ... x86_64 GNU/Linux",
+  "exitCode": 0
+}
+Response 400: VM must be RUNNING to execute SSH commands
+Response 404: VM not found
+
+7.13 VM SSH Info
+
+Method: GET
+URL: http://localhost:6060/api/v1/vms/{id}/ssh/info
+Headers: none
+Body: none
+Response 200:
+{
+  "host": "127.0.0.1",
+  "port": 2222,
+  "user": "vagrant",
+  "privateKeyPath": "/home/user/.vagrant.d/insecure_private_key"
+}
+Response 400: VM must be RUNNING to get SSH info
+Response 404: VM not found
+
+================================================================================
+BACKUP API (VBoxManage Snapshots)
+================================================================================
+
+8.1 Create backup
+
+Method: POST
+URL: http://localhost:6060/api/v1/backups
+Headers: Content-Type: application/json
+Body:
+{
+  "vmId": "{vm_id}",
+  "serviceEnvironmentId": "66666666-6666-6666-6666-666666666666",
+  "notes": "Before upgrade"
+}
+Response 201:
+{
+  "id": "uuid",
+  "vmId": "uuid",
+  "serviceEnvironmentId": "uuid",
+  "status": "COMPLETED",
+  "filePath": "backup-1720647000000",
+  "sizeMb": 0,
+  "type": "MANUAL",
+  "notes": "Before upgrade",
+  "createdAt": "2026-07-10T22:00:00Z",
+  "updatedAt": "2026-07-10T22:00:00Z",
+  "restoredAt": null
+}
+Response 400: VM must be RUNNING / VM has no VirtualBox name yet
+Response 404: VM not found
+Note: VM must be RUNNING. Snapshot name is auto-generated (backup-{timestamp}).
+
+8.2 Get all backups
+
+Method: GET
+URL: http://localhost:6060/api/v1/backups
+Headers: none
+Body: none
+Response 200: Array of BackupResponseDto
+
+8.3 Get backup by id
+
+Method: GET
+URL: http://localhost:6060/api/v1/backups/{id}
+Headers: none
+Body: none
+Response 200: BackupResponseDto
+Response 404: Backup not found
+
+8.4 Restore backup
+
+Method: POST
+URL: http://localhost:6060/api/v1/backups/{id}/restore
+Headers: none
+Body: none
+Response 200: BackupResponseDto with status=RESTORED, restoredAt set
+Response 400: Backup not completed / VM not provisioned
+Response 404: Backup not found
+Response 500: Restore failed
+Note: Restores the VM to the snapshot state via VBoxManage snapshot restore.
+
+8.5 Delete backup
+
+Method: DELETE
+URL: http://localhost:6060/api/v1/backups/{id}
+Headers: none
+Body: none
+Response 204: No content
+Response 404: Backup not found
+Note: If backup is COMPLETED, the VBoxManage snapshot is also deleted.
+
+================================================================================
+WEB SSH GATEWAY (WebSocket)
+================================================================================
+
+Connect to a VM's SSH shell interactively via WebSocket.
+
+Endpoint:
+  ws://localhost:6060/ws/ssh/{vmId}
+
+Protocol: WebSocket (text frames)
+
+How it works:
+  1. Open WebSocket connection to ws://localhost:6060/ws/ssh/{vmId}
+  2. Server connects to the VM via JSch using Vagrant SSH config
+  3. Send text frames = keystrokes to the VM shell
+  4. Receive text frames = terminal output from the VM
+  5. Close WebSocket = close SSH session
+
+Frontend usage (JavaScript):
+  const ws = new WebSocket("ws://localhost:6060/ws/ssh/{vmId}");
+  ws.onmessage = (e) => { /* e.data = terminal output */ };
+  ws.send("ls -la\n");  // send command
+
+Requirements:
+  - VM must be RUNNING
+  - VM must have been provisioned (vboxName set)
+
+Note: This replaces the old POST /api/v1/vms/{id}/ssh/execute endpoint.
+The REST endpoint still works for single-command execution.
+The WebSocket endpoint is for interactive terminal sessions.

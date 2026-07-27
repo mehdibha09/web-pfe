@@ -4,19 +4,8 @@ metadata:
   name: app-pfe
 
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: app-pfe
-spec:
-  type: ClusterIP
-  ports:
-    - name: postgres
-      port: 5432
-      targetPort: 5432
-
----
+# Postgres is deployed via postgres.yaml (in-cluster PVC-based)
+# This EndpointSlice replaces it when using an external DB host
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
@@ -30,8 +19,21 @@ endpoints:
       - 192.168.56.40
 ports:
   - name: postgres
-    port: 5432
+    port: 30100
     protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: app-pfe
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
 
 ---
 apiVersion: v1
@@ -40,15 +42,18 @@ metadata:
   name: backend-config
   namespace: app-pfe
 data:
-  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/deployment_service
   SPRING_PROFILES_ACTIVE: prod
-  SERVER_PORT: '7070'
+  AUTH_SERVER_PORT: '7070'
+  GATEWAY_SERVER_PORT: '6060'
+  CLOUD_PRICER_SERVER_PORT: '8090'
+  DEPLOYMENT_SERVER_PORT: '8082'
   MAIL_HOST: smtp-relay.brevo.com
   MAIL_PORT: '587'
-  MAIL_USERNAME: apikey
   MAIL_FROM: noreply@auth-service.local
   FRONTEND_BASE_URL: http://frontend
   MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
+  ALERT_DISPATCH_ENABLED: 'false'
 
 ---
 apiVersion: apps/v1
@@ -58,6 +63,9 @@ metadata:
   namespace: app-pfe
 spec:
   replicas: 1
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: auth-service
@@ -65,6 +73,10 @@ spec:
     metadata:
       labels:
         app: auth-service
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '7070'
+        prometheus.io/path: '/actuator/prometheus'
     spec:
       imagePullSecrets:
         - name: nexus-regcred
@@ -99,7 +111,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
-                  key: SERVER_PORT
+                  key: AUTH_SERVER_PORT
             - name: MAIL_HOST
               valueFrom:
                 configMapKeyRef:
@@ -110,11 +122,6 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: MAIL_PORT
-            - name: MAIL_USERNAME
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: MAIL_USERNAME
             - name: MAIL_FROM
               valueFrom:
                 configMapKeyRef:
@@ -130,24 +137,39 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: MANAGEMENT_HEALTH_MAIL_ENABLED
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: MAIL_USERNAME
             - name: MAIL_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: MAIL_PASSWORD
-                  optional: true
+          resources:
+            requests:
+              memory: '256Mi'
+              cpu: '200m'
+            limits:
+              memory: '512Mi'
+              cpu: '500m'
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 7070
             initialDelaySeconds: 20
             periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 7070
             initialDelaySeconds: 40
             periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
 
 ---
 apiVersion: v1

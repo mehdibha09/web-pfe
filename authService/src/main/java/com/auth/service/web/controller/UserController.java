@@ -3,6 +3,9 @@ package com.auth.service.web.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,13 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.UserService;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.UserAssignRoleRequest;
-import com.auth.service.web.dto.UserCreateRequest;
-import com.auth.service.web.dto.UserResponse;
-import com.auth.service.web.dto.UserUpdateRequest;
-import com.auth.service.web.dto.UserUpdateRolesRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.role.RoleResponse;
+import com.auth.service.web.dto.user.UserAssignRoleRequest;
+import com.auth.service.web.dto.user.UserCreateRequest;
+import com.auth.service.web.dto.user.UserResponse;
+import com.auth.service.web.dto.user.UserUpdateRequest;
+import com.auth.service.web.dto.user.UserUpdateRolesRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -39,8 +42,12 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<List<UserResponse>> listUsers(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(userService.listUsers(authorizationHeader));
+    public ResponseEntity<Page<UserResponse>> listUsers(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader(value = "X-Tenant-Id", required = false) UUID tenantId,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ResponseEntity.ok(userService.listUsers(authorizationHeader, tenantId, pageable));
     }
 
     @PostMapping
@@ -107,7 +114,7 @@ public class UserController {
     public ResponseEntity<UserResponse> updateUser(
             @RequestHeader("Authorization") String authorizationHeader,
             @PathVariable UUID userId,
-            @RequestBody UserUpdateRequest request
+            @RequestBody @Valid UserUpdateRequest request
     ) {
         return ResponseEntity.ok(userService.updateUser(authorizationHeader, userId, request));
     }

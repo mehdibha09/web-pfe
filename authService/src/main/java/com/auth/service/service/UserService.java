@@ -3,9 +3,14 @@ package com.auth.service.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Role;
@@ -26,13 +31,15 @@ import com.auth.service.repository.RoleRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.UserAssignRoleRequest;
-import com.auth.service.web.dto.UserCreateRequest;
-import com.auth.service.web.dto.UserResponse;
-import com.auth.service.web.dto.UserUpdateRequest;
-import com.auth.service.web.dto.UserUpdateRolesRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.role.RoleResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
+import com.auth.service.web.dto.user.UserAssignRoleRequest;
+import com.auth.service.web.dto.user.UserCreateRequest;
+import com.auth.service.web.dto.user.UserResponse;
+import com.auth.service.web.dto.user.UserUpdateRequest;
+import com.auth.service.web.dto.user.UserUpdateRolesRequest;
 
 @Service
 public class UserService {
@@ -65,6 +72,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<RoleResponse> listUserRoles(String authorizationHeader, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadUsers(currentUser);
         User user = requireUserInAllowedScope(userId, currentUser);
 
         return userRoleRepository.findByUser_Id(user.getId())
@@ -82,11 +90,14 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserResponse> listUsers(String authorizationHeader) {
+    public List<UserResponse> listUsers(String authorizationHeader, UUID tenantId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        return (isSuperAdmin(currentUser)
-                        ? userRepository.findAll()
-                        : userRepository.findByTenant_Id(currentUser.getTenant().getId()))
+        ensureCanReadUsers(currentUser);
+        return (tenantId != null && isSuperAdmin(currentUser)
+                        ? userRepository.findByTenant_Id(tenantId)
+                        : isSuperAdmin(currentUser)
+                                ? userRepository.findAll()
+                                : userRepository.findByTenant_Id(currentUser.getTenant().getId()))
                 .stream()
                 .filter(user -> isSuperAdmin(currentUser) || !hasSuperAdminRole(user))
                 .map(this::toResponse)
@@ -94,8 +105,31 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public Page<UserResponse> listUsers(String authorizationHeader, UUID tenantId, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadUsers(currentUser);
+        Page<User> userPage;
+        if (tenantId != null && isSuperAdmin(currentUser)) {
+            userPage = userRepository.findByTenant_Id(tenantId, pageable);
+        } else if (isSuperAdmin(currentUser)) {
+            userPage = userRepository.findAll(pageable);
+        } else {
+            userPage = userRepository.findByTenant_Id(currentUser.getTenant().getId(), pageable);
+        }
+        if (isSuperAdmin(currentUser)) {
+            return userPage.map(this::toResponse);
+        }
+        List<UserResponse> filteredContent = userPage.getContent().stream()
+                .filter(user -> !hasSuperAdminRole(user))
+                .map(this::toResponse)
+                .toList();
+        return new PageImpl<>(filteredContent, pageable, userPage.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
     public UserResponse getUserById(String authorizationHeader, UUID userId) {
         User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadUsers(currentUser);
         User user = requireUserInAllowedScope(userId, currentUser);
         return toResponse(user);
     }
@@ -363,6 +397,25 @@ public class UserService {
         }
     }
 
+    private void ensureCanReadUsers(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return;
+        }
+
+        boolean canRead = userRoleRepository.findByUser_Id(currentUser.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
+                .flatMap(List::stream)
+                .map(RolePermission::getPermission)
+                .anyMatch(permission -> permission.getName() != null
+                        && permission.getName().trim().equalsIgnoreCase("USER_READ"));
+
+        if (!canRead) {
+            throw new ForbiddenException("User read permission required");
+        }
+    }
+
     private void ensureCanManageUserRoles(User currentUser) {
         if (isSuperAdmin(currentUser)) {
             return;
@@ -422,6 +475,24 @@ public class UserService {
         auditLog.setDetails(details);
         auditLog.setResource("user");
         auditLog.setResourceId(resourceId);
+        auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    private String resolveClientIp() {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

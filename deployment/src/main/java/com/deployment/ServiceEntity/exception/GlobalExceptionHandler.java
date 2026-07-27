@@ -1,0 +1,111 @@
+package com.deployment.ServiceEntity.exception;
+
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.time.Instant;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(ApiException.class)
+  public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
+    return build(ex.getStatus(), ex.getMessage(), request, ex.getCode(), null);
+  }
+
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ApiError> handleValidation(
+      MethodArgumentNotValidException ex, HttpServletRequest request) {
+    List<ApiFieldError> fields =
+        ex.getBindingResult().getFieldErrors().stream().map(this::toFieldError).toList();
+
+    return build(HttpStatus.BAD_REQUEST, "Validation failed", request, "VALIDATION_ERROR", fields);
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ApiError> handleConstraintViolation(
+      ConstraintViolationException ex, HttpServletRequest request) {
+    List<ApiFieldError> fields =
+        ex.getConstraintViolations().stream()
+            .map(v -> new ApiFieldError(v.getPropertyPath().toString(), v.getMessage()))
+            .toList();
+
+    return build(HttpStatus.BAD_REQUEST, "Validation failed", request, "VALIDATION_ERROR", fields);
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ApiError> handleTypeMismatch(
+      MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+    String message = "Invalid value for parameter '%s'".formatted(ex.getName());
+    return build(HttpStatus.BAD_REQUEST, message, request, "BAD_REQUEST", null);
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiError> handleNotReadable(
+      HttpMessageNotReadableException ex, HttpServletRequest request) {
+    return build(HttpStatus.BAD_REQUEST, "Malformed JSON request", request, "BAD_REQUEST", null);
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<ApiError> handleDataIntegrity(
+      DataIntegrityViolationException ex, HttpServletRequest request) {
+    return build(HttpStatus.CONFLICT, "Data integrity violation", request, "CONFLICT", null);
+  }
+
+  @ExceptionHandler(EntityNotFoundException.class)
+  public ResponseEntity<ApiError> handleEntityNotFound(
+      EntityNotFoundException ex, HttpServletRequest request) {
+    return build(HttpStatus.NOT_FOUND, ex.getMessage(), request, "NOT_FOUND", null);
+  }
+
+  @ExceptionHandler(SecurityException.class)
+  public ResponseEntity<ApiError> handleSecurity(SecurityException ex, HttpServletRequest request) {
+    return build(HttpStatus.FORBIDDEN, ex.getMessage(), request, "FORBIDDEN", null);
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ApiError> handleUnhandled(Exception ex, HttpServletRequest request) {
+    log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
+    return build(
+        HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", request, "INTERNAL_ERROR", null);
+  }
+
+  private ApiFieldError toFieldError(FieldError fieldError) {
+    String message = fieldError.getDefaultMessage();
+    if (message == null || message.isBlank()) {
+      message = "Invalid value";
+    }
+    return new ApiFieldError(fieldError.getField(), message);
+  }
+
+  private ResponseEntity<ApiError> build(
+      HttpStatus status,
+      String message,
+      HttpServletRequest request,
+      String code,
+      List<ApiFieldError> fields) {
+    ApiError body =
+        new ApiError(
+            Instant.now(),
+            status.value(),
+            status.getReasonPhrase(),
+            message,
+            request.getRequestURI(),
+            code,
+            fields);
+    return ResponseEntity.status(status).body(body);
+  }
+}

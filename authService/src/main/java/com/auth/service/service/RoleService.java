@@ -4,8 +4,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Permission;
@@ -28,12 +32,14 @@ import com.auth.service.repository.RoleRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.RoleAssignUserRequest;
-import com.auth.service.web.dto.RoleCreateRequest;
-import com.auth.service.web.dto.RolePermissionAssignRequest;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.RoleUpdateRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.role.RoleAssignUserRequest;
+import com.auth.service.web.dto.role.RoleCreateRequest;
+import com.auth.service.web.dto.role.RolePermissionAssignRequest;
+import com.auth.service.web.dto.role.RoleResponse;
+import com.auth.service.web.dto.role.RoleUpdateRequest;
 
 @Service
 public class RoleService {
@@ -66,14 +72,30 @@ public class RoleService {
     }
 
     @Transactional(readOnly = true)
-    public List<RoleResponse> listRoles(String authorizationHeader) {
+    public List<RoleResponse> listRoles(String authorizationHeader, UUID tenantId) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        return (isSuperAdmin(currentUser)
-            ? roleRepository.findAll()
-            : roleRepository.findByTenant_Id(currentUser.getTenant().getId()))
+        return (tenantId != null && isSuperAdmin(currentUser)
+            ? roleRepository.findByTenant_Id(tenantId)
+            : isSuperAdmin(currentUser)
+                ? roleRepository.findAll()
+                : roleRepository.findByTenant_Id(currentUser.getTenant().getId()))
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<RoleResponse> listRoles(String authorizationHeader, UUID tenantId, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        Page<Role> rolePage;
+        if (tenantId != null && isSuperAdmin(currentUser)) {
+            rolePage = roleRepository.findByTenant_Id(tenantId, pageable);
+        } else if (isSuperAdmin(currentUser)) {
+            rolePage = roleRepository.findAll(pageable);
+        } else {
+            rolePage = roleRepository.findByTenant_Id(currentUser.getTenant().getId(), pageable);
+        }
+        return rolePage.map(this::toResponse);
     }
 
     @Transactional
@@ -93,6 +115,19 @@ public class RoleService {
         role.setDescription(normalizeNullable(request.description()));
 
         Role savedRole = roleRepository.save(role);
+
+        if (request.permissions() != null) {
+            for (String permName : request.permissions()) {
+                Permission permission = permissionRepository.findByName(permName)
+                        .orElseThrow(() -> new NotFoundException("Permission not found: " + permName));
+                RolePermission rp = new RolePermission();
+                rp.setId(new RolePermissionId(savedRole.getId(), permission.getId()));
+                rp.setRole(savedRole);
+                rp.setPermission(permission);
+                rolePermissionRepository.save(rp);
+            }
+        }
+
         writeAudit(currentUser, "ROLE_CREATE", "Role created", savedRole.getId().toString());
         return toResponse(savedRole);
     }
@@ -378,6 +413,24 @@ public class RoleService {
         auditLog.setDetails(details);
         auditLog.setResource("role");
         auditLog.setResourceId(resourceId);
+        auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    private String resolveClientIp() {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp;
+            }
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

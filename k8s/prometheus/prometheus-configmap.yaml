@@ -1,0 +1,221 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-server-conf
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      # ── K8s API server ──
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      # ── K8s nodes ──
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+
+      # ── K8s pods (with prometheus.io annotations) ──
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+
+      # ── K8s service endpoints (with prometheus.io annotations) ──
+      - job_name: 'kubernetes-service-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            action: replace
+            target_label: kubernetes_service_name
+
+      # ── app-pfe: Auth Service (Spring Boot Actuator) ──
+      - job_name: 'app-pfe-auth'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: auth-service
+          - source_labels: [__address__]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:7070
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # ── app-pfe: Deployment Service ──
+      - job_name: 'app-pfe-deployment'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: deployment-service
+          - source_labels: [__address__]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:8082
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # ── app-pfe: CloudPricer Service ──
+      - job_name: 'app-pfe-cloudpricer'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: cloud-pricer-service
+          - source_labels: [__address__]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:8090
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # ── app-pfe: Gateway Service ──
+      - job_name: 'app-pfe-gateway'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: gateway
+          - source_labels: [__address__]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:6060
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # ── app-pfe: Frontend (Nginx exporter sidecar) ──
+      - job_name: 'app-pfe-frontend'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: frontend
+          - source_labels: [__address__]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:9113
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
+      # ── PostgreSQL (via postgres-exporter sidecar) ──
+      - job_name: 'app-pfe-postgresql'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [app-pfe]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: keep
+            regex: 9187
+
+  prometheus.rules.yml: |
+    groups:
+      - name: app-pfe-alerts
+        rules:
+          - alert: HighCPUUsage
+            expr: sum(rate(process_cpu_usage{namespace="app-pfe"}[5m])) by (pod) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage on {{ $labels.pod }}"
+              description: "Pod {{ $labels.pod }} CPU usage is above 80% for 5 minutes."
+
+          - alert: ServiceDown
+            expr: up{namespace="app-pfe"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service {{ $labels.instance }} is down"
+              description: "{{ $labels.instance }} has been unreachable for 1 minute."
+
+          - alert: HighMemoryUsage
+            expr: sum(container_memory_working_set_bytes{namespace="app-pfe"}) by (pod) / sum(kube_pod_container_resource_limits{resource="memory", namespace="app-pfe"}) by (pod) > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage on {{ $labels.pod }}"
+              description: "Pod {{ $labels.pod }} memory usage is above 85%."

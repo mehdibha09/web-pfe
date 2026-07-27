@@ -1,8 +1,10 @@
 package com.auth.service.web.controller;
 
-import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,12 +18,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.RoleService;
-import com.auth.service.web.dto.AuthActionResponse;
-import com.auth.service.web.dto.RoleAssignUserRequest;
-import com.auth.service.web.dto.RoleCreateRequest;
-import com.auth.service.web.dto.RolePermissionAssignRequest;
-import com.auth.service.web.dto.RoleResponse;
-import com.auth.service.web.dto.RoleUpdateRequest;
+import com.auth.service.web.dto.auth.AuthActionResponse;
+import com.auth.service.web.dto.role.RoleAssignUserRequest;
+import com.auth.service.web.dto.role.RoleCreateRequest;
+import com.auth.service.web.dto.role.RolePermissionAssignRequest;
+import com.auth.service.web.dto.role.RoleResponse;
+import com.auth.service.web.dto.role.RoleUpdateRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -38,8 +40,12 @@ public class RoleController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RoleResponse>> listRoles(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(roleService.listRoles(authorizationHeader));
+    public ResponseEntity<Page<RoleResponse>> listRoles(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader(value = "X-Tenant-Id", required = false) UUID tenantId,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ResponseEntity.ok(roleService.listRoles(authorizationHeader, tenantId, pageable));
     }
 
     @PostMapping
@@ -54,7 +60,7 @@ public class RoleController {
     public ResponseEntity<RoleResponse> updateRole(
             @RequestHeader("Authorization") String authorizationHeader,
             @PathVariable UUID roleId,
-            @RequestBody RoleUpdateRequest request
+            @RequestBody @Valid RoleUpdateRequest request
     ) {
         return ResponseEntity.ok(roleService.updateRole(authorizationHeader, roleId, request));
     }
@@ -71,7 +77,7 @@ public class RoleController {
     public ResponseEntity<RoleResponse> addPermissionToRole(
             @RequestHeader("Authorization") String authorizationHeader,
             @PathVariable UUID roleId,
-            @RequestBody RolePermissionAssignRequest request
+            @RequestBody @Valid RolePermissionAssignRequest request
     ) {
         return ResponseEntity.ok(roleService.addPermissionToRole(authorizationHeader, roleId, request));
     }
