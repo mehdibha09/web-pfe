@@ -44,7 +44,7 @@ const RESOURCE_META = {
 };
 
 const osColors: Record<VmOs, string> = {
-    ubuntu: '#E95420',
+    UBUNTU_22_04: '#E95420',
     debian: '#A81D33',
     centos: '#262577',
     fedora: '#294172',

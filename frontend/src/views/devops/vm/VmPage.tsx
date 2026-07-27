@@ -329,11 +329,10 @@ const VmsPage = () => {
         if (downloadingKey) return;
         setDownloadingKey(true);
         try {
-            const { data, headers } = await api.get(`/vms/${vmId}/ssh/key`, { responseType: 'blob' });
-            const disposition = headers['content-disposition'] || '';
-            const match = disposition.match(/filename="?(.+?)"?$/);
-            const filename = match?.[1] || `ssh-key-${vmId.slice(0, 8)}.pem`;
-            const url = URL.createObjectURL(data);
+            const { data } = await api.get<string>(`/vms/${vmId}/ssh/key`);
+            const blob = new Blob([data], { type: 'application/x-pem-file' });
+            const filename = `ssh-key-${vmId.slice(0, 8)}.pem`;
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
@@ -508,7 +507,7 @@ const VmsPage = () => {
                                                 <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 14 }}>{vm.name}</Typography>
                                             </TableCell>
                                             <TableCell>
-                                                <Chip size="small" icon={meta.icon} label={t(meta.labelKey)}
+                                                <Chip size="small" icon={meta.icon as React.ReactElement} label={t(meta.labelKey)}
                                                     sx={{ backgroundColor: meta.bg, color: meta.color, fontWeight: 700, fontSize: 11, height: 24 }} />
                                             </TableCell>
                                             <TableCell>

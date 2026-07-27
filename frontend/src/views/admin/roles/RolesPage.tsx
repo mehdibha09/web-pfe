@@ -339,7 +339,7 @@ const RolesPage = () => {
                             size="small"
                             label={t('admin.roles.selectPermissions')}
                             value={selectedPermissions}
-                            onChange={(event) => setSelectedPermissions(event.target.value as string[])}
+                            onChange={(event) => setSelectedPermissions((event.target.value as unknown) as string[])}
                             slotProps={{ select: { multiple: true } }}
                             sx={{ mt: 1.5, width: '100%' }}
                         >
@@ -526,7 +526,7 @@ const RolesPage = () => {
                 </>
             )}
 
-            <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} PaperProps={{ sx: { borderRadius: 3 } }}>
+            <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
                 <DialogTitle sx={{ fontWeight: 800 }}>{t('admin.roles.confirmDeleteTitle')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ color: C.muted }}>{t('admin.roles.confirmDeleteBody')}</DialogContentText>

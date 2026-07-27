@@ -296,7 +296,7 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                                     {templates.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.dockerImage})</MenuItem>)}
                                 </TextField>
                                 {selectedTemplate && (
-                                    <Button size="small" variant="outlined" onClick={() => { setSelectedTemplate(''); resetForm(); }}
+                                    <Button size="small" variant="outlined" onClick={() => { setSelectedTemplate(''); setForm({ name: '', dockerImage: '', replicas: 1, port: 80, targetPort: 80, protocol: 'TCP', namespace: 'default', tenantId: '', serviceEnvironmentId: '', envVars: '', secrets: '', cpuLimit: '', memoryLimit: '', cpuRequest: '', memoryRequest: '', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always', labels: '', livenessProbe: defaultProbe({ path: '/health', initialDelaySeconds: 30 }), readinessProbe: defaultProbe({ path: '/ready', initialDelaySeconds: 5, periodSeconds: 5 }), startupProbe: defaultProbe({ enabled: false, path: '/health', failureThreshold: 30, periodSeconds: 10 }) }); }}
                                         sx={{ whiteSpace: 'nowrap', color: C.muted, borderColor: C.border }}>Clear</Button>
                                 )}
                             </Box>

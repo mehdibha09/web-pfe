@@ -319,8 +319,6 @@ const DeploymentsPage = () => {
                             onNotesChange={setEditNotes}
                             onStatusChange={setEditStatus}
                             onServiceEnvironmentChange={setEditServiceEnvironmentId}
-                            isExpanded={expandedId === d.id}
-                            onToggleExpand={() => setExpandedId(expandedId === d.id ? null : d.id)}
                             onStartEdit={() => startEdit(d)}
                             onCancelEdit={cancelEdit}
                             onSave={() => handleUpdate(d.id)}

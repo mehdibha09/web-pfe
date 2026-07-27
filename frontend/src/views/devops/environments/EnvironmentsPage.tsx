@@ -328,10 +328,8 @@ const EnvironmentsPage = () => {
                             setEditDescription={setEditDescription}
                             saving={saving}
                             onSave={handleUpdate}
-                            onEdit={startEdit}
-                            onCancelEdit={cancelEdit}
-                            startEdit={startEdit}
                             cancelEdit={cancelEdit}
+                            startEdit={startEdit}
                             onDelete={(e) => setDeleteTarget(e)}
                         />
                     ))}
