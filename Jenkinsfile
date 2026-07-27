@@ -609,6 +609,10 @@ SQL
                                 # Create namespace
                                 kubectl apply -f namespace.yaml
 
+                                # ConfigMap & Secrets
+                                kubectl apply -f configmap.yaml
+                                kubectl apply -f secrets.yaml
+
                                 # Create Docker registry secret for Nexus
                                 kubectl -n app-pfe create secret docker-registry nexus-regcred \
                                     --docker-server=192.168.56.30 \
