@@ -38,11 +38,11 @@ spec:
             - containerPort: 8082
 
           env:
-            - name: SPRING_DATASOURCE_URL
+            - name: DB_HOST
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
-                  key: SPRING_DATASOURCE_URL
+                  key: DB_HOST
 
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:

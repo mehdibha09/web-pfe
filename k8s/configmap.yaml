@@ -5,7 +5,8 @@ metadata:
   name: backend-config
   namespace: app-pfe
 data:
-  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/deployment_service
+  DB_HOST: postgres
+  DB_PORT: '5432'
   SPRING_PROFILES_ACTIVE: prod
   AUTH_SERVER_PORT: '7070'
   GATEWAY_SERVER_PORT: '6060'
