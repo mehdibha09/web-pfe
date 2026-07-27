@@ -11,11 +11,11 @@ pipeline {
     environment {
         // TEST MODE: Force all stages to run (set to 'true' for testing, use change detection in production)
         CHANGED_AUTH       = 'true'
-        CHANGED_PRICER     = 'false'
-        CHANGED_GATEWAY    = 'false'
+        CHANGED_PRICER     = 'true'
+        CHANGED_GATEWAY    = 'true'
         CHANGED_FRONTEND   = 'true'
-        CHANGED_K8S        = 'false'
-        CHANGED_DEPLOYMENT = 'false'
+        CHANGED_K8S        = 'true'
+        CHANGED_DEPLOYMENT = 'true'
         CHANGED_BACKEND    = 'true'
         CHANGED_ANY_IMAGE  = 'true'
         CHANGED_DEPLOY     = 'true'
@@ -33,9 +33,53 @@ pipeline {
             }
         }
 
-        // ⛔ Détection des changements désactivée temporairement
-        //     Les variables CHANGED_* sont forcées à 'true' dans environment{}
-        //     pour toujours builder et déployer toutes les images.
+        // ═══════════════════════════════════════════════════════════
+        // Détection des changements — désactivée temporairement
+        // Les CHANGED_* sont forcées à 'true' dans environment{}
+        // ═══════════════════════════════════════════════════════════
+        //
+        // stage('Detect Changes') {
+        //     steps {
+        //         script {
+        //             def changedFiles = sh(
+        //                 script: '''
+        //                     git diff --name-only HEAD~1 HEAD 2>/dev/null \
+        //                     || git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD
+        //                 ''',
+        //                 returnStdout: true
+        //             ).trim()
+        //
+        //             echo "Fichiers modifiés :\n${changedFiles}"
+        //
+        //             env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
+        //             env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/')   ? 'true' : 'false'
+        //             env.CHANGED_GATEWAY    = changedFiles.contains('gateway/')       ? 'true' : 'false'
+        //             env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')      ? 'true' : 'false'
+        //             env.CHANGED_K8S        = changedFiles.contains('k8s/')           ? 'true' : 'false'
+        //             env.CHANGED_DEPLOYMENT = changedFiles.contains('deployment/') ? 'true' : 'false'
+        //
+        //             env.CHANGED_BACKEND = (
+        //                 env.CHANGED_AUTH       == 'true' ||
+        //                 env.CHANGED_PRICER     == 'true' ||
+        //                 env.CHANGED_GATEWAY    == 'true' ||
+        //                 env.CHANGED_DEPLOYMENT == 'true'
+        //             ) ? 'true' : 'false'
+        //
+        //             env.CHANGED_ANY_IMAGE = (
+        //                 env.CHANGED_AUTH       == 'true' ||
+        //                 env.CHANGED_PRICER     == 'true' ||
+        //                 env.CHANGED_GATEWAY    == 'true' ||
+        //                 env.CHANGED_DEPLOYMENT == 'true' ||
+        //                 env.CHANGED_FRONTEND   == 'true'
+        //             ) ? 'true' : 'false'
+        //
+        //             env.CHANGED_DEPLOY = (
+        //                 env.CHANGED_ANY_IMAGE == 'true' ||
+        //                 env.CHANGED_K8S       == 'true'
+        //             ) ? 'true' : 'false'
+        //         }
+        //     }
+        // }
 
         // ─────────────────────────────────────────────
 stage('Build') {
