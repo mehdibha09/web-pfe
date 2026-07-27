@@ -29,7 +29,7 @@ pipeline {
         // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
+                git branch: 'main', url: 'https://github.com/mehdibha09/web-pfe.git'
             }
         }
 
@@ -607,7 +607,7 @@ SQL
             when { expression { env.CHANGED_DEPLOY == 'true' } }
 
             steps {
-                git branch: 'main', credentialsId: 'Git tok en', url: 'https://github.com/mehdibha09/web-pfe.git'
+                git branch: 'main', url: 'https://github.com/mehdibha09/web-pfe.git'
 
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-creds',
