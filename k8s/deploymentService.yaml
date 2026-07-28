@@ -65,6 +65,32 @@ spec:
                   name: backend-config
                   key: DEPLOYMENT_SERVER_PORT
 
+            - name: VM_PROVIDER
+              value: "remote-vagrant"
+
+            - name: VM_HOST_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: VM_HOST_HOST
+
+            - name: VM_HOST_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: VM_HOST_USER
+
+            - name: VM_HOST_KEY_PATH
+              value: "/etc/ssh-deploy/id_ed25519"
+
+            - name: AGENT_BACKEND_URL
+              value: "ws://deployment-service:8082"
+
+          volumeMounts:
+            - name: deploy-ssh-key
+              mountPath: /etc/ssh-deploy
+              readOnly: true
+
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -89,7 +115,13 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 3
-            failureThreshold: 3
+             failureThreshold: 3
+
+      volumes:
+        - name: deploy-ssh-key
+          secret:
+            secretName: deploy-ssh-key
+            defaultMode: 0600
 
 ---
 apiVersion: v1

@@ -4,6 +4,47 @@ metadata:
   name: app-pfe
 
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deployment-service-role
+  namespace: app-pfe
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "events", "namespaces", "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployment-service-binding
+  namespace: app-pfe
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: app-pfe
+roleRef:
+  kind: Role
+  name: deployment-service-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
 # Postgres is deployed via postgres.yaml (in-cluster PVC-based)
 # This EndpointSlice replaces it when using an external DB host
 apiVersion: discovery.k8s.io/v1
@@ -36,6 +77,33 @@ spec:
       targetPort: 5432
 
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: deployment-service-cluster-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: deployment-service-cluster-binding
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: app-pfe
+roleRef:
+  kind: ClusterRole
+  name: deployment-service-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -54,6 +122,8 @@ data:
   FRONTEND_BASE_URL: http://frontend
   MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
   ALERT_DISPATCH_ENABLED: 'false'
+  VM_HOST_HOST: '192.168.56.1'
+  VM_HOST_USER: 'mehdi'
 
 ---
 apiVersion: apps/v1
