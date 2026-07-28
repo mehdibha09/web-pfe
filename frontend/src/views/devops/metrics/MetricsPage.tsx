@@ -203,13 +203,15 @@ const MetricsPage = () => {
 
     // ── SSE real-time metrics ──
     const sseBaseUrl = (() => {
+        const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
+        if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, '');
         const host = import.meta.env.VITE_API_HOST || 'localhost';
         const port = import.meta.env.VITE_API_PORT || '6060';
         return `http://${host}:${port}`;
     })();
 
     const { connected: sseConnected } = useSse({
-        url: serviceEnvironmentId ? `${sseBaseUrl}/api/v1/metrics/stream/${serviceEnvironmentId}` : '',
+        url: serviceEnvironmentId ? `${sseBaseUrl}/metrics/stream/${serviceEnvironmentId}` : '',
         headers: { Authorization: `Bearer ${getAccessToken()}` },
         enabled: useSseEnabled && !!serviceEnvironmentId,
         onMessage: (data: MetricResponse) => {

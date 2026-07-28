@@ -11,6 +11,10 @@ interface SshTerminalProps {
 }
 
 const WS_BASE = (() => {
+    const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (explicitBaseUrl) {
+        return explicitBaseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '');
+    }
     const host = import.meta.env.VITE_API_HOST || 'localhost';
     const port = import.meta.env.VITE_API_PORT || '6060';
     return `ws://${host}:${port}`;

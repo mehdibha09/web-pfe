@@ -18,9 +18,12 @@ import NotificationTable from './NotificationTable';
 import { C} from '../../../theme/tokens';
 
 const API_BASE_URL = (() => {
+    const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, '');
     const host = import.meta.env.VITE_API_HOST || 'localhost';
     const port = import.meta.env.VITE_API_PORT || '6060';
-    return `http://${host}:${port}`;
+    const apiPath = (import.meta.env.VITE_API_PATH || '/api/v1').replace(/^\/+/, '/');
+    return `http://${host}:${port}${apiPath}`.replace(/\/$/, '');
 })();
 
 const NotificationsPage = () => {
@@ -68,7 +71,7 @@ const NotificationsPage = () => {
 
         (async () => {
             try {
-                await fetchEventSource(`${API_BASE_URL}/api/v1/notifications/stream`, {
+                await fetchEventSource(`${API_BASE_URL}/notifications/stream`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
