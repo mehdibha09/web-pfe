@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
 import com.deployment.ServiceEntity.domain.VagrantSshConfig;
+import com.deployment.ServiceEntity.domain.VmClient;
 import com.deployment.ServiceEntity.service.VmService;
 import com.deployment.ServiceEntity.web.dto.ssh.SshExecuteRequest;
 import com.deployment.ServiceEntity.web.dto.vm.VmRequest;
@@ -39,9 +40,11 @@ import jakarta.validation.Valid;
 public class VmController {
 
     private final VmService service;
+    private final VmClient vmClient;
 
-    public VmController(VmService service) {
+    public VmController(VmService service, VmClient vmClient) {
         this.service = service;
+        this.vmClient = vmClient;
     }
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -147,15 +150,18 @@ public class VmController {
         if (keyPath == null || keyPath.isBlank()) {
             return ResponseEntity.notFound().build();
         }
-        java.io.File keyFile = new java.io.File(keyPath);
-        if (!keyFile.exists()) {
+        try {
+            String content = vmClient.readRemoteFile(keyPath);
+            String filename = keyPath.replaceFirst("^.*[/\\\\]", "");
+            byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            ByteArrayResource resource = new ByteArrayResource(bytes);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(bytes.length)
+                    .body(resource);
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
-        FileSystemResource resource = new FileSystemResource(keyFile);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + keyFile.getName() + "\"")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .contentLength(keyFile.length())
-                .body(resource);
     }
 }

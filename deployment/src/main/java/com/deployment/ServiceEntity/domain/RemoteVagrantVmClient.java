@@ -300,6 +300,7 @@ public class RemoteVagrantVmClient implements VmClient {
     public VmMetricsSnapshot queryMetrics(String vbName) {
         VmMetricsSnapshot snapshot = new VmMetricsSnapshot();
         try {
+            setupMetrics(vbName);
             String output = sshVbox("metrics collect --period 1 --samples 1 " + vbName + " CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx");
             parseMetricsOutput(output, snapshot);
         } catch (Exception e) {
@@ -354,6 +355,13 @@ public class RemoteVagrantVmClient implements VmClient {
 
     @Override
     public void invalidateSshConfigCache(String vmPath) {}
+
+    @Override
+    public String readRemoteFile(String filePath) {
+        String cmd = "cat " + filePath + " 2>&1";
+        log.info("remote read file: {}", cmd);
+        return ssh(cmd);
+    }
 
     @Override
     public void takeSnapshot(String vbName, String snapshotName) {

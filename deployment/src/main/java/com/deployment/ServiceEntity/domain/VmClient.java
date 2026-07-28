@@ -26,6 +26,8 @@ public interface VmClient {
 
     String executeCommand(String vmPath, String command);
 
+    String readRemoteFile(String filePath);
+
     void invalidateSshConfigCache(String vmPath);
 
     void takeSnapshot(String vmIdentifier, String snapshotName);

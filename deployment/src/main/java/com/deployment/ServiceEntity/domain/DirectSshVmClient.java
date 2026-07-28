@@ -199,6 +199,15 @@ public class DirectSshVmClient implements VmClient {
     }
 
     @Override
+    public String readRemoteFile(String filePath) {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get(filePath));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read file: " + filePath, e);
+        }
+    }
+
+    @Override
     public void takeSnapshot(String vmIdentifier, String snapshotName) {
         log.info("Direct SSH mode: snapshots not supported for externally managed VM {}", vmIdentifier);
     }

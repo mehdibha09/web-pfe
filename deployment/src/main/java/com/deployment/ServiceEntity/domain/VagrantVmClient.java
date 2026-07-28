@@ -487,6 +487,15 @@ public class VagrantVmClient implements VmClient {
     }
 
     @Override
+    public String readRemoteFile(String filePath) {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get(filePath));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read file: " + filePath, e);
+        }
+    }
+
+    @Override
     public void takeSnapshot(String vbName, String snapshotName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
