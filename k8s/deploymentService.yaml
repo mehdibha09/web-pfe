@@ -115,7 +115,7 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 3
-             failureThreshold: 3
+            failureThreshold: 3
 
       volumes:
         - name: deploy-ssh-key
