@@ -1,0 +1,9 @@
+{
+    "name": "vm-agent",
+    "version": "1.0.0",
+    "description": "Lightweight VM agent for reverse WebSocket connection to the PFE platform",
+    "main": "agent.js",
+    "dependencies": {
+        "ws": "^8.16.0"
+    }
+}

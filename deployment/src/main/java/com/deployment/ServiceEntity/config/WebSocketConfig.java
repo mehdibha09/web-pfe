@@ -13,10 +13,13 @@ import lombok.RequiredArgsConstructor;
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final SshWebSocketHandler sshWebSocketHandler;
+    private final AgentWebSocketHandler agentWebSocketHandler;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(sshWebSocketHandler, "/ws/ssh/{vmId}")
+                .setAllowedOrigins("*");
+        registry.addHandler(agentWebSocketHandler, "/ws/agent/{vmId}/{token}")
                 .setAllowedOrigins("*");
     }
 }

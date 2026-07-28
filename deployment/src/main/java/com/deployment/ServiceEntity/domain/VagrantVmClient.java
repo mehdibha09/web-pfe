@@ -94,6 +94,13 @@ public class VagrantVmClient implements VmClient {
             Path vmDir = Paths.get(vm.getVagrantPath());
             Files.createDirectories(vmDir);
 
+            String vmId = vm.getId().toString();
+            String backendUrl = System.getenv("AGENT_BACKEND_URL");
+            if (backendUrl == null || backendUrl.isBlank()) {
+                backendUrl = "ws://10.10.226.124:8082";
+                log.warn("AGENT_BACKEND_URL not set, using default: {}", backendUrl);
+            }
+
             String vagrantfile = String.format("""
                     Vagrant.configure("2") do |config|
                       config.vm.box      = "%s"
@@ -112,11 +119,75 @@ public class VagrantVmClient implements VmClient {
                         vb.customize ["modifyvm", :id, "--vram", "16"]
                       end
 
-                      config.vm.provision "shell", inline: <<-SHELL
-                        apt-get update -y
-                        apt-get install -y curl wget htop net-tools sysstat
-                        echo "VM %s ready"
-                      SHELL
+                      $agent_script = <<-AGENT
+                        # Install Node.js
+                        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+                        apt-get install -y nodejs
+
+                        # Create agent directory
+                        mkdir -p /opt/vm-agent
+
+                        cat > /opt/vm-agent/package.json <<'PKG'
+                    {"name":"vm-agent","version":"1.0.0","dependencies":{"ws":"^8.16.0"}}
+                    PKG
+
+                        cat > /opt/vm-agent/agent.js <<'SCRIPT'
+                    const WebSocket = require('ws');
+                    const {spawn} = require('child_process');
+                    const BACKEND = process.env.BACKEND_WS_URL || '%s';
+                    const VM_ID = process.env.VM_ID || '%s';
+                    const VM_TOKEN = process.env.VM_TOKEN || '%s';
+                    let ws, shell;
+                    function connect(){
+                      const u=BACKEND+'/ws/agent/'+VM_ID+'/'+VM_TOKEN;
+                      ws=new WebSocket(u);
+                      ws.on('open',()=>console.log('Agent connected'));
+                      ws.on('message',d=>{
+                        try{
+                          const m=JSON.parse(d.toString());
+                          if(m.type==='start_shell'&&!shell){startShell()}
+                          else if(m.type==='stop_shell'&&shell){stopShell()}
+                          else if(shell&&shell.stdin.writable){shell.stdin.write(m)}
+                        }catch(e){}
+                      });
+                      ws.on('close',()=>{stopShell();setTimeout(connect,5000)});
+                      ws.on('error',()=>ws.close());
+                    }
+                    function startShell(){
+                      shell=spawn('/bin/bash',[],{stdio:['pipe','pipe','pipe'],env:{...process.env,TERM:'xterm-256color'}});
+                      shell.stdout.on('data',d=>ws.send(JSON.stringify({type:'shell_output',data:d.toString('base64')})));
+                      shell.stderr.on('data',d=>ws.send(JSON.stringify({type:'shell_output',data:d.toString('base64')})));
+                      shell.on('exit',()=>{shell=null});
+                    }
+                    function stopShell(){if(shell){shell.kill('SIGTERM');shell=null}}
+                    connect();
+                    SCRIPT
+
+                        cd /opt/vm-agent && npm install --production
+
+                        # Systemd service
+                        cat > /etc/systemd/system/vm-agent.service <<'SVC'
+                    [Unit]
+                    Description=VM Agent for PFE Platform
+                    After=network.target
+                    [Service]
+                    ExecStart=/usr/bin/node /opt/vm-agent/agent.js
+                    Environment=BACKEND_WS_URL=%s
+                    Environment=VM_ID=%s
+                    Environment=VM_TOKEN=%s
+                    Restart=always
+                    RestartSec=10
+                    [Install]
+                    WantedBy=multi-user.target
+                    SVC
+
+                        systemctl daemon-reload
+                        systemctl enable vm-agent
+                        systemctl start vm-agent
+                        echo "VM Agent installed and started"
+                      AGENT
+
+                      config.vm.provision "shell", inline: $agent_script
                     end
                     """,
                     vm.getOs().getVagrantBox(),
@@ -126,7 +197,12 @@ public class VagrantVmClient implements VmClient {
                     vbName,
                     vm.getRam(),
                     vm.getCpu(),
-                    vm.getName());
+                    backendUrl,
+                    vmId,
+                    vmId,
+                    backendUrl,
+                    vmId,
+                    vmId);
 
             Files.writeString(vmDir.resolve("Vagrantfile"), vagrantfile);
             log.info("Vagrantfile created at {} vbName={}", vmDir, vbName);

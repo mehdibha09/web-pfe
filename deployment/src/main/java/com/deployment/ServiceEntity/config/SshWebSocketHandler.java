@@ -37,6 +37,11 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
 
     private final VmRepository vmRepository;
     private final VmClient vagrantClient;
+    private final AgentRegistry agentRegistry;
+
+    private Session jschSession;
+    private ChannelShell channel;
+    private Thread outputThread;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -84,19 +89,32 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
+        // Try agent-based connection first (Plan B)
+        if (agentRegistry.hasAgent(vmId)) {
+            log.info("Routing SSH for VM {} through agent", vmId);
+            agentRegistry.registerFrontend(vmId, session);
+            agentRegistry.forwardToAgent(vmId, "{\"type\":\"start_shell\"}");
+            return;
+        }
+
+        // Fallback: Vagrant SSH
+        connectViaVagrant(vm, session);
+    }
+
+    private void connectViaVagrant(Vm vm, WebSocketSession session) throws Exception {
         VagrantSshConfig sshConfig = vagrantClient.getSshConfig(vm.getVagrantPath());
 
         JSch jsch = new JSch();
         if (sshConfig.getPrivateKeyPath() != null && !sshConfig.getPrivateKeyPath().isBlank()) {
             jsch.addIdentity(sshConfig.getPrivateKeyPath());
         }
-        Session jschSession = jsch.getSession(sshConfig.getUser(), sshConfig.getHost(), sshConfig.getPort());
+        jschSession = jsch.getSession(sshConfig.getUser(), sshConfig.getHost(), sshConfig.getPort());
         jschSession.setPassword("vagrant");
         jschSession.setConfig("StrictHostKeyChecking", "no");
         jschSession.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
 
         jschSession.connect(10_000);
-        ChannelShell channel = (ChannelShell) jschSession.openChannel("shell");
+        channel = (ChannelShell) jschSession.openChannel("shell");
         channel.setPtyType("xterm-256color", 120, 40, 0, 0);
         channel.setPty(true);
 
@@ -105,21 +123,16 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
 
         channel.connect(10_000);
 
-        session.getAttributes().put("jschSession", jschSession);
-        session.getAttributes().put("channel", channel);
-        session.getAttributes().put("channelIn", channelIn);
         session.getAttributes().put("channelOut", channelOut);
 
-        log.info("SSH WebSocket connected to VM {} ({})", vm.getName(), sshConfig.getHost());
+        log.info("Vagrant SSH connected to VM {} ({})", vm.getName(), sshConfig.getHost());
 
-        Thread outputThread = new Thread(() -> {
+        outputThread = new Thread(() -> {
             try {
                 byte[] buffer = new byte[8192];
                 while (!Thread.currentThread().isInterrupted() && channel.isConnected() && session.isOpen()) {
                     int len = channelIn.read(buffer);
-                    if (len < 0) {
-                        break;
-                    }
+                    if (len < 0) break;
                     if (len > 0 && session.isOpen()) {
                         synchronized (session) {
                             session.sendMessage(new BinaryMessage(java.util.Arrays.copyOf(buffer, len)));
@@ -127,9 +140,9 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
             } catch (Exception e) {
-                log.debug("SSH output thread ended: {}", e.getMessage());
+                log.debug("Vagrant SSH output thread ended: {}", e.getMessage());
             }
-        }, "ssh-output-" + vmId);
+        }, "ssh-output-" + vm.getId());
         outputThread.setDaemon(true);
         outputThread.start();
     }
@@ -137,52 +150,65 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
+        String vmId = extractVmId(session);
 
         // Handle resize messages
         if (payload.startsWith("{") && payload.contains("\"type\":\"resize\"")) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                var node = mapper.readTree(payload);
-                int cols = node.get("cols").asInt(120);
-                int rows = node.get("rows").asInt(40);
-                ChannelShell channel = (ChannelShell) session.getAttributes().get("channel");
-                if (channel != null && channel.isConnected()) {
+            if (agentRegistry.hasAgent(vmId)) {
+                agentRegistry.forwardToAgent(vmId, payload);
+            } else if (channel != null && channel.isConnected()) {
+                try {
+                    var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
+                    int cols = node.get("cols").asInt(120);
+                    int rows = node.get("rows").asInt(40);
                     channel.setPtySize(cols, rows, 0, 0);
+                } catch (Exception e) {
+                    log.debug("Resize parse error: {}", e.getMessage());
                 }
-            } catch (Exception e) {
-                log.debug("Resize parse error: {}", e.getMessage());
             }
             return;
         }
 
-        // Regular input
-        OutputStream channelOut = (OutputStream) session.getAttributes().get("channelOut");
-        if (channelOut != null) {
-            channelOut.write(payload.getBytes());
-            channelOut.flush();
+        // Route to agent or Vagrant SSH
+        if (agentRegistry.hasAgent(vmId)) {
+            agentRegistry.forwardToAgent(vmId, payload);
+        } else {
+            OutputStream channelOut = (OutputStream) session.getAttributes().get("channelOut");
+            if (channelOut != null) {
+                channelOut.write(payload.getBytes());
+                channelOut.flush();
+            }
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        cleanup(session);
+        String vmId = extractVmId(session);
+        if (agentRegistry.hasAgent(vmId)) {
+            agentRegistry.forwardToAgent(vmId, "{\"type\":\"stop_shell\"}");
+            agentRegistry.unregisterFrontend(vmId);
+        }
+        cleanup();
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.error("SSH WebSocket transport error: {}", exception.getMessage());
-        cleanup(session);
+        String vmId = extractVmId(session);
+        agentRegistry.unregisterFrontend(vmId);
+        cleanup();
     }
 
-    private void cleanup(WebSocketSession session) {
+    private void cleanup() {
         try {
-            ChannelShell channel = (ChannelShell) session.getAttributes().get("channel");
-            Session jschSession = (Session) session.getAttributes().get("jschSession");
             if (channel != null && channel.isConnected()) {
                 channel.disconnect();
             }
             if (jschSession != null && jschSession.isConnected()) {
                 jschSession.disconnect();
+            }
+            if (outputThread != null) {
+                outputThread.interrupt();
             }
         } catch (Exception e) {
             log.warn("SSH cleanup error: {}", e.getMessage());
