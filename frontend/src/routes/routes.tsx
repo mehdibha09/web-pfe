@@ -137,7 +137,6 @@ const AppRoutes = () => {
                                 </AdminAccessRoute>
                             }
                         />
-
                         <Route
                             path="/admin/sessions"
                             element={

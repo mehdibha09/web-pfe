@@ -22,6 +22,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -44,7 +45,7 @@ public class K8sRoleController {
         if (cluster) {
             all = kubernetesClient.listClusterRoles();
         } else {
-            all = kubernetesClient.listRoles(namespace != null ? namespace : "default");
+            all = kubernetesClient.listRoles(TenantNamespaceResolver.resolve(namespace));
         }
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
@@ -62,7 +63,7 @@ public class K8sRoleController {
         if (cluster) {
             role = kubernetesClient.getClusterRole(name);
         } else {
-            role = kubernetesClient.getRole(name, namespace != null ? namespace : "default");
+            role = kubernetesClient.getRole(name, TenantNamespaceResolver.resolve(namespace));
         }
         if (role == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(role);
@@ -71,7 +72,7 @@ public class K8sRoleController {
     @PostMapping
     public ResponseEntity<K8sRoleResponse> create(@Valid @RequestBody K8sRoleRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         if (dto.rules() != null) {
@@ -129,7 +130,7 @@ public class K8sRoleController {
             @RequestParam(required = false) String namespace,
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteRole(name, namespace != null ? namespace : "default", cluster);
+        kubernetesClient.deleteRole(name, TenantNamespaceResolver.resolve(namespace), cluster);
         return ResponseEntity.noContent().build();
     }
 }

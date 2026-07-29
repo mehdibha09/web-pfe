@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +51,18 @@ public class RemoteVagrantVmClient implements VmClient {
     }
 
     private String ssh(String command) {
+        return ssh(command, 0, true);
+    }
+
+    private String ssh(String command, long timeoutSeconds) {
+        return ssh(command, timeoutSeconds, true);
+    }
+
+    private String ssh(String command, long timeoutSeconds, boolean throwOnError) {
         try {
             String[] base = {
                     "ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
-                    "-o", "ConnectTimeout=10", "-p", String.valueOf(port),
+                    "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10", "-p", String.valueOf(port),
             };
             java.util.ArrayList<String> cmd = new java.util.ArrayList<>(java.util.List.of(base));
             if (keyPath != null && !keyPath.isBlank()) {
@@ -66,10 +75,24 @@ public class RemoteVagrantVmClient implements VmClient {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            String output = new String(process.getInputStream().readAllBytes());
-            int exitCode = process.waitFor();
 
-            if (exitCode != 0) {
+            boolean finished;
+            if (timeoutSeconds > 0) {
+                finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            } else {
+                process.waitFor();
+                finished = true;
+            }
+
+            if (!finished) {
+                process.destroyForcibly();
+                throw new RuntimeException("Remote command timed out after " + timeoutSeconds + "s: " + command);
+            }
+
+            String output = new String(process.getInputStream().readAllBytes());
+            int exitCode = process.exitValue();
+
+            if (exitCode != 0 && throwOnError) {
                 throw new RuntimeException("Remote command failed (exit=" + exitCode + "): " + output);
             }
             return output;
@@ -290,7 +313,7 @@ public class RemoteVagrantVmClient implements VmClient {
     @Override
     public void setupMetrics(String vbName) {
         try {
-            sshVbox("metrics setup --period 5 --samples 10 " + vbName + " CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx");
+            ssh("timeout 10 VBoxManage metrics setup --period 5 --samples 10 " + vbName + " CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx 2>&1", 15);
         } catch (Exception e) {
             log.warn("Failed to setup remote metrics: {}", e.getMessage());
         }
@@ -301,7 +324,8 @@ public class RemoteVagrantVmClient implements VmClient {
         VmMetricsSnapshot snapshot = new VmMetricsSnapshot();
         try {
             setupMetrics(vbName);
-            String output = sshVbox("metrics collect --period 1 --samples 1 " + vbName + " CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx");
+            String cmd = "timeout 5 VBoxManage metrics collect --period 1 --samples 1 " + vbName + " CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx 2>&1";
+            String output = ssh(cmd, 15, false);
             parseMetricsOutput(output, snapshot);
         } catch (Exception e) {
             log.warn("Failed to query remote metrics: {}", e.getMessage());

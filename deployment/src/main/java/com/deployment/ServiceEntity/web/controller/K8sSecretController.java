@@ -24,6 +24,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -51,9 +52,9 @@ public class K8sSecretController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sSecretResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sSecretResponse secret = kubernetesClient.getSecret(name, namespace);
+        K8sSecretResponse secret = kubernetesClient.getSecret(name, TenantNamespaceResolver.resolve(namespace));
         if (secret == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(secret);
     }
@@ -62,7 +63,7 @@ public class K8sSecretController {
     public ResponseEntity<K8sSecretResponse> create(
             @Valid @RequestBody K8sSecretRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
         String type = dto.type() != null && !dto.type().isBlank() ? dto.type() : "Opaque";
 
         StringBuilder yamlSpec = new StringBuilder();
@@ -98,7 +99,7 @@ public class K8sSecretController {
             @PathVariable String name,
             @Valid @RequestBody K8sSecretRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
         String type = dto.type() != null && !dto.type().isBlank() ? dto.type() : "Opaque";
 
         StringBuilder yamlSpec = new StringBuilder();
@@ -124,9 +125,9 @@ public class K8sSecretController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteSecret(name, namespace);
+        kubernetesClient.deleteSecret(name, TenantNamespaceResolver.resolve(namespace));
         return ResponseEntity.noContent().build();
     }
 
@@ -134,7 +135,7 @@ public class K8sSecretController {
     public ResponseEntity<Void> deleteBatch(@RequestBody Map<String, List<String>> body) {
         UserContext.requirePermission("K8S_MANAGE");
         List<String> names = body.get("names");
-        String namespace = body.getOrDefault("namespace", List.of("default")).get(0);
+        String namespace = TenantNamespaceResolver.resolve(body.getOrDefault("namespace", List.of("default")).get(0));
         if (names != null) {
             for (String name : names) {
                 kubernetesClient.deleteSecret(name, namespace);

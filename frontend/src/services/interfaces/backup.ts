@@ -19,6 +19,7 @@ export interface CreateBackupRequest {
   vmId: string;
   serviceEnvironmentId: string;
   notes?: string;
+  type?: string;
   frequency?: string;
   retentionDays?: number;
   maintenanceWindow?: string;

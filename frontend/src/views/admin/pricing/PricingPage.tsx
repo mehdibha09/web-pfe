@@ -456,9 +456,11 @@ const PricingPage = () => {
                                 {RESOURCE_TYPES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                             </TextField>
                             <Box>
-                                <Typography variant="caption" sx={{ color: priceError ? 'error.main' : C.muted, mb: 0.5, display: 'block' }}>
-                                    {priceError || t('admin.pricing.mustBePositiveNumber')}
+                                {priceError && (
+                                <Typography variant="caption" sx={{ color: 'error.main', mb: 0.5, display: 'block' }}>
+                                    {priceError}
                                 </Typography>
+                                )}
                                 <TextField
                                     label={t('admin.pricing.price')} type="number" value={pricePerUnit}
                                     onChange={(e) => { setPricePerUnit(e.target.value); setPriceError(''); }}

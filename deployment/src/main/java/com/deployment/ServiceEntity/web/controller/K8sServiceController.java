@@ -23,6 +23,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -50,9 +51,9 @@ public class K8sServiceController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sServiceResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sServiceResponse svc = kubernetesClient.getService(name, namespace);
+        K8sServiceResponse svc = kubernetesClient.getService(name, TenantNamespaceResolver.resolve(namespace));
         if (svc == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(svc);
     }
@@ -61,7 +62,7 @@ public class K8sServiceController {
     public ResponseEntity<K8sServiceResponse> create(
             @Valid @RequestBody K8sServiceRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
         String svcType = dto.type() != null ? dto.type() : "ClusterIP";
         String protocol = dto.protocol() != null ? dto.protocol() : "TCP";
         int targetPort = dto.targetPort() != null ? dto.targetPort() : dto.port();
@@ -98,7 +99,7 @@ public class K8sServiceController {
             @PathVariable String name,
             @Valid @RequestBody K8sServiceRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         yamlSpec.append("  selector:\n");
@@ -126,9 +127,9 @@ public class K8sServiceController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteService(name, namespace);
+        kubernetesClient.deleteService(name, TenantNamespaceResolver.resolve(namespace));
         return ResponseEntity.noContent().build();
     }
 }

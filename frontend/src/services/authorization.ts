@@ -53,7 +53,7 @@ export const canAccessPermissions = (user: AuthUser) =>
   hasPermission(user, 'PERMISSION');
 
 export const canAccessTenants = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'TENANT_MANAGE');
+  isSuperAdmin(user) || isNormalAdmin(user) || hasPermission(user, 'TENANT_MANAGE');
 
 export const canAccessSessions = (user: AuthUser) =>
   isSuperAdmin(user) ||
@@ -62,7 +62,7 @@ export const canAccessSessions = (user: AuthUser) =>
   hasPermission(user, 'SESSION');
 
 export const canAccessAuditLogs = (user: AuthUser) =>
-  isSuperAdmin(user) || isTenantAdmin(user) || hasPermission(user, 'AUDIT');
+  isSuperAdmin(user) || isTenantAdmin(user) || isNormalAdmin(user) || hasPermission(user, 'AUDIT');
 
 export const canDeleteUser = (user: AuthUser) =>
   isSuperAdmin(user) ||

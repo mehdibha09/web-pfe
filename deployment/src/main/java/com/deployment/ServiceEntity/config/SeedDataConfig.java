@@ -1,5 +1,6 @@
 package com.deployment.ServiceEntity.config;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.boot.CommandLineRunner;
@@ -8,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.deployment.ServiceEntity.domain.Deployment;
 import com.deployment.ServiceEntity.domain.Environment;
+import com.deployment.ServiceEntity.domain.Metric;
 import com.deployment.ServiceEntity.domain.Service;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.domain.VmClient;
@@ -57,6 +59,15 @@ public class SeedDataConfig {
             VmClient vagrantClient,
             VmProvisioningService vmProvisioningService) {
         return args -> {
+            var oldEnvs = environmentRepository.findAll().stream()
+                .filter(e -> e.getName().equalsIgnoreCase("test") || e.getName().startsWith("Seed"))
+                .toList();
+            environmentRepository.deleteAll(oldEnvs);
+            var oldSvcs = serviceRepository.findAll().stream()
+                .filter(s -> s.getName().equalsIgnoreCase("test-service") || s.getName().equalsIgnoreCase("seed-service-1"))
+                .toList();
+            serviceRepository.deleteAll(oldSvcs);
+
             if (!environmentRepository.existsById(ENV_PROD_ID)) {
                 Environment env = new Environment();
                 env.setId(ENV_PROD_ID);
@@ -113,83 +124,84 @@ public class SeedDataConfig {
                 serviceEnvironmentRepository.save(relation);
             }
 
+            var oldDeps = deploymentRepository.findAll().stream()
+                .filter(d -> d.getNotes() != null && d.getNotes().toLowerCase().contains("seed"))
+                .toList();
+            oldDeps.forEach(d -> d.setNotes("Deployment initial de user-service"));
+            deploymentRepository.saveAll(oldDeps);
+
             if (!deploymentRepository.existsById(DEPLOYMENT_USER_ID)) {
                 Deployment deployment = new Deployment();
                 deployment.setId(DEPLOYMENT_USER_ID);
                 deployment.setVersion("1.0.0");
                 deployment.setStatus(Deployment.Status.SUCCESS);
-                deployment.setNotes("Seed deployment for manual API tests");
+                deployment.setNotes("Deployment initial de user-service");
                 deployment.setDeployedBy(DEPLOYED_BY_ID);
                 deployment.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
                 deployment.setTenantId(TENANT_ID);
                 deploymentRepository.save(deployment);
             }
 
-            // if (!metricRepository.existsById(METRIC_USER_ID)) {
-            // Metric metric = new Metric();
-            // metric.setId(METRIC_USER_ID);
-            // metric.setCpuUsage(32.4f);
-            // metric.setRamUsage(58.9f);
-            // metric.setNetworkUsage(12.3f);
-            // metric.setDiskUsage(41.7f);
-            // metric.setPods(3);
-            // metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
-            // metric.setCreatedAt(Instant.now().minusSeconds(500));
-
-            // metricRepository.save(metric);
-            // }
-            // if (!metricRepository.existsById(METRIC_USER_1_ID)) {
-            // Metric metric = new Metric();
-            // metric.setId(METRIC_USER_1_ID);
-            // metric.setCpuUsage(32.4f);
-            // metric.setRamUsage(58.9f);
-            // metric.setNetworkUsage(12.3f);
-            // metric.setDiskUsage(41.7f);
-            // metric.setPods(3);
-            // metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
-            // metric.setCreatedAt(Instant.now().minusSeconds(400));
-
-            // metricRepository.save(metric);
-            // }
-
-            // if (!metricRepository.existsById(METRIC_USER_2_ID)) {
-            // Metric metric = new Metric();
-            // metric.setId(METRIC_USER_2_ID);
-            // metric.setCpuUsage(41.8f);
-            // metric.setRamUsage(62.1f);
-            // metric.setNetworkUsage(18.6f);
-            // metric.setDiskUsage(44.2f);
-            // metric.setPods(4);
-            // metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
-            // metric.setCreatedAt(Instant.now().minusSeconds(300));
-            // metricRepository.save(metric);
-            // }
-
-            // if (!metricRepository.existsById(METRIC_USER_3_ID)) {
-            // Metric metric = new Metric();
-            // metric.setId(METRIC_USER_3_ID);
-            // metric.setCpuUsage(57.3f);
-            // metric.setRamUsage(71.4f);
-            // metric.setNetworkUsage(22.8f);
-            // metric.setDiskUsage(49.5f);
-            // metric.setPods(5);
-            // metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
-            // metric.setCreatedAt(Instant.now().minusSeconds(200));
-            // metricRepository.save(metric);
-            // }
-
-            // if (!metricRepository.existsById(METRIC_USER_4_ID)) {
-            // Metric metric = new Metric();
-            // metric.setId(METRIC_USER_4_ID);
-            // metric.setCpuUsage(68.9f);
-            // metric.setRamUsage(76.2f);
-            // metric.setNetworkUsage(27.4f);
-            // metric.setDiskUsage(53.1f);
-            // metric.setPods(6);
-            // metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
-            // metric.setCreatedAt(Instant.now().minusSeconds(100));
-            // metricRepository.save(metric);
-            // }
+            if (!metricRepository.existsById(METRIC_USER_ID)) {
+                Metric metric = new Metric();
+                metric.setId(METRIC_USER_ID);
+                metric.setCpuUsage(32.4f);
+                metric.setRamUsage(58.9f);
+                metric.setNetworkUsage(12.3f);
+                metric.setDiskUsage(41.7f);
+                metric.setPods(3);
+                metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
+                metric.setCreatedAt(Instant.now().minusSeconds(500));
+                metricRepository.save(metric);
+            }
+            if (!metricRepository.existsById(METRIC_USER_1_ID)) {
+                Metric metric = new Metric();
+                metric.setId(METRIC_USER_1_ID);
+                metric.setCpuUsage(32.4f);
+                metric.setRamUsage(58.9f);
+                metric.setNetworkUsage(12.3f);
+                metric.setDiskUsage(41.7f);
+                metric.setPods(3);
+                metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
+                metric.setCreatedAt(Instant.now().minusSeconds(400));
+                metricRepository.save(metric);
+            }
+            if (!metricRepository.existsById(METRIC_USER_2_ID)) {
+                Metric metric = new Metric();
+                metric.setId(METRIC_USER_2_ID);
+                metric.setCpuUsage(41.8f);
+                metric.setRamUsage(62.1f);
+                metric.setNetworkUsage(18.6f);
+                metric.setDiskUsage(44.2f);
+                metric.setPods(4);
+                metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
+                metric.setCreatedAt(Instant.now().minusSeconds(300));
+                metricRepository.save(metric);
+            }
+            if (!metricRepository.existsById(METRIC_USER_3_ID)) {
+                Metric metric = new Metric();
+                metric.setId(METRIC_USER_3_ID);
+                metric.setCpuUsage(57.3f);
+                metric.setRamUsage(71.4f);
+                metric.setNetworkUsage(22.8f);
+                metric.setDiskUsage(49.5f);
+                metric.setPods(5);
+                metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
+                metric.setCreatedAt(Instant.now().minusSeconds(200));
+                metricRepository.save(metric);
+            }
+            if (!metricRepository.existsById(METRIC_USER_4_ID)) {
+                Metric metric = new Metric();
+                metric.setId(METRIC_USER_4_ID);
+                metric.setCpuUsage(68.9f);
+                metric.setRamUsage(76.2f);
+                metric.setNetworkUsage(27.4f);
+                metric.setDiskUsage(53.1f);
+                metric.setPods(6);
+                metric.setServiceEnvironmentId(SERVICE_ENV_USER_PROD_ID);
+                metric.setCreatedAt(Instant.now().minusSeconds(100));
+                metricRepository.save(metric);
+            }
 
             // // ── Seed VM ───────────────────────────────────────────────────────
 

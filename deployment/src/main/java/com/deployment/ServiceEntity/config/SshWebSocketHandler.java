@@ -2,14 +2,15 @@ package com.deployment.ServiceEntity.config;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -17,10 +18,10 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.deployment.ServiceEntity.domain.RemoteVagrantVmClient;
 import com.deployment.ServiceEntity.domain.VmClient;
 import com.deployment.ServiceEntity.domain.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.Vm;
-import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.VmRepository;
 
 import com.jcraft.jsch.ChannelShell;
@@ -39,7 +40,17 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     private final VmClient vagrantClient;
     private final AgentRegistry agentRegistry;
 
+    @Value("${vm.host.host:192.168.56.1}")
+    private String remoteHost;
+
+    @Value("${vm.host.user:mehdi}")
+    private String remoteUser;
+
+    @Value("${vm.host.key-path:/etc/ssh-deploy/id_ed25519}")
+    private String remoteKeyPath;
+
     private Session jschSession;
+    private Session jumpSession;
     private ChannelShell channel;
     private Thread outputThread;
 
@@ -54,17 +65,15 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        List<String> userIdHeaders = session.getHandshakeHeaders().get("X-User-Id");
-        List<String> tenantIdHeaders = session.getHandshakeHeaders().get("X-Tenant-Id");
-        List<String> permissionsHeaders = session.getHandshakeHeaders().get("X-User-Permissions");
-        String userId = (userIdHeaders != null && !userIdHeaders.isEmpty()) ? userIdHeaders.get(0) : null;
-        String tenantId = (tenantIdHeaders != null && !tenantIdHeaders.isEmpty()) ? tenantIdHeaders.get(0) : null;
+        String userId = (String) session.getAttributes().get("X-User-Id");
+        String tenantId = (String) session.getAttributes().get("X-Tenant-Id");
+        String permissionsHeader = (String) session.getAttributes().get("X-User-Permissions");
 
         Set<String> permissions = new HashSet<>();
-        if (permissionsHeaders != null && !permissionsHeaders.isEmpty()) {
+        if (permissionsHeader != null && !permissionsHeader.isBlank()) {
             try {
                 permissions = new com.fasterxml.jackson.databind.ObjectMapper()
-                        .readValue(permissionsHeaders.get(0),
+                        .readValue(permissionsHeader,
                                 new com.fasterxml.jackson.core.type.TypeReference<Set<String>>() {});
             } catch (Exception e) {
                 log.warn("Failed to parse X-User-Permissions in WebSocket: {}", e.getMessage());
@@ -103,18 +112,50 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
 
     private void connectViaVagrant(Vm vm, WebSocketSession session) throws Exception {
         VagrantSshConfig sshConfig = vagrantClient.getSshConfig(vm.getVagrantPath());
-
         JSch jsch = new JSch();
-        if (sshConfig.getPrivateKeyPath() != null && !sshConfig.getPrivateKeyPath().isBlank()) {
-            jsch.addIdentity(sshConfig.getPrivateKeyPath());
-        }
-        jschSession = jsch.getSession(sshConfig.getUser(), sshConfig.getHost(), sshConfig.getPort());
-        jschSession.setPassword("vagrant");
-        jschSession.setConfig("StrictHostKeyChecking", "no");
-        jschSession.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
 
-        jschSession.connect(10_000);
-        channel = (ChannelShell) jschSession.openChannel("shell");
+        if (vagrantClient instanceof RemoteVagrantVmClient rvc) {
+            // Connect to remote host
+            jsch.addIdentity(remoteKeyPath);
+            jumpSession = jsch.getSession(remoteUser, remoteHost, 22);
+            jumpSession.setConfig("StrictHostKeyChecking", "no");
+            jumpSession.connect(10_000);
+
+            // Read the VM private key from remote host
+            String vmKeyContent = rvc.readRemoteFile(sshConfig.getPrivateKeyPath());
+            Path tempKey = Files.createTempFile("vm-key-", ".pem");
+            Files.writeString(tempKey, vmKeyContent);
+            tempKey.toFile().setReadable(true, true);
+            tempKey.toFile().setWritable(true, true);
+
+            // Set up port forwarding to the VM
+            int forwardedPort = jumpSession.setPortForwardingL(0, "127.0.0.1", sshConfig.getPort());
+
+            // Connect to VM through forwarded port
+            jsch.addIdentity(tempKey.toString());
+            jschSession = jsch.getSession(sshConfig.getUser(), "127.0.0.1", forwardedPort);
+            jschSession.setConfig("StrictHostKeyChecking", "no");
+            jschSession.setConfig("PreferredAuthentications", "publickey");
+            jschSession.connect(10_000);
+
+            // Clean up temp key
+            Files.deleteIfExists(tempKey);
+
+            channel = (ChannelShell) jschSession.openChannel("shell");
+        } else {
+            // Direct connection (local Vagrant)
+            if (sshConfig.getPrivateKeyPath() != null && !sshConfig.getPrivateKeyPath().isBlank()) {
+                jsch.addIdentity(sshConfig.getPrivateKeyPath());
+            }
+            jschSession = jsch.getSession(sshConfig.getUser(), sshConfig.getHost(), sshConfig.getPort());
+            jschSession.setPassword("vagrant");
+            jschSession.setConfig("StrictHostKeyChecking", "no");
+            jschSession.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
+            jschSession.connect(10_000);
+
+            channel = (ChannelShell) jschSession.openChannel("shell");
+        }
+
         channel.setPtyType("xterm-256color", 120, 40, 0, 0);
         channel.setPty(true);
 
@@ -125,7 +166,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
 
         session.getAttributes().put("channelOut", channelOut);
 
-        log.info("Vagrant SSH connected to VM {} ({})", vm.getName(), sshConfig.getHost());
+        log.info("SSH connected to VM {} ({})", vm.getName(), sshConfig.getHost());
 
         outputThread = new Thread(() -> {
             try {
@@ -140,7 +181,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
             } catch (Exception e) {
-                log.debug("Vagrant SSH output thread ended: {}", e.getMessage());
+                log.debug("SSH output thread ended: {}", e.getMessage());
             }
         }, "ssh-output-" + vm.getId());
         outputThread.setDaemon(true);
@@ -206,6 +247,9 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             }
             if (jschSession != null && jschSession.isConnected()) {
                 jschSession.disconnect();
+            }
+            if (jumpSession != null && jumpSession.isConnected()) {
+                jumpSession.disconnect();
             }
             if (outputThread != null) {
                 outputThread.interrupt();

@@ -1,0 +1,3 @@
+auth-service-url: http://auth-service:7070
+deployment-service-url: http://deployment-service:8082
+cloud-pricer-service-url: http://cloud-pricer-service:8090

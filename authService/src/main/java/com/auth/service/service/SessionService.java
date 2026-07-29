@@ -48,7 +48,9 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<SessionResponse> listSessions(String authorizationHeader) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        List<Session> allSessions = sessionRepository.findByUser_Id(currentUser.getId());
+        List<Session> allSessions = isSuperAdmin(currentUser)
+                ? sessionRepository.findByTenant_Id(currentUser.getTenant().getId())
+                : sessionRepository.findByUser_Id(currentUser.getId());
         List<Session> sorted = allSessions.stream()
                 .sorted((first, second) -> second.getCreatedAt().compareTo(first.getCreatedAt()))
                 .toList();
@@ -83,12 +85,15 @@ public class SessionService {
         return new AuthActionResponse("Session revoked successfully");
     }
 
-    private void ensureCanManageSessions(User currentUser) {
-        boolean isSuperAdmin = userRoleRepository.findByUser_Id(currentUser.getId())
+    private boolean isSuperAdmin(User currentUser) {
+        return userRoleRepository.findByUser_Id(currentUser.getId())
                 .stream()
                 .map(UserRole::getRole)
                 .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
-        if (isSuperAdmin) {
+    }
+
+    private void ensureCanManageSessions(User currentUser) {
+        if (isSuperAdmin(currentUser)) {
             return;
         }
 

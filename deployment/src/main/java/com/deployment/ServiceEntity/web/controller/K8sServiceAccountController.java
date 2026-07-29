@@ -22,6 +22,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -49,9 +50,9 @@ public class K8sServiceAccountController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sServiceAccountResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sServiceAccountResponse sa = kubernetesClient.getServiceAccount(name, namespace);
+        K8sServiceAccountResponse sa = kubernetesClient.getServiceAccount(name, TenantNamespaceResolver.resolve(namespace));
         if (sa == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(sa);
     }
@@ -60,7 +61,7 @@ public class K8sServiceAccountController {
     public ResponseEntity<K8sServiceAccountResponse> create(
             @Valid @RequestBody K8sServiceAccountRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         if (dto.labels() != null && !dto.labels().isEmpty()) {
@@ -82,9 +83,9 @@ public class K8sServiceAccountController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteServiceAccount(name, namespace);
+        kubernetesClient.deleteServiceAccount(name, TenantNamespaceResolver.resolve(namespace));
         return ResponseEntity.noContent().build();
     }
 
@@ -92,7 +93,7 @@ public class K8sServiceAccountController {
     public ResponseEntity<Void> deleteBatch(@RequestBody Map<String, List<String>> body) {
         UserContext.requirePermission("K8S_MANAGE");
         List<String> names = body.get("names");
-        String namespace = body.getOrDefault("namespace", List.of("default")).get(0);
+        String namespace = TenantNamespaceResolver.resolve(body.getOrDefault("namespace", List.of("default")).get(0));
         if (names != null) {
             for (String name : names) {
                 kubernetesClient.deleteServiceAccount(name, namespace);

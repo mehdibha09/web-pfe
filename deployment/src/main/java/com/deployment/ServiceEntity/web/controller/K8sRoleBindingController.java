@@ -21,6 +21,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -43,7 +44,7 @@ public class K8sRoleBindingController {
         if (cluster) {
             all = kubernetesClient.listClusterRoleBindings();
         } else {
-            all = kubernetesClient.listRoleBindings(namespace != null ? namespace : "default");
+            all = kubernetesClient.listRoleBindings(TenantNamespaceResolver.resolve(namespace));
         }
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
@@ -54,7 +55,7 @@ public class K8sRoleBindingController {
     @PostMapping
     public ResponseEntity<K8sRoleBindingResponse> create(@Valid @RequestBody K8sRoleBindingRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         yamlSpec.append("roleRef:\n");
@@ -86,7 +87,7 @@ public class K8sRoleBindingController {
             @RequestParam(required = false) String namespace,
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteRoleBinding(name, namespace != null ? namespace : "default", cluster);
+        kubernetesClient.deleteRoleBinding(name, TenantNamespaceResolver.resolve(namespace), cluster);
         return ResponseEntity.noContent().build();
     }
 }

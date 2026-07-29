@@ -128,7 +128,7 @@ public class StartupDataSeeder implements CommandLineRunner {
                 deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead);
 
         seedRolePermissions(defaultSuperAdminRole, allPermissions);
-        seedRolePermissions(defaultAdminRole, List.of(userRead, userManage, roleManage, sessionManage, auditRead, deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage, k8sRead, k8sManage, notificationRead, notificationManage, costRead, costManage, quotaRead, quotaManage, alertRead, alertManage, metricRead, metricManage, priceConfigRead, priceConfigManage, forecastRead, sshManage));
+        seedRolePermissions(defaultAdminRole, List.of(userRead, userManage, roleManage, sessionManage, permissionManage, auditRead, tenantManage, deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage, k8sRead, k8sManage, notificationRead, notificationManage, costRead, costManage, quotaRead, quotaManage, alertRead, alertManage, metricRead, metricManage, priceConfigRead, priceConfigManage, forecastRead, sshManage));
         seedRolePermissions(defaultManagerRole, List.of(userRead, userManage, sessionManage, deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage, k8sRead, notificationRead, metricRead, sshManage));
         seedRolePermissions(defaultViewerRole, List.of(userRead, deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead));
         seedRolePermissions(defaultSupportRole, List.of(userRead, sessionManage, deploymentRead, vmRead, k8sRead, notificationRead, metricRead));

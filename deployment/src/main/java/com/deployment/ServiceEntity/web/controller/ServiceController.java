@@ -1,5 +1,6 @@
 package com.deployment.ServiceEntity.web.controller;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -50,6 +51,12 @@ public class ServiceController {
   public ResponseEntity<ServiceResponseDto> getById(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_READ");
     return ResponseEntity.ok(map(serviceDomainService.getById(id)));
+  }
+
+  @GetMapping("/all")
+  public ResponseEntity<List<ServiceResponseDto>> getAllUnpaged() {
+    UserContext.requirePermission("DEPLOYMENT_READ");
+    return ResponseEntity.ok(serviceDomainService.getAll().stream().map(this::map).toList());
   }
 
   @GetMapping

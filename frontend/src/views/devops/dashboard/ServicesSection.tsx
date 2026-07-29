@@ -1,4 +1,5 @@
 import { Box, Card, CardContent, Chip, Divider, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { ServiceResponse } from '../../../services/devopsService';
 import { statusColor } from './dashboardUtils';
 import { C} from '../../../theme/tokens';
@@ -8,6 +9,7 @@ interface ServicesSectionProps {
 }
 
 const ServicesSection = ({ services }: ServicesSectionProps) => {
+    const { t } = useTranslation();
     const activeServices = services.filter((s) => s.status?.toUpperCase() === 'ACTIVE').length;
 
     return (
@@ -16,14 +18,14 @@ const ServicesSection = ({ services }: ServicesSectionProps) => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
-                            Services
+                            {t('dashboard.devopsDashboard.services')}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 13 }}>
-                            All registered services
+                            {t('dashboard.devopsDashboard.allRegisteredServices')}
                         </Typography>
                     </Box>
                     <Chip
-                        label={`${activeServices}/${services.length} active`}
+                        label={t('dashboard.devopsDashboard.activeCount', { active: activeServices, total: services.length })}
                         size="small"
                         sx={{
                             backgroundColor: activeServices === services.length ? '#E0F1E6' : '#F7ECD6',
@@ -35,7 +37,7 @@ const ServicesSection = ({ services }: ServicesSectionProps) => {
                 <Divider sx={{ mb: 2, borderColor: '#F5D8E4' }} />
                 {services.length === 0 ? (
                     <Typography sx={{ color: C.subtle, textAlign: 'center', py: 4 }}>
-                        No services registered
+                        {t('dashboard.devopsDashboard.noServices')}
                     </Typography>
                 ) : (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

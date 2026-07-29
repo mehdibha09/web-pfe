@@ -1,10 +1,18 @@
 package com.auth.service.service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -43,6 +51,7 @@ import com.auth.service.web.dto.user.UserResponse;
 public class TenantService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final String SUPER_ADMIN_ROLE = "super-admin";
+    private static final Logger log = LoggerFactory.getLogger(TenantService.class);
 
     private final TenantRepository tenantRepository;
     private final SessionRepository sessionRepository;
@@ -51,6 +60,13 @@ public class TenantService {
     private final RoleRepository roleRepository;
     private final AuditLogRepository auditLogRepository;
     private final RolePermissionRepository rolePermissionRepository;
+
+    @Value("${deployment-service-url}")
+    private String deploymentServiceUrl;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     public TenantService(
             TenantRepository tenantRepository,
@@ -158,7 +174,36 @@ public class TenantService {
 
         Tenant savedTenant = tenantRepository.save(tenant);
         writeAudit(currentUser, "TENANT_CREATE", "Tenant created", savedTenant.getId().toString());
+
+        createNamespaceForTenant(savedTenant, authorizationHeader);
+
         return toResponse(savedTenant);
+    }
+
+    private void createNamespaceForTenant(Tenant tenant, String authorizationHeader) {
+        try {
+            String namespaceName = "tenant-" + tenant.getId().toString();
+            String body = "{\"name\":\"" + namespaceName + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(deploymentServiceUrl + "/api/v1/k8s/namespaces"))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", authorizationHeader)
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("K8s namespace '{}' created for tenant '{}'", namespaceName, tenant.getName());
+            } else {
+                log.warn("Failed to create K8s namespace '{}' for tenant '{}': HTTP {} - {}",
+                        namespaceName, tenant.getName(), response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.warn("Could not create K8s namespace for tenant '{}': {}", tenant.getName(), e.getMessage());
+        }
     }
 
     @Transactional

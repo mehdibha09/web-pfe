@@ -178,7 +178,7 @@ const ServiceEnvironmentsPage = () => {
             </Alert>
 
             <StatsBar
-                relationsCount={totalElements}
+                relationsCount={Math.max(relations.length, totalElements)}
                 servicesCount={services.length}
                 environmentsCount={environments.length}
             />

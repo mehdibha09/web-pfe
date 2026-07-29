@@ -1,6 +1,6 @@
 import {
     Box, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent,
-    DialogContentText, DialogTitle, MenuItem, TextField, Typography
+    DialogContentText, DialogTitle, Divider, MenuItem, TextField, Typography
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import DomainIcon from '@mui/icons-material/Domain';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
@@ -34,6 +35,8 @@ type TenantItem = {
     plan: 'FREE' | 'PRO' | 'ENTERPRISE';
     usersCount: number;
     status: 'ACTIVE' | 'DISABLED';
+    createdAt: string;
+    updatedAt: string;
 };
 
 const planColors: Record<TenantItem['plan'], { bg: string; color: string }> = {
@@ -61,6 +64,8 @@ const toTenantItem = (tenant: any): TenantItem => {
         contactEmail: tenant.contactEmail || '',
         plan,
         usersCount: Number(tenant.usersCount || 0),
+        createdAt: tenant.createdAt || '',
+        updatedAt: tenant.updatedAt || '',
         status: ['DISABLED', 'DELETED'].includes(String(tenant.status || 'ACTIVE').toUpperCase())
             ? 'DISABLED'
             : 'ACTIVE'
@@ -86,6 +91,7 @@ const TenantsPage = () => {
     const [editPlan, setEditPlan] = useState<TenantItem['plan']>('PRO');
     const [disableDialogId, setDisableDialogId] = useState<string | null>(null);
     const [disableAction, setDisableAction] = useState<'enable' | 'disable'>('disable');
+    const [detailTenant, setDetailTenant] = useState<TenantItem | null>(null);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
 
@@ -480,6 +486,7 @@ const TenantsPage = () => {
                             </CardContent>
                             {editingTenantId !== tenant.id && (
                                 <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}` }}>
+                                    <Button onClick={() => setDetailTenant(tenant)} startIcon={<VisibilityIcon />}>{t('admin.tenants.viewDetails')}</Button>
                                     <Button onClick={() => startEditTenant(tenant)} startIcon={<EditIcon />}>{t('common.edit')}</Button>
                                     <Button
                                         onClick={() => {
@@ -532,6 +539,72 @@ const TenantsPage = () => {
                     >
                         {t('admin.tenants.disable')}
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={!!detailTenant} onClose={() => setDetailTenant(null)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800, color: C.text }}>{detailTenant?.name}</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('common.status')}
+                            </Typography>
+                            <Chip label={detailTenant?.status} size="small" sx={{ mt: 0.5, fontWeight: 700, fontSize: 11, backgroundColor: detailTenant?.status === 'ACTIVE' ? '#E0F1E6' : '#F7DEE3', color: detailTenant?.status === 'ACTIVE' ? '#2E7A4F' : '#A23B4E' }} />
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.plan')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.plan}</Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.contactEmail')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.contactEmail || '—'}</Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.users')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.usersCount ?? 0}</Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                ID
+                            </Typography>
+                            <Typography sx={{ fontWeight: 500, color: C.text, mt: 0.5, fontSize: 12, wordBreak: 'break-all' }}>{detailTenant?.id}</Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                Code
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.code}</Typography>
+                        </Box>
+                    </Box>
+                    <Divider sx={{ my: 2, borderColor: '#F5D8E4' }} />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.createdAt')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 13 }}>
+                                {detailTenant?.createdAt ? new Date(detailTenant.createdAt).toLocaleDateString() : '—'}
+                            </Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.updatedAt')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 13 }}>
+                                {detailTenant?.updatedAt ? new Date(detailTenant.updatedAt).toLocaleDateString() : '—'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDetailTenant(null)}>{t('common.close')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

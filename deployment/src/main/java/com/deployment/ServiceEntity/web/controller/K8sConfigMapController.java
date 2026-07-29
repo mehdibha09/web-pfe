@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sConfigMapRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sConfigMapResponse;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
@@ -40,7 +41,8 @@ public class K8sConfigMapController {
             @RequestParam(required = false) String namespace,
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
-        List<K8sConfigMapResponse> all = kubernetesClient.listConfigMaps(namespace);
+        String ns = TenantNamespaceResolver.resolve(namespace);
+        List<K8sConfigMapResponse> all = kubernetesClient.listConfigMaps(ns);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sConfigMapResponse> content = start < all.size() ? all.subList(start, end) : List.of();
@@ -50,9 +52,10 @@ public class K8sConfigMapController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sConfigMapResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sConfigMapResponse cm = kubernetesClient.getConfigMap(name, namespace);
+        String ns = TenantNamespaceResolver.resolve(namespace);
+        K8sConfigMapResponse cm = kubernetesClient.getConfigMap(name, ns);
         if (cm == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(cm);
     }
@@ -61,7 +64,7 @@ public class K8sConfigMapController {
     public ResponseEntity<K8sConfigMapResponse> create(
             @Valid @RequestBody K8sConfigMapRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         if (dto.labels() != null && !dto.labels().isEmpty()) {
@@ -101,7 +104,7 @@ public class K8sConfigMapController {
             @PathVariable String name,
             @Valid @RequestBody K8sConfigMapRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         yamlSpec.append("data:\n");
@@ -129,9 +132,10 @@ public class K8sConfigMapController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteConfigMap(name, namespace);
+        String ns = TenantNamespaceResolver.resolve(namespace);
+        kubernetesClient.deleteConfigMap(name, ns);
         return ResponseEntity.noContent().build();
     }
 
@@ -139,10 +143,10 @@ public class K8sConfigMapController {
     public ResponseEntity<Void> deleteBatch(@RequestBody Map<String, List<String>> body) {
         UserContext.requirePermission("K8S_MANAGE");
         List<String> names = body.get("names");
-        String namespace = body.getOrDefault("namespace", List.of("default")).get(0);
+        String ns = TenantNamespaceResolver.resolve(body.getOrDefault("namespace", List.of()).isEmpty() ? null : body.get("namespace").get(0));
         if (names != null) {
             for (String name : names) {
-                kubernetesClient.deleteConfigMap(name, namespace);
+                kubernetesClient.deleteConfigMap(name, ns);
             }
         }
         return ResponseEntity.noContent().build();

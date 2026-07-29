@@ -1,13 +1,18 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DnsIcon from '@mui/icons-material/Dns';
 import HistoryIcon from '@mui/icons-material/History';
 import HubIcon from '@mui/icons-material/Hub';
+import PaymentsIcon from '@mui/icons-material/Payments';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
+import RestorePageIcon from '@mui/icons-material/RestorePage';
 import SecurityIcon from '@mui/icons-material/Security';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import WidgetsIcon from '@mui/icons-material/Widgets';
 import {
     Alert,
     Box,
@@ -32,6 +37,10 @@ import {
     type SessionResponse,
     type AuditLogResponse
 } from '../../services/adminService';
+import { vmService, type Vm } from '../../services/VmService';
+import { k8sService, type K8sDeployment } from '../../services/k8sService';
+import { backupService, type Backup } from '../../services/backupService';
+import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } from '../../services/cloudPricerService';
 import { C } from '../../theme/tokens';
 import {
     listServices,
@@ -71,17 +80,27 @@ const SuperAdminDashboard = () => {
     const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
+    const [vms, setVms] = useState<Vm[]>([]);
+    const [k8sDeployments, setK8sDeployments] = useState<K8sDeployment[]>([]);
+    const [backups, setBackups] = useState<Backup[]>([]);
+    const [alerts, setAlerts] = useState<AlertResponse[]>([]);
+    const [costs, setCosts] = useState<CostRecordResponse[]>([]);
 
     const fetchAll = useCallback(async () => {
         try {
-            const [u, r, ten, s, a, svc, dep] = await Promise.allSettled([
+            const [u, r, ten, s, a, svc, dep, vm, k8, bak, al, co] = await Promise.allSettled([
                 listUsers(),
                 listRoles(),
                 listTenants(),
                 listSessions(),
                 listAuditLogs({}),
                 listServices(),
-                listDeployments()
+                listDeployments(),
+                vmService.getAll(),
+                k8sService.getAll(),
+                backupService.getAll(),
+                listAlerts(),
+                listCosts()
             ]);
             if (u.status === 'fulfilled') setUsers(u.value);
             if (r.status === 'fulfilled') setRoles(r.value);
@@ -90,6 +109,11 @@ const SuperAdminDashboard = () => {
             if (a.status === 'fulfilled') setAuditLogs(a.value);
             if (svc.status === 'fulfilled') setServices(svc.value);
             if (dep.status === 'fulfilled') setDeployments(dep.value);
+            if (vm.status === 'fulfilled') setVms(vm.value);
+            if (k8.status === 'fulfilled') setK8sDeployments(k8.value);
+            if (bak.status === 'fulfilled') setBackups(bak.value);
+            if (al.status === 'fulfilled') setAlerts(al.value);
+            if (co.status === 'fulfilled') setCosts(co.value);
         } catch (e: any) {
             setError(e?.message || 'Failed to load dashboard');
         } finally {
@@ -206,13 +230,61 @@ const SuperAdminDashboard = () => {
                     onClick={() => navigate('/admin/audit-logs')}
                 />
                 <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiPermissions')}
+                    title={t('dashboard.superAdmin.kpiAssignments')}
                     value={roles.reduce((sum, r) => sum + (r.permissions?.length || 0), 0)}
                     subtitle={t('dashboard.superAdmin.acrossRoles', { count: roles.length })}
                     icon={<AssignmentIcon sx={{ color: C.muted, fontSize: 26 }} />}
                     bgColor="#F8FAFC"
                     color={C.muted}
                     onClick={() => navigate('/admin/permissions')}
+                />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(5, 1fr)' }, gap: 2.5, mb: 3 }}>
+                <DashboardKpiCard
+                    title={t('dashboard.superAdmin.kpiVms')}
+                    value={vms.length}
+                    subtitle={t('dashboard.superAdmin.runningCount', { count: vms.filter((v) => v.status === 'RUNNING').length })}
+                    icon={<DnsIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
+                    bgColor="#E4EEF7"
+                    color="#0EA5E9"
+                    onClick={() => navigate('/admin/vms')}
+                />
+                <DashboardKpiCard
+                    title={t('dashboard.superAdmin.kpiK8s')}
+                    value={k8sDeployments.length}
+                    subtitle={t('dashboard.superAdmin.k8sDeployments')}
+                    icon={<WidgetsIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
+                    bgColor="#F5F3FF"
+                    color="#5E4B9E"
+                    onClick={() => navigate('/admin/kubernetes')}
+                />
+                <DashboardKpiCard
+                    title={t('dashboard.superAdmin.kpiBackups')}
+                    value={backups.length}
+                    subtitle={t('dashboard.superAdmin.backupRecords')}
+                    icon={<RestorePageIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
+                    bgColor="#ECFDF5"
+                    color="#2E7A4F"
+                    onClick={() => navigate('/admin/backups')}
+                />
+                <DashboardKpiCard
+                    title={t('dashboard.superAdmin.kpiAlerts')}
+                    value={alerts.filter((a) => a.status === 'OPEN').length}
+                    subtitle={t('dashboard.superAdmin.openAlertsCount', { count: alerts.length })}
+                    icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
+                    bgColor="#FDF2F4"
+                    color="#A23B4E"
+                    onClick={() => navigate('/admin/alerts')}
+                />
+                <DashboardKpiCard
+                    title={t('dashboard.superAdmin.kpiCosts')}
+                    value={costs.length}
+                    subtitle={t('dashboard.superAdmin.costRecords')}
+                    icon={<PaymentsIcon sx={{ color: '#B45309', fontSize: 26 }} />}
+                    bgColor="#FFFAF0"
+                    color="#B45309"
+                    onClick={() => navigate('/admin/costs')}
                 />
             </Box>
 
@@ -413,41 +485,46 @@ const SuperAdminDashboard = () => {
                                     const isActive = ten.status?.toUpperCase() === 'ACTIVE';
                                     const sc = statusColor(ten.status || '');
                                     return (
+                                    <Box
+                                        key={ten.id}
+                                        onClick={() => navigate(`/admin/tenants/${ten.id}`)}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1.5,
+                                            p: 1.25,
+                                            borderRadius: 2,
+                                            border: `1px solid ${C.border}`,
+                                            backgroundColor: '#FFFFFF',
+                                            cursor: 'pointer',
+                                            transition: 'background-color 0.15s',
+                                            '&:hover': { backgroundColor: '#FFF8FA' }
+                                        }}
+                                    >
                                         <Box
-                                            key={ten.id}
                                             sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 1.5,
-                                                p: 1.25,
-                                                borderRadius: 2,
-                                                border: `1px solid ${C.border}`,
-                                                backgroundColor: '#FFFFFF',
-                                                transition: 'background-color 0.15s',
-                                                '&:hover': { backgroundColor: '#FFF8FA' }
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                backgroundColor: sc.fg,
+                                                flexShrink: 0
                                             }}
-                                        >
-                                            <Box
-                                                sx={{
-                                                    width: 8,
-                                                    height: 8,
-                                                    borderRadius: '50%',
-                                                    backgroundColor: sc.fg,
-                                                    flexShrink: 0
-                                                }}
-                                            />
-                                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 13 }}>
-                                                    {ten.name}
-                                                </Typography>
-                                                <Typography sx={{ color: C.muted, fontSize: 11 }}>
-                                                    {ten.contactEmail || t('dashboard.superAdmin.noEmail')} · {ten.modeDeployment || t('dashboard.superAdmin.na')}
-                                                </Typography>
-                                            </Box>
+                                        />
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 13 }}>
+                                                {ten.name}
+                                            </Typography>
                                             <Typography sx={{ color: C.muted, fontSize: 11 }}>
-                                                {t('dashboard.superAdmin.usersCount', { count: ten.usersCount || 0 })}
+                                                {ten.contactEmail || t('dashboard.superAdmin.noEmail')} · {ten.modeDeployment || t('dashboard.superAdmin.na')}
                                             </Typography>
                                         </Box>
+                                        <Typography sx={{ color: C.muted, fontSize: 11, mr: 1 }}>
+                                            {t('dashboard.superAdmin.usersCount', { count: ten.usersCount || 0 })}
+                                        </Typography>
+                                        <Typography sx={{ color: C.brand, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                                            {t('dashboard.superAdmin.viewDetails')}
+                                        </Typography>
+                                    </Box>
                                     );
                                 })}
                             </Box>

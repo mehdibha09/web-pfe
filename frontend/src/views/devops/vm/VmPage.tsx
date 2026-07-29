@@ -27,8 +27,11 @@ import {
     Box,
     Button,
     Chip,
-
     Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     FormControlLabel,
     Grid,
     IconButton,
@@ -74,6 +77,8 @@ import type { Vm, VmStatus, VmMetrics } from '../../../services/interfaces/vm';
 import CreateVmDialog from './CreateVmDialog';
 import SshTerminal from './SshTerminal';
 import { C } from '../../../theme/tokens';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageVMs } from '../../../services/authorization';
 
 const STATUS_META: Record<VmStatus, { labelKey: string; color: string; bg: string; icon: React.ReactNode }> = {
     RUNNING: { labelKey: 'vms.running', color: '#065F46', bg: '#D1FAE5', icon: <CheckCircleIcon sx={{ fontSize: 14 }} /> },
@@ -220,6 +225,7 @@ const VmsPage = () => {
     const [createOpen, setCreateOpen] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Vm | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [metricsTarget, setMetricsTarget] = useState<Vm | null>(null);
@@ -238,6 +244,8 @@ const VmsPage = () => {
     const [page, setPage] = useState(0);
     const [sshInfoOpen, setSshInfoOpen] = useState(false);
     const [downloadingKey, setDownloadingKey] = useState(false);
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageVMs(currentUser) : false;
 
     const loadVms = useCallback(async (showSpinner = false) => {
         if (showSpinner) setLoading(true);
@@ -273,6 +281,17 @@ const VmsPage = () => {
         };
     }, [vms, loadVms]);
 
+    const periodicRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    useEffect(() => {
+        periodicRefreshRef.current = setInterval(() => loadVms(false), 30000);
+        return () => {
+            if (periodicRefreshRef.current) {
+                clearInterval(periodicRefreshRef.current);
+                periodicRefreshRef.current = null;
+            }
+        };
+    }, [loadVms]);
+
     const runAction = async (id: string, action: () => Promise<Vm>, successMessage: string) => {
         setActionLoadingId(id);
         try {
@@ -291,14 +310,20 @@ const VmsPage = () => {
     const handleRestart = (vm: Vm) => runAction(vm.id, () => vmService.restart(vm.id), `${vm.name} restarted`);
 
     const handleDelete = async (vm: Vm) => {
-        if (!window.confirm(t('vms.confirmDelete', { name: vm.name }))) return;
+        setDeleteTarget(vm);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        const vm = deleteTarget;
+        setDeleteTarget(null);
         setActionLoadingId(vm.id);
         try {
             await vmService.remove(vm.id);
-            setSnackbar({ message: `${vm.name} deleted`, severity: 'success' });
+            setSnackbar({ message: t('vms.deletedSuccess', { name: vm.name }), severity: 'success' });
             await loadVms(false);
         } catch (err) {
-            setSnackbar({ message: getErrorMessage(err, 'Failed to delete VM'), severity: 'error' });
+            setSnackbar({ message: getErrorMessage(err, t('vms.deleteFailed')), severity: 'error' });
         } finally {
             setActionLoadingId(null);
         }
@@ -449,12 +474,14 @@ const VmsPage = () => {
                             </IconButton>
                         </span>
                     </Tooltip>
+                    {allowManage && (
                     <Button variant="contained"
                         startIcon={<AddIcon />}
                         onClick={() => setCreateOpen(true)}
                         sx={{ background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`, borderRadius: 2, fontWeight: 700 }}>
                         {t('vms.createVm')}
                     </Button>
+                    )}
                 </Box>
             </Box>
 
@@ -559,10 +586,12 @@ const VmsPage = () => {
                                                                     sx={{ color: '#9333EA' }}><RestartAltIcon sx={{ fontSize: 16 }} /></IconButton>
                                                             </span>
                                                         </Tooltip>
+                                                        {allowManage && (
                                                         <Tooltip title={t('common.delete')}>
                                                             <IconButton size="small" onClick={() => handleDelete(vm)}
                                                                 sx={{ color: '#DC2626' }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
                                                         </Tooltip>
+                                                        )}
                                                     </Box>
                                                 )}
                                             </TableCell>
@@ -826,6 +855,19 @@ const VmsPage = () => {
                         <PaginationBar page={historyPage} pageCount={historyPageCount} total={sortedMetrics.length} onPageChange={setHistoryPage} />
                     )}
                 </Box>
+            </Dialog>
+
+            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+                <DialogTitle>{t('vms.confirmDeleteTitle')}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        {deleteTarget ? t('vms.confirmDeleteBody', { name: deleteTarget.name }) : ''}
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+                    <Button onClick={confirmDelete} color="error" variant="contained">{t('common.delete')}</Button>
+                </DialogActions>
             </Dialog>
 
             <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>

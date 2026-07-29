@@ -12,10 +12,14 @@ import { toast } from 'react-toastify';
 import type { Backup } from '../../../services/interfaces/backup';
 import type { Vm } from '../../../services/interfaces/vm';
 import type { ServiceEnvironment } from '../../../services/interfaces/serviceEnvironment';
+import type { ServiceResponse, EnvironmentResponse } from '../../../services/interfaces/devops';
 import { backupService } from '../../../services/backupService';
 import { vmService } from '../../../services/VmService';
 import { serviceEnvironmentService } from '../../../services/ServiceEnvironmentService';
+import { listServices, listEnvironments } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageBackups } from '../../../services/authorization';
 import { C } from '../../../theme/tokens';
 
 import PageHeader from '../../../components/PageHeader';
@@ -35,6 +39,8 @@ const BackupPage = () => {
     const [backups, setBackups] = useState<Backup[]>([]);
     const [vms, setVms] = useState<Vm[]>([]);
     const [serviceEnvs, setServiceEnvs] = useState<ServiceEnvironment[]>([]);
+    const [services, setServices] = useState<ServiceResponse[]>([]);
+    const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -45,20 +51,26 @@ const BackupPage = () => {
     const [totalElements, setTotalElements] = useState(0);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageBackups(currentUser) : false;
 
     const load = async (quiet = false) => {
         if (!quiet) setLoading(true);
         setError(null);
         try {
-            const [b, vmList, envList] = await Promise.all([
+            const [b, vmList, envList, svcList, envSvcList] = await Promise.all([
                 backupService.getAllPaginated(page, PAGE_SIZE),
                 vmService.getAll(),
-                serviceEnvironmentService.getAll()
+                serviceEnvironmentService.getAll(),
+                listServices(),
+                listEnvironments()
             ]);
             setBackups(b.items);
             setTotalElements(b.total);
             setVms(vmList);
             setServiceEnvs(envList);
+            setServices(svcList);
+            setEnvironments(envSvcList);
         } catch (e: unknown) {
             const msg = getErrorMessage(e, t('backups.failedToLoad'));
             setError(msg);
@@ -74,6 +86,34 @@ const BackupPage = () => {
 
     useEffect(() => { if (page >= pageCount && page > 0) setPage(pageCount - 1); }, [totalElements]);
 
+    const vmNameById = useMemo(() => {
+        const map: Record<string, string> = {};
+        vms.forEach((vm) => { map[vm.id] = vm.name; });
+        return map;
+    }, [vms]);
+
+    const serviceNameById = useMemo(() => {
+        const map: Record<string, string> = {};
+        services.forEach((svc) => { map[svc.id] = svc.name; });
+        return map;
+    }, [services]);
+
+    const envNameById = useMemo(() => {
+        const map: Record<string, string> = {};
+        environments.forEach((env) => { map[env.id] = env.name; });
+        return map;
+    }, [environments]);
+
+    const seDisplayNameById = useMemo(() => {
+        const map: Record<string, string> = {};
+        serviceEnvs.forEach((se) => {
+            const svcName = serviceNameById[se.serviceId] ?? se.serviceId.slice(0, 8);
+            const envName = envNameById[se.environmentId] ?? se.environmentId.slice(0, 8);
+            map[se.id] = `${svcName} — ${envName}`;
+        });
+        return map;
+    }, [serviceEnvs, serviceNameById, envNameById]);
+
     const filtered = useMemo(() => {
         let list = backups;
         if (statusFilter !== 'ALL') {
@@ -82,17 +122,18 @@ const BackupPage = () => {
         const q = search.trim().toLowerCase();
         if (q) {
             list = list.filter((b) =>
-                [b.vmId, b.serviceEnvironmentId, b.filePath, b.notes, b.id, b.status]
+                [b.vmId, b.serviceEnvironmentId, b.filePath, b.notes, b.id, b.status,
+                 vmNameById[b.vmId] ?? '', seDisplayNameById[b.serviceEnvironmentId] ?? '']
                     .join(' ').toLowerCase().includes(q)
             );
         }
         return list;
-    }, [backups, search, statusFilter]);
+    }, [backups, search, statusFilter, vmNameById, seDisplayNameById]);
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const kpis = useMemo(() => ({
-        total: totalElements,
+        total: Math.max(backups.length, totalElements),
         completed: backups.filter((b) => b.status === 'COMPLETED').length,
         restored: backups.filter((b) => b.status === 'RESTORED').length,
         failed: backups.filter((b) => b.status === 'FAILED').length
@@ -133,6 +174,7 @@ const BackupPage = () => {
                     </IconButton>
                 </span>
             </Tooltip>
+            {allowManage && (
             <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -148,6 +190,7 @@ const BackupPage = () => {
             >
                 {t('backups.createBackup')}
             </Button>
+            )}
         </Box>
     );
 
@@ -155,7 +198,7 @@ const BackupPage = () => {
         <div>
             <PageHeader
                 title={t('backups.title')}
-                subtitle={t('backups.subtitle', { count: totalElements })}
+                subtitle={t('backups.subtitle', { count: Math.max(backups.length, totalElements) })}
                 icon={<BackupIcon sx={{ color: '#fff', fontSize: 22 }} />}
                 action={headerAction}
             />
@@ -172,6 +215,8 @@ const BackupPage = () => {
                     <CreateBackupForm
                         vms={vms}
                         serviceEnvs={serviceEnvs}
+                        serviceNameById={serviceNameById}
+                        envNameById={envNameById}
                         onCreated={() => { setCreateOpen(false); load(true); }}
                         onCancel={() => setCreateOpen(false)}
                     />
@@ -214,8 +259,8 @@ const BackupPage = () => {
                                 ? t('backups.adjustSearch')
                                 : t('backups.createFirstBackup')
                         }
-                        actionLabel={!search && statusFilter === 'ALL' ? t('backups.createBackup') : undefined}
-                        onAction={!search && statusFilter === 'ALL' ? () => setCreateOpen(true) : undefined}
+                        actionLabel={!search && statusFilter === 'ALL' && allowManage ? t('backups.createBackup') : undefined}
+                        onAction={!search && statusFilter === 'ALL' && allowManage ? () => setCreateOpen(true) : undefined}
                     />
                 ) : (
                     <>
@@ -224,6 +269,9 @@ const BackupPage = () => {
                             <BackupCard
                                 key={backup.id}
                                 backup={backup}
+                                vmNameById={vmNameById}
+                                seDisplayNameById={seDisplayNameById}
+                                allowManage={allowManage}
                                 onRestore={handleRestore}
                                 onDelete={setDeleteTarget}
                             />

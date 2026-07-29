@@ -134,6 +134,11 @@ export const deletePermission = async (permissionId: string) => {
   return response.data;
 };
 
+export const getTenantById = async (id: string): Promise<import('../interfaces/admin').TenantResponse> => {
+  const response = await axiosInstance.get(`/tenants/${id}`);
+  return response.data;
+};
+
 export const listTenants = async (): Promise<import('../interfaces/admin').TenantResponse[]> => {
   const response = await axiosInstance.get('/tenants');
   return response.data || [];
@@ -177,7 +182,7 @@ export const updateTenant = async (
 };
 
 export const listSessions = async (): Promise<import('../interfaces/admin').SessionResponse[]> => {
-  const response = await axiosInstance.get('/sessions');
+  const response = await axiosInstance.get('/sessions?size=2000');
   return response.data || [];
 };
 
@@ -196,6 +201,7 @@ export const revokeSession = async (sessionId: string) => {
 
 export const listAuditLogs = async (query: AuditLogQuery): Promise<import('../interfaces/admin').AuditLogResponse[]> => {
   const params = new URLSearchParams();
+  params.set('size', '2000');
   if (query.from) params.set('from', query.from);
   if (query.to) params.set('to', query.to);
   if (query.action) params.set('action', query.action);

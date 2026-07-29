@@ -4,8 +4,10 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import {
     Box, Button, Card, CardActions, CardContent, Chip, MenuItem, TextField, Typography
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import type { ServiceResponse } from '../../../services/devopsService';
 import {
@@ -23,6 +25,7 @@ type ServiceCardProps = {
 
 const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const c = getStatusColor(service.status);
     const [editing, setEditing] = useState(false);
     const [editName, setEditName] = useState('');
@@ -104,6 +107,7 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
                     <Button size="small" variant="outlined" color="success" startIcon={<PlayArrowIcon />} onClick={handleStart} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.start')}</Button>
                     <Button size="small" variant="outlined" color="error" startIcon={<StopIcon />} onClick={handleStop} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.stop')}</Button>
                     <Button size="small" variant="outlined" color="warning" startIcon={<RestartAltIcon />} onClick={handleRestart} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.restart')}</Button>
+                    <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/devops/deployments')} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>
                     <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
                     <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('common.delete')}</Button>
                 </CardActions>

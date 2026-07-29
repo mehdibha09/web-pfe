@@ -22,6 +22,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -49,9 +50,9 @@ public class K8sIngressController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sIngressResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sIngressResponse ing = kubernetesClient.getIngress(name, namespace);
+        K8sIngressResponse ing = kubernetesClient.getIngress(name, TenantNamespaceResolver.resolve(namespace));
         if (ing == null) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(ing);
     }
@@ -60,7 +61,7 @@ public class K8sIngressController {
     public ResponseEntity<K8sIngressResponse> create(
             @Valid @RequestBody K8sIngressRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
         if (dto.ingressClassName() != null) {
@@ -128,7 +129,7 @@ public class K8sIngressController {
             @PathVariable String name,
             @Valid @RequestBody K8sIngressRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
         // Reuse same YAML building
         StringBuilder yamlSpec = new StringBuilder();
         if (dto.ingressClassName() != null) {
@@ -179,9 +180,9 @@ public class K8sIngressController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteIngress(name, namespace);
+        kubernetesClient.deleteIngress(name, TenantNamespaceResolver.resolve(namespace));
         return ResponseEntity.noContent().build();
     }
 }

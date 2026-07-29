@@ -543,7 +543,10 @@ const MetricsPage = () => {
                                 {t('metrics.dataScope')}
                             </Typography>
                             <Typography sx={{ color: C.muted, mt: 0.25 }}>
-                                {t('metrics.dataScopeHint')}
+                                {hasActiveFilters && (dateFrom || dateTo)
+                                    ? t('metrics.dataScopeHintFiltered', { from: dateFrom || '...', to: dateTo || '...' })
+                                    : t('metrics.dataScopeHint')
+                                }
                             </Typography>
                         </Box>
 

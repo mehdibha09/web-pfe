@@ -2,6 +2,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Card, CardContent, Chip, Divider, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { AlertResponse } from '../../../services/cloudPricerService';
 import { C} from '../../../theme/tokens';
 
@@ -10,6 +11,7 @@ interface RecentAlertsSectionProps {
 }
 
 const RecentAlertsSection = ({ alerts }: RecentAlertsSectionProps) => {
+    const { t } = useTranslation();
     const openAlerts = alerts.filter((a) => a.status === 'OPEN');
     const recentAlerts = [...alerts]
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
@@ -21,14 +23,14 @@ const RecentAlertsSection = ({ alerts }: RecentAlertsSectionProps) => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
-                            Recent Alerts
+                            {t('dashboard.devopsDashboard.recentAlerts')}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 13 }}>
-                            Latest system alerts
+                            {t('dashboard.devopsDashboard.latestSystemAlerts')}
                         </Typography>
                     </Box>
                     <Chip
-                        label={`${openAlerts.length} open`}
+                        label={t('dashboard.devopsDashboard.openCount', { count: openAlerts.length })}
                         size="small"
                         sx={{
                             backgroundColor: openAlerts.length > 0 ? '#F7DEE3' : '#E0F1E6',
@@ -42,7 +44,7 @@ const RecentAlertsSection = ({ alerts }: RecentAlertsSectionProps) => {
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <CheckCircleIcon sx={{ color: '#2E7A4F', fontSize: 40, mb: 1 }} />
                         <Typography sx={{ color: C.subtle }}>
-                            No alerts — all clear
+                            {t('dashboard.devopsDashboard.noAlerts')}
                         </Typography>
                     </Box>
                 ) : (

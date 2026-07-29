@@ -1,4 +1,5 @@
 import { Box, Card, CardContent, Chip, Divider, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { DeploymentResponse } from '../../../services/devopsService';
 import { statusColor } from './dashboardUtils';
 import { C} from '../../../theme/tokens';
@@ -8,6 +9,7 @@ interface RecentDeploymentsSectionProps {
 }
 
 const RecentDeploymentsSection = ({ deployments }: RecentDeploymentsSectionProps) => {
+    const { t } = useTranslation();
     const recentDeployments = [...deployments]
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
         .slice(0, 5);
@@ -18,14 +20,14 @@ const RecentDeploymentsSection = ({ deployments }: RecentDeploymentsSectionProps
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
-                            Recent Deployments
+                            {t('dashboard.devopsDashboard.recentDeployments')}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 13 }}>
-                            Latest deployment activity
+                            {t('dashboard.devopsDashboard.latestDeploymentActivity')}
                         </Typography>
                     </Box>
                     <Chip
-                        label={`${deployments.length} total`}
+                        label={t('dashboard.devopsDashboard.totalCount', { count: deployments.length })}
                         size="small"
                         sx={{ backgroundColor: C.brandLight, color: C.brand, fontWeight: 700 }}
                     />
@@ -33,7 +35,7 @@ const RecentDeploymentsSection = ({ deployments }: RecentDeploymentsSectionProps
                 <Divider sx={{ mb: 2, borderColor: '#F5D8E4' }} />
                 {recentDeployments.length === 0 ? (
                     <Typography sx={{ color: C.subtle, textAlign: 'center', py: 4 }}>
-                        No deployments yet
+                        {t('dashboard.devopsDashboard.noDeployments')}
                     </Typography>
                 ) : (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -56,10 +58,10 @@ const RecentDeploymentsSection = ({ deployments }: RecentDeploymentsSectionProps
                                     {sc.icon}
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 13 }}>
-                                            {d.version || 'No version'}
+                                            {d.version || t('dashboard.devopsDashboard.noVersion')}
                                         </Typography>
                                         <Typography sx={{ color: C.muted, fontSize: 11 }}>
-                                            {d.notes || 'No notes'} · {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : ''}
+                                            {d.notes || t('dashboard.devopsDashboard.noNotes')} · {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : ''}
                                         </Typography>
                                     </Box>
                                     <Chip

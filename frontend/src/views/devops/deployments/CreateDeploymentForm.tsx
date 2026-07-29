@@ -104,7 +104,7 @@ const CreateDeploymentForm = ({
                 >
                     {serviceEnvironments.map((r) => (
                         <MenuItem key={r.id} value={r.id}>
-                            {seLabel(r, services, environments)}
+                            {seLabel(r)}
                         </MenuItem>
                     ))}
                 </TextField>

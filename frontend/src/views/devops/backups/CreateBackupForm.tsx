@@ -13,11 +13,15 @@ import { C } from '../../../theme/tokens';
 interface CreateBackupFormProps {
     vms: Vm[];
     serviceEnvs: ServiceEnvironment[];
+    serviceNameById: Record<string, string>;
+    envNameById: Record<string, string>;
     onCreated: () => void;
     onCancel: () => void;
 }
 
-const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBackupFormProps) => {
+const TYPES = ['MANUAL', 'AUTOMATIC'];
+
+const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCreated, onCancel }: CreateBackupFormProps) => {
     const { t } = useTranslation();
 
     const FREQUENCIES = [
@@ -30,6 +34,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
     const [selectedVmId, setSelectedVmId] = useState('');
     const [serviceEnvId, setServiceEnvId] = useState('');
     const [notes, setNotes] = useState('');
+    const [backupType, setBackupType] = useState('MANUAL');
     const [frequency, setFrequency] = useState('');
     const [retentionDays, setRetentionDays] = useState(30);
     const [maintenanceWindow, setMaintenanceWindow] = useState('02:00');
@@ -44,6 +49,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
                 vmId: selectedVmId,
                 serviceEnvironmentId: serviceEnvId,
                 notes: notes.trim() || undefined,
+                type: backupType,
                 frequency: frequency || undefined,
                 retentionDays: frequency ? retentionDays : undefined,
                 maintenanceWindow: frequency ? maintenanceWindow : undefined
@@ -52,6 +58,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
             setSelectedVmId('');
             setServiceEnvId('');
             setNotes('');
+            setBackupType('MANUAL');
             setFrequency('');
             setRetentionDays(30);
             setMaintenanceWindow('02:00');
@@ -65,7 +72,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
 
     return (
         <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 2fr' }, gap: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 2 }}>
                 <FormControl size="medium" sx={{ minWidth: 180 }}>
                     <InputLabel id="vm-select-label">{t('backups.vm')}</InputLabel>
                     <Select labelId="vm-select-label" value={selectedVmId} label={t('backups.vm')} onChange={(e) => setSelectedVmId(e.target.value)}>
@@ -86,15 +93,28 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
                 <FormControl size="medium" sx={{ minWidth: 180 }}>
                     <InputLabel id="env-select-label">{t('backups.serviceEnvironment')}</InputLabel>
                     <Select labelId="env-select-label" value={serviceEnvId} label={t('backups.serviceEnvironment')} onChange={(e) => setServiceEnvId(e.target.value)}>
-                        {serviceEnvs.map((env) => (
+                        {serviceEnvs.map((env) => {
+                            const svcName = serviceNameById[env.serviceId] ?? env.serviceId.slice(0, 8);
+                            const envName = envNameById[env.environmentId] ?? env.environmentId.slice(0, 8);
+                            return (
                             <MenuItem key={env.id} value={env.id}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography sx={{ fontWeight: 600 }}>{env.serviceName || env.serviceId}</Typography>
-                                    <Typography sx={{ color: C.subtle, fontSize: 12 }}>— {env.environmentName || env.environmentId}</Typography>
+                                    <Typography sx={{ fontWeight: 600 }}>{svcName}</Typography>
+                                    <Typography sx={{ color: C.subtle, fontSize: 12 }}>— {envName}</Typography>
                                 </Box>
                             </MenuItem>
-                        ))}
+                            );
+                        })}
                         {serviceEnvs.length === 0 && <MenuItem disabled value="">{t('backups.noEnvironmentsAvailable')}</MenuItem>}
+                    </Select>
+                </FormControl>
+
+                <FormControl size="medium">
+                    <InputLabel id="type-select-label">{t('backups.type')}</InputLabel>
+                    <Select labelId="type-select-label" value={backupType} label={t('backups.type')} onChange={(e) => setBackupType(e.target.value)}>
+                        {TYPES.map((t) => (
+                            <MenuItem key={t} value={t}>{t}</MenuItem>
+                        ))}
                     </Select>
                 </FormControl>
 
@@ -137,7 +157,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, onCreated, onCancel }: CreateBacku
                 />
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                <Button variant="outlined" onClick={onCancel}>{t('common.cancel')}</Button>
+                <Button variant="outlined" onClick={onCancel} sx={{ color: C.subtle, borderColor: C.border, '&:hover': { borderColor: C.muted, backgroundColor: '#F9FAFB' } }}>{t('common.cancel')}</Button>
                 <Button
                     variant="contained"
                     onClick={handleCreate}

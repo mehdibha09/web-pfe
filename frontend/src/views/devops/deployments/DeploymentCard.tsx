@@ -47,7 +47,7 @@ const DeploymentCard = ({
     const { t } = useTranslation();
     const c = statusColors[d.status] || { bg: C.brandLight, color: C.brand };
     const rel = serviceEnvironments.find((r) => r.id === d.serviceEnvironmentId);
-    const envLabel = rel ? seLabel(rel, services, environments) : d.serviceEnvironmentId;
+    const envLabel = rel ? seLabel(rel) : d.serviceEnvironmentId;
 
     return (
         <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible', border: `1px solid ${C.border}`, backgroundColor: '#fff' }}>
@@ -61,7 +61,7 @@ const DeploymentCard = ({
                             {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                         </TextField>
                         <TextField size="small" select label={t('deployments.serviceEnvironment')} value={editingServiceEnvironmentId} onChange={(e) => onServiceEnvironmentChange(e.target.value)}>
-                            {serviceEnvironments.map((r) => <MenuItem key={r.id} value={r.id}>{seLabel(r, services, environments)}</MenuItem>)}
+                            {serviceEnvironments.map((r) => <MenuItem key={r.id} value={r.id}>{seLabel(r)}</MenuItem>)}
                         </TextField>
                     </Box>
                 ) : (

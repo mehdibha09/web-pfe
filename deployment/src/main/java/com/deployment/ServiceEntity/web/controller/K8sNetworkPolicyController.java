@@ -22,6 +22,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNetworkPolicyRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNetworkPolicyResponse;
+import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
 
 import jakarta.validation.Valid;
@@ -49,9 +50,9 @@ public class K8sNetworkPolicyController {
     @GetMapping("/{name}")
     public ResponseEntity<K8sNetworkPolicyResponse> get(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_READ");
-        K8sNetworkPolicyResponse policy = kubernetesClient.getNetworkPolicy(name, namespace);
+        K8sNetworkPolicyResponse policy = kubernetesClient.getNetworkPolicy(name, TenantNamespaceResolver.resolve(namespace));
         if (policy == null) {
             return ResponseEntity.noContent().build();
         }
@@ -62,7 +63,7 @@ public class K8sNetworkPolicyController {
     public ResponseEntity<K8sNetworkPolicyResponse> create(
             @Valid @RequestBody K8sNetworkPolicyRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        String ns = dto.namespace() != null ? dto.namespace() : "default";
+        String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder spec = new StringBuilder();
         spec.append("podSelector:\n");
@@ -172,9 +173,9 @@ public class K8sNetworkPolicyController {
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(
             @PathVariable String name,
-            @RequestParam(defaultValue = "default") String namespace) {
+            @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteNetworkPolicy(name, namespace);
+        kubernetesClient.deleteNetworkPolicy(name, TenantNamespaceResolver.resolve(namespace));
         return ResponseEntity.noContent().build();
     }
 
@@ -182,7 +183,7 @@ public class K8sNetworkPolicyController {
     public ResponseEntity<Void> deleteBatch(@RequestBody Map<String, List<String>> body) {
         UserContext.requirePermission("K8S_MANAGE");
         List<String> names = body.get("names");
-        String namespace = body.getOrDefault("namespace", List.of("default")).get(0);
+        String namespace = TenantNamespaceResolver.resolve(body.getOrDefault("namespace", List.of("default")).get(0));
         if (names != null) {
             for (String name : names) {
                 kubernetesClient.deleteNetworkPolicy(name, namespace);

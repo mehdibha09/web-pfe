@@ -8,6 +8,7 @@ public record BackupCreateDto(
     @NotNull UUID vmId,
     @NotNull UUID serviceEnvironmentId,
     String notes,
+    String type,
     String frequency,
     Integer retentionDays,
     String maintenanceWindow) {}

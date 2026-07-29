@@ -1,5 +1,6 @@
 package com.deployment.ServiceEntity.web.controller;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
+import com.deployment.ServiceEntity.repository.EnvironmentRepository;
+import com.deployment.ServiceEntity.repository.ServiceRepository;
 import com.deployment.ServiceEntity.service.ServiceEnvironmentService;
 import com.deployment.ServiceEntity.web.dto.serviceEnvironment.ServiceEnvironmentCreateDto;
 import com.deployment.ServiceEntity.web.dto.serviceEnvironment.ServiceEnvironmentResponseDto;
@@ -32,6 +35,8 @@ import lombok.RequiredArgsConstructor;
 public class ServiceEnvironmentController {
 
   private final ServiceEnvironmentService serviceEnvironmentService;
+  private final ServiceRepository serviceRepository;
+  private final EnvironmentRepository environmentRepository;
 
   @PostMapping
   public ResponseEntity<ServiceEnvironmentResponseDto> create(
@@ -50,6 +55,12 @@ public class ServiceEnvironmentController {
   public ResponseEntity<ServiceEnvironmentResponseDto> getById(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_READ");
     return ResponseEntity.ok(map(serviceEnvironmentService.getById(id)));
+  }
+
+  @GetMapping("/all")
+  public ResponseEntity<List<ServiceEnvironmentResponseDto>> getAllUnpaged() {
+    UserContext.requirePermission("DEPLOYMENT_READ");
+    return ResponseEntity.ok(serviceEnvironmentService.getAll().stream().map(this::map).toList());
   }
 
   @GetMapping
@@ -77,13 +88,21 @@ public class ServiceEnvironmentController {
     return ResponseEntity.noContent().build();
   }
 
-  private ServiceEnvironmentResponseDto map(ServiceEnvironment serviceEnvironment) {
+  private ServiceEnvironmentResponseDto map(ServiceEnvironment se) {
+    String serviceName = serviceRepository.findById(se.getServiceId())
+        .map(s -> s.getName())
+        .orElse(null);
+    String environmentName = environmentRepository.findById(se.getEnvironmentId())
+        .map(e -> e.getName())
+        .orElse(null);
     return new ServiceEnvironmentResponseDto(
-        serviceEnvironment.getId(),
-        serviceEnvironment.getServiceId(),
-        serviceEnvironment.getEnvironmentId(),
-        serviceEnvironment.getTenantId(),
-        serviceEnvironment.getCreatedAt(),
-        serviceEnvironment.getUpdatedAt());
+        se.getId(),
+        se.getServiceId(),
+        se.getEnvironmentId(),
+        se.getTenantId(),
+        serviceName,
+        environmentName,
+        se.getCreatedAt(),
+        se.getUpdatedAt());
   }
 }

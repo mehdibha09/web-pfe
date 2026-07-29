@@ -4,6 +4,7 @@ import BackupIcon from '@mui/icons-material/Backup';
 import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import DevicesIcon from '@mui/icons-material/Devices';
 import HubIcon from '@mui/icons-material/Hub';
+import MemoryIcon from '@mui/icons-material/Memory';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import {
@@ -23,20 +24,26 @@ import {
 import {
     listDeployments,
     listEnvironments,
+    listMetrics,
     listServices,
     type DeploymentResponse,
     type EnvironmentResponse,
+    type MetricResponse,
     type ServiceResponse
 } from '../../../services/devopsService';
 import { backupService } from '../../../services/backupService';
 import { vmService } from '../../../services/VmService';
+import { k8sService } from '../../../services/k8sService';
 import type { Backup } from '../../../services/interfaces/backup';
 import type { Vm } from '../../../services/interfaces/vm';
+import type { K8sDeployment } from '../../../services/interfaces/k8s';
 import KpiCard from './KpiCard';
 import RecentDeploymentsSection from './RecentDeploymentsSection';
 import EnvironmentsSection from './EnvironmentsSection';
 import ServicesSection from './ServicesSection';
 import RecentAlertsSection from './RecentAlertsSection';
+import K8sDeploymentsSection from './K8sDeploymentsSection';
+import MetricsOverviewSection from './MetricsOverviewSection';
 import CostOverviewSection from './CostOverviewSection';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import { C} from '../../../theme/tokens';
@@ -54,17 +61,21 @@ const DevopsDashboardPage = () => {
     const [vms, setVms] = useState<Vm[]>([]);
     const [alerts, setAlerts] = useState<AlertResponse[]>([]);
     const [costs, setCosts] = useState<CostRecordResponse[]>([]);
+    const [k8sDeployments, setK8sDeployments] = useState<K8sDeployment[]>([]);
+    const [metrics, setMetrics] = useState<MetricResponse[]>([]);
 
     const fetchAll = useCallback(async () => {
         try {
-            const [svc, dep, env, bak, vm, alrt, cst] = await Promise.allSettled([
+            const [svc, dep, env, bak, vm, alrt, cst, k8, met] = await Promise.allSettled([
                 listServices(),
                 listDeployments(),
                 listEnvironments(),
                 backupService.getAll(),
                 vmService.getAll(),
                 listAlerts(),
-                listCosts()
+                listCosts(),
+                k8sService.getAll(),
+                listMetrics()
             ]);
             if (svc.status === 'fulfilled') setServices(svc.value);
             if (dep.status === 'fulfilled') setDeployments(dep.value);
@@ -73,6 +84,8 @@ const DevopsDashboardPage = () => {
             if (vm.status === 'fulfilled') setVms(vm.value);
             if (alrt.status === 'fulfilled') setAlerts(alrt.value);
             if (cst.status === 'fulfilled') setCosts(cst.value);
+            if (k8.status === 'fulfilled') setK8sDeployments(k8.value);
+            if (met.status === 'fulfilled') setMetrics(met.value);
         } catch (e: any) {
             setError(e?.message || 'Failed to load dashboard');
         } finally {
@@ -141,7 +154,7 @@ const DevopsDashboardPage = () => {
                 <KpiCard
                     title={t('dashboard.devops.kpiVirtualMachines')}
                     value={vms.length}
-                    subtitle={t('dashboard.devops.backupsCount', { count: backups.length })}
+                    subtitle={t('dashboard.devops.vmStatus', { running: vms.filter((v) => v.status === 'RUNNING').length, total: vms.length })}
                     icon={<DevicesIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                     bgColor="#F5F3FF"
                     color="#5E4B9E"
@@ -188,8 +201,8 @@ const DevopsDashboardPage = () => {
                 />
                 <KpiCard
                     title={t('dashboard.devops.kpiK8sDeployments')}
-                    value={services.length}
-                    subtitle={t('dashboard.devops.acrossAllServices')}
+                    value={k8sDeployments.length}
+                    subtitle={t('dashboard.devops.k8sStatus', { running: k8sDeployments.filter((d) => d.status === 'RUNNING' || d.status === 'ACTIVE').length, total: k8sDeployments.length })}
                     icon={<AccountTreeIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                     bgColor="#FDF4FF"
                     color="#5E4B9E"
@@ -198,7 +211,6 @@ const DevopsDashboardPage = () => {
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 2.5, mb: 3 }}>
-                <RecentDeploymentsSection deployments={deployments} />
                 <EnvironmentsSection environments={environments} deployments={deployments} services={services} />
             </Box>
 
@@ -206,6 +218,13 @@ const DevopsDashboardPage = () => {
                 <ServicesSection services={services} />
                 <RecentAlertsSection alerts={alerts} />
             </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3 }}>
+                <K8sDeploymentsSection deployments={k8sDeployments} />
+                <RecentDeploymentsSection deployments={deployments} />
+            </Box>
+
+            <MetricsOverviewSection metrics={metrics} />
 
             <CostOverviewSection costs={costs} />
         </Box>

@@ -28,6 +28,8 @@ import { k8sService } from '../../../services/k8sService';
 import type { K8sNamespaceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageK8s } from '../../../services/authorization';
 import PaginationBar from '../../../components/PaginationBar';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
@@ -47,6 +49,8 @@ const NamespacesPage = () => {
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
     const PAGE_SIZE = 9;
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageK8s(currentUser) : false;
 
     const load = async () => {
         setLoading(true);
@@ -106,9 +110,11 @@ const NamespacesPage = () => {
                     </Typography>
                     <Typography sx={{ color: C.muted }}>{t('k8s.namespaces.subtitle')}</Typography>
                 </Box>
+                {allowManage && (
                 <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
                     {t('k8s.namespaces.create')}
                 </Button>
+                )}
             </Box>
 
             {!loading && namespaces.length > 0 && (
@@ -118,7 +124,7 @@ const NamespacesPage = () => {
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box>
                                     <Typography variant="h4" sx={{ fontWeight: 900, color: '#5E4B9E', lineHeight: 1.1 }}>
-                                        {namespaces.length}
+                                        {totalElements}
                                     </Typography>
                                     <Typography sx={{ color: C.muted, fontWeight: 600, fontSize: 13, mt: 0.5 }}>
                                         {t('k8s.namespaces.total')}
@@ -260,11 +266,13 @@ const NamespacesPage = () => {
                                         </Typography>
 
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            {allowManage && (
                                             <Tooltip title={t('common.delete')!}>
                                                 <IconButton size="small" color="error" onClick={() => handleDelete(ns.name)}>
                                                     <DeleteIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
+                                            )}
                                         </Box>
                                         <Box sx={{ flex: 1 }} />
                                 </CardContent>

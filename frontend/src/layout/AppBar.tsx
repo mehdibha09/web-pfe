@@ -67,8 +67,18 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const user = getStoredUser();
+  const [user, setUser] = useState(getStoredUser());
   const esRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+      const syncUser = () => setUser(getStoredUser());
+      window.addEventListener('authUserUpdated', syncUser);
+      window.addEventListener('storage', syncUser);
+      return () => {
+          window.removeEventListener('authUserUpdated', syncUser);
+          window.removeEventListener('storage', syncUser);
+      };
+  }, []);
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState<NotificationResponse[]>([]);

@@ -186,7 +186,7 @@ const EnvironmentsPage = () => {
                             {t('environments.title')}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 14 }}>
-                            {t('environments.subtitle', { count: totalElements, tenantId: environments[0]?.tenantId.slice(0, 8) })}
+                            {t('environments.subtitle', { count: Math.max(filtered.length, totalElements), id: environments[0]?.tenantId.slice(0, 8) })}
                         </Typography>
                     </Box>
                 </Box>

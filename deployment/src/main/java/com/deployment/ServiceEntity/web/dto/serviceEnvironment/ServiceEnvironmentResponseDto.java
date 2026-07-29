@@ -8,5 +8,7 @@ public record ServiceEnvironmentResponseDto(
     UUID serviceId,
     UUID environmentId,
     UUID tenantId,
+    String serviceName,
+    String environmentName,
     Instant createdAt,
     Instant updatedAt) {}

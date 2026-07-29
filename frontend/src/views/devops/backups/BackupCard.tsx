@@ -13,6 +13,9 @@ import { fmtDateTime } from '../../../utils/format';
 
 interface BackupCardProps {
     backup: Backup;
+    vmNameById: Record<string, string>;
+    seDisplayNameById: Record<string, string>;
+    allowManage: boolean;
     onRestore: (id: string) => void;
     onDelete: (backup: Backup) => void;
 }
@@ -30,7 +33,7 @@ const getBannerGrad = (status: string) => {
     }
 };
 
-const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
+const BackupCard = ({ backup, vmNameById, seDisplayNameById, allowManage, onRestore, onDelete }: BackupCardProps) => {
     const { t } = useTranslation();
     const statusColors = BACKUP_STATUS_COLORS[backup.status] ?? { bg: '#F3F4F6', color: '#374151' };
     const typeColors = BACKUP_TYPE_COLORS[backup.type] ?? { bg: '#F3F4F6', color: '#374151' };
@@ -54,10 +57,8 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                     }
                 }}
             >
-                {/* ── status banner ── */}
                 <Box sx={{ height: 6, background: bannerGrad }} />
 
-                {/* ── header: avatar + chips ── */}
                 <Box sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box
@@ -95,7 +96,6 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                         </Box>
                     </Box>
 
-                    {/* ── summary row: size + created ── */}
                     <Box
                         sx={{
                             mt: 2,
@@ -108,20 +108,19 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                             <StorageIcon sx={{ fontSize: 16, color: C.subtle }} />
                             <Box>
                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', lineHeight: 1 }}>{t('backups.size')}</Typography>
-                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: 'monospace' }}>{backup.sizeMb} MB</Typography>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: 'monospace' }}>{backup.sizeMb != null ? `${backup.sizeMb} MB` : '\u2014'}</Typography>
                             </Box>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, backgroundColor: '#F9FAFB', borderRadius: 2, px: 1.5, py: 1 }}>
                             <CalendarTodayIcon sx={{ fontSize: 16, color: C.subtle }} />
                             <Box>
                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', lineHeight: 1 }}>{t('backups.created')}</Typography>
-                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text }}>{fmtDateTime(backup.createdAt) ?? '—'}</Typography>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text }}>{fmtDateTime(backup.createdAt) ?? '\u2014'}</Typography>
                             </Box>
                         </Box>
                     </Box>
                 </Box>
 
-                {/* ── VM & ENV highlighted box ── */}
                 <Box
                     sx={{
                         mx: 2.5,
@@ -139,33 +138,31 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 3 }}>
-                        <Box sx={{ flex: 1 }}>
-                            <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.3 }}>{t('backups.vmId')}</Typography>
-                            <Typography sx={{ fontSize: 12, color: C.text, fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.3 }}>
-                                {backup.vmId}
-                            </Typography>
-                        </Box>
-                        <Box sx={{ flex: 1 }}>
-                            <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.3 }}>{t('backups.envId')}</Typography>
-                            <Typography sx={{ fontSize: 12, color: C.text, fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.3 }}>
-                                {backup.serviceEnvironmentId}
-                            </Typography>
-                        </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.3 }}>{t('backups.vmId')}</Typography>
+                        <Typography sx={{ fontSize: 12, color: C.text, fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.3 }}>
+                            {vmNameById[backup.vmId] ?? backup.vmId}
+                        </Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.3 }}>{t('backups.envId')}</Typography>
+                        <Typography sx={{ fontSize: 12, color: C.text, wordBreak: 'break-all', lineHeight: 1.3 }}>
+                            {seDisplayNameById[backup.serviceEnvironmentId] ?? backup.serviceEnvironmentId}
+                        </Typography>
+                    </Box>
                     </Box>
                 </Box>
 
-                {/* ── details ── */}
                 <Box sx={{ px: 2.5, pb: 1.5 }}>
                     <Divider sx={{ mb: 1, borderColor: C.border }} />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
                         <MetaRow label={t('backups.file')} value={backup.filePath} mono />
                         {backup.notes && <MetaRow label={t('backups.notes')} value={backup.notes} />}
-                        <MetaRow label={t('backups.updated')} value={fmtDateTime(backup.updatedAt) ?? '—'} />
-                        {backup.restoredAt && <MetaRow label={t('backups.restored')} value={fmtDateTime(backup.restoredAt) ?? '—'} />}
+                        <MetaRow label={t('backups.updated')} value={fmtDateTime(backup.updatedAt) ?? '\u2014'} />
+                        {backup.restoredAt && <MetaRow label={t('backups.restored')} value={fmtDateTime(backup.restoredAt) ?? '\u2014'} />}
                     </Box>
                 </Box>
 
-                {/* ── actions ── */}
                 <Box
                     sx={{
                         px: 2.5,
@@ -210,6 +207,7 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                                 </Box>
                             </Tooltip>
                         )}
+                        {allowManage && (
                         <Tooltip title={t('backups.deleteBackup')}>
                             <Box
                                 component="button"
@@ -234,6 +232,7 @@ const BackupCard = ({ backup, onRestore, onDelete }: BackupCardProps) => {
                                 {t('common.delete')}
                             </Box>
                         </Tooltip>
+                        )}
                     </Box>
                 </Box>
             </Box>

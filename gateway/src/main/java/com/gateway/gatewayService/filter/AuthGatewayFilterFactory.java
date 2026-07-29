@@ -29,8 +29,9 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
     public AuthGatewayFilterFactory(WebClient.Builder webClientBuilder,
                                      org.springframework.core.env.Environment env) {
         super(Config.class);
-        String authUrl = env.getProperty("AUTH_SERVICE_URL", "http://localhost:7070");
+        String authUrl = env.getProperty("auth-service-url", "http://localhost:7070");
         this.webClient = webClientBuilder.baseUrl(authUrl).build();
+        log.info("AuthGatewayFilterFactory using auth-service-url: {}", authUrl);
     }
 
     private static String resolveToken(ServerWebExchange exchange) {

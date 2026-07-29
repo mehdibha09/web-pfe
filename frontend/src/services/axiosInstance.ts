@@ -83,6 +83,19 @@ class AxiosError extends Error {
     response?: { status: number; data: ErrorResponse | null };
 }
 
+const STATUS_FALLBACKS: Record<number, string> = {
+    400: 'Requête invalide',
+    401: 'Non authentifié — veuillez vous reconnecter',
+    403: 'Accès refusé — vous n\'avez pas les permissions nécessaires',
+    404: 'Ressource introuvable',
+    409: 'Conflit — la ressource existe déjà',
+    422: 'Données invalides',
+    429: 'Trop de requêtes — veuillez réessayer plus tard',
+    500: 'Erreur serveur interne',
+    502: 'Service temporairement indisponible',
+    503: 'Service indisponible',
+};
+
 const toError = async (response: Response): Promise<AxiosError> => {
     let data: ErrorResponse | null = null;
     let rawText: string | null = null;
@@ -99,7 +112,8 @@ const toError = async (response: Response): Promise<AxiosError> => {
         rawText = null;
     }
 
-    const message = data?.message || data?.error || rawText || `Request failed with status ${response.status}`;
+    const statusFallback = STATUS_FALLBACKS[response.status] || `Request failed with status ${response.status}`;
+    const message = data?.message || data?.error || rawText || statusFallback;
     const error = new AxiosError(message);
     error.response = { status: response.status, data };
     return error;
@@ -164,7 +178,14 @@ const request = async <T = any>(
     if (response.ok) {
         if (response.status === 204) return { data: null as T };
         const text = await response.text();
-        const parsed: unknown = text ? JSON.parse(text) : null;
+        let parsed: unknown = text || null;
+        if (text) {
+            try {
+                parsed = JSON.parse(text);
+            } catch {
+                parsed = text;
+            }
+        }
         const isPage = parsed && typeof parsed === 'object' && 'content' in (parsed as Record<string, unknown>) && Array.isArray((parsed as Record<string, unknown>).content);
         if (isPage) {
             const page = parsed as Record<string, unknown>;

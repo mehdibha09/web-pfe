@@ -9,7 +9,7 @@ export type {
 import axiosInstance from '../axiosInstance';
 
 export const listEnvironments = async (): Promise<import('../interfaces/devops').EnvironmentResponse[]> => {
-  const response = await axiosInstance.get('/environments');
+  const response = await axiosInstance.get('/environments/all');
   return response.data || [];
 };
 
@@ -41,7 +41,7 @@ export const deleteEnvironment = async (environmentId: string) => {
 };
 
 export const listServices = async (): Promise<import('../interfaces/devops').ServiceResponse[]> => {
-  const response = await axiosInstance.get('/services');
+  const response = await axiosInstance.get('/services/all');
   return response.data || [];
 };
 
@@ -69,7 +69,7 @@ export const deleteService = async (serviceId: string) => {
 };
 
 export const listServiceEnvironments = async (): Promise<import('../interfaces/devops').ServiceEnvironmentResponse[]> => {
-  const response = await axiosInstance.get('/service-environments');
+  const response = await axiosInstance.get('/service-environments/all');
   return response.data || [];
 };
 

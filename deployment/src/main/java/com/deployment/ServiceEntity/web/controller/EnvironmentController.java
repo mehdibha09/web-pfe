@@ -1,5 +1,6 @@
 package com.deployment.ServiceEntity.web.controller;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -49,6 +50,12 @@ public class EnvironmentController {
   public ResponseEntity<EnvironmentResponseDto> getById(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_READ");
     return ResponseEntity.ok(map(environmentService.getById(id)));
+  }
+
+  @GetMapping("/all")
+  public ResponseEntity<List<EnvironmentResponseDto>> getAllUnpaged() {
+    UserContext.requirePermission("DEPLOYMENT_READ");
+    return ResponseEntity.ok(environmentService.getAll().stream().map(this::map).toList());
   }
 
   @GetMapping

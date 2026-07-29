@@ -5,11 +5,17 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.auth.service.domain.Session;
 
 public interface SessionRepository extends JpaRepository<Session, UUID> {
     List<Session> findByUser_Id(UUID userId);
+
+    @Query("SELECT s FROM Session s WHERE s.user.tenant.id = :tenantId")
+    List<Session> findByTenant_Id(@Param("tenantId") UUID tenantId);
+
     Optional<Session> findByRefreshToken(String refreshToken);
     Optional<Session> findByAccessToken(String accessToken);
 }

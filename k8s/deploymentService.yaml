@@ -86,6 +86,9 @@ spec:
             - name: AGENT_BACKEND_URL
               value: "ws://deployment-service:8082"
 
+            - name: PROMETHEUS_URL
+              value: "http://prometheus-service.monitoring.svc:9090"
+
           volumeMounts:
             - name: deploy-ssh-key
               mountPath: /etc/ssh-deploy
