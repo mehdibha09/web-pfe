@@ -50,7 +50,12 @@ const Login = () => {
             toast.success(t('auth.loginSuccess'));
             navigate('/admin/dashboard');
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('auth.loginFailed');
+            const serverMsg = error?.response?.data?.message || '';
+            const enToFr: Record<string, string> = {
+                'Invalid credentials': t('auth.invalidCredentials'),
+                'User is inactive': t('auth.userInactive'),
+            };
+            const message = enToFr[serverMsg] || serverMsg || error?.message || t('auth.loginFailed');
             toast.error(message);
         } finally {
             setLoading(false);

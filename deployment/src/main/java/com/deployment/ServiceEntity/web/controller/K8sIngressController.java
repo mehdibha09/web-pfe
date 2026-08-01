@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sIngressController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sIngressResponse>> list(
@@ -121,6 +123,7 @@ public class K8sIngressController {
                 ? dto.rules().get(0).paths().get(0).servicePort() : 80;
             result = K8sIngressResponse.fromSimulated(dto.name(), ns, host, svcName, svcPort);
         }
+        auditService.record("K8S_INGRESS_CREATE", "k8s-ingress", dto.name(), "Ingress created (name='" + dto.name() + "', namespace='" + ns + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -174,6 +177,7 @@ public class K8sIngressController {
         if (result == null) {
             result = K8sIngressResponse.fromSimulated(name, ns, "", "", 80);
         }
+        auditService.record("K8S_INGRESS_UPDATE", "k8s-ingress", name, "Ingress updated (name='" + name + "', namespace='" + ns + "')");
         return ResponseEntity.ok(result);
     }
 
@@ -183,6 +187,7 @@ public class K8sIngressController {
             @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteIngress(name, TenantNamespaceResolver.resolve(namespace));
+        auditService.record("K8S_INGRESS_DELETE", "k8s-ingress", name, "Ingress deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 }

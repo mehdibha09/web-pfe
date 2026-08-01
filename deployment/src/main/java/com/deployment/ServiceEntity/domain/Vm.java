@@ -47,6 +47,9 @@ public class Vm {
     @Column(nullable = false)
     private String name;
 
+    @Column
+    private String displayName;
+
     @Column(nullable = false)
     private int cpu;
 
@@ -134,6 +137,14 @@ public class Vm {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public int getCpu() {

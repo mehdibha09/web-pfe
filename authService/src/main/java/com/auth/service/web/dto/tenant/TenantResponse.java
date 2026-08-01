@@ -7,6 +7,7 @@ public record TenantResponse(
         UUID id,
         String name,
         String contactEmail,
+        String phone,
         String modeDeployment,
         String status,
         long usersCount,

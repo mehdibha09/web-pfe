@@ -1,7 +1,7 @@
 import {
     Add as AddIcon, ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon,
     Close as CloseIcon, Delete as DeleteIcon, Refresh as RefreshIcon,
-    Search as SearchIcon, Shield as ShieldIcon
+    Search as SearchIcon, Shield as ShieldIcon, WarningAmber as WarningAmberIcon
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Card, CardContent, CardActions, Chip, Dialog, DialogActions,
@@ -20,7 +20,7 @@ import { C } from '../../../theme/tokens';
 import { fmtDate } from './constants';
 
 const TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
-    Ingress: { bg: '#E4EEF7', fg: '#2E5C8A' },
+    Ingress: { bg: '#FCE7F3', fg: '#BE185D' },
     Egress: { bg: '#E9E6F6', fg: '#5E4B9E' }
 };
 
@@ -81,7 +81,7 @@ const NetworkPoliciesPage = () => {
     const resetForm = () => setForm({ name: '', namespace: 'default', podSelector: '', types: ['Ingress'], ports: '', ipBlocks: '' });
 
     const handleCreate = async () => {
-        if (!form.name.trim()) return toast.error('Name is required');
+        if (!form.name.trim()) return toast.error(t('k8s.networkpolicies.nameRequired'));
         setSaving(true);
         try {
             const hasRules = form.ports.trim() || form.ipBlocks.trim();
@@ -101,7 +101,7 @@ const NetworkPoliciesPage = () => {
                 ingressRules: ingressRule.length > 0 ? ingressRule : undefined,
                 egressRules: egressRule.length > 0 ? egressRule : undefined
             });
-            toast.success(`Policy "${form.name}" created`);
+            toast.success(t('k8s.networkpolicies.createdToast'));
             setCreateOpen(false);
             resetForm();
             await load(true);
@@ -114,7 +114,7 @@ const NetworkPoliciesPage = () => {
         if (!deleteTarget) return;
         try {
             await k8sService.deleteNetworkPolicy(deleteTarget.name, deleteTarget.namespace);
-            toast.success('Policy deleted');
+            toast.success(t('k8s.networkpolicies.deletedToast'));
             setDeleteTarget(null);
             await load(true);
         } catch (e: unknown) {
@@ -133,31 +133,31 @@ const NetworkPoliciesPage = () => {
         <Box sx={{ p: { xs: 2, md: 3 }, minHeight: '100%' }}>
             {/* Header */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-                <Box><Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>Network Policies</Typography><Typography sx={{ color: C.muted, fontSize: 14 }}>Kubernetes network traffic rules</Typography></Box>
+                <Box><Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.networkpolicies.title')}</Typography><Typography sx={{ color: C.muted, fontSize: 14 }}>{t('k8s.networkpolicies.subtitle')}</Typography></Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Tooltip title={t('common.refresh')}><span><IconButton onClick={() => load()} disabled={loading} sx={{ border: `1px solid ${C.border}`, borderRadius: 2 }}><RefreshIcon sx={{ fontSize: 18, color: loading ? C.subtle : C.muted }} /></IconButton></span></Tooltip>
-                    <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setCreateOpen(true); }} sx={{ px: 2.5 }}>New Policy</MyCustomButton>
+                    <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.networkpolicies.new')}</MyCustomButton>
                 </Box>
             </Box>
 
             {/* KPIs */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5, mb: 3 }}>
-                <KpiCard label="Total" value={kpis.total} bg="#F8FAFC" fg="#475569" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
-                <KpiCard label="Ingress Only" value={kpis.ingressOnly} bg="#EFF6FF" fg="#2563EB" icon={<ArrowDownIcon sx={{ fontSize: 16 }} />} />
-                <KpiCard label="Egress Only" value={kpis.egressOnly} bg="#FAF5FF" fg="#7C3AED" icon={<ArrowUpIcon sx={{ fontSize: 16 }} />} />
-                <KpiCard label="Both" value={kpis.both} bg="#F0FDF4" fg="#16A34A" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
+                <KpiCard label={t('k8s.networkpolicies.total')} value={kpis.total} bg="#F8FAFC" fg="#475569" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
+                <KpiCard label={t('k8s.networkpolicies.ingressOnly')} value={kpis.ingressOnly} bg="#FCE7F3" fg="#BE185D" icon={<ArrowDownIcon sx={{ fontSize: 16 }} />} />
+                <KpiCard label={t('k8s.networkpolicies.egressOnly')} value={kpis.egressOnly} bg="#FAF5FF" fg="#9D174D" icon={<ArrowUpIcon sx={{ fontSize: 16 }} />} />
+                <KpiCard label={t('k8s.networkpolicies.both')} value={kpis.both} bg="#F0FDF4" fg="#16A34A" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
             </Box>
 
             {/* Filters */}
             <Paper sx={{ p: 1.5, borderRadius: 3, border: `1px solid ${C.border}`, mb: 2.5, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', boxShadow: 'none' }}>
-                <TextField size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search policies..." sx={{ flex: 1, minWidth: 200 }}
+                <TextField size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('k8s.networkpolicies.search')} sx={{ flex: 1, minWidth: 200 }}
                     slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: C.subtle, fontSize: 18 }} /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></InputAdornment> : null } }} />
                 <TextField size="small" select value={namespaceFilter} onChange={(e) => setNamespaceFilter(e.target.value)} sx={{ minWidth: 160 }}
                     slotProps={{ select: { displayEmpty: true } }}>
-                    <MenuItem value="">All namespaces</MenuItem>
+                    <MenuItem value="">{t('k8s.networkpolicies.allNamespaces')}</MenuItem>
                     {namespaces.map((ns) => <MenuItem key={ns} value={ns}>{ns}</MenuItem>)}
                 </TextField>
-                <Chip label={`${filtered.length} / ${totalElements}`} size="small" sx={{ backgroundColor: '#E4EEF7', color: '#2E5C8A', fontWeight: 700, fontSize: 12 }} />
+                <Chip label={`${filtered.length} / ${totalElements}`} size="small" sx={{ backgroundColor: '#FCE7F3', color: '#BE185D', fontWeight: 700, fontSize: 12 }} />
             </Paper>
 
             {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -170,9 +170,9 @@ const NetworkPoliciesPage = () => {
                 <Fade in>
                     <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
                         <ShieldIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{namespaceFilter ? `No policies in "${namespaceFilter}"` : 'No network policies'}</Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{namespaceFilter ? 'Try a different namespace' : 'Create your first network policy to control pod traffic'}</Typography>
-                        {!namespaceFilter && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setCreateOpen(true); }}>New Policy</MyCustomButton>}
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{namespaceFilter ? t('k8s.networkpolicies.noPoliciesInNs', { namespace: namespaceFilter }) : t('k8s.networkpolicies.noPolicies')}</Typography>
+                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{namespaceFilter ? t('k8s.networkpolicies.tryDifferentNs') : t('k8s.networkpolicies.createFirst')}</Typography>
+                        {!namespaceFilter && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setCreateOpen(true); }}>{t('k8s.networkpolicies.new')}</MyCustomButton>}
                     </Card>
                 </Fade>
             )}
@@ -188,8 +188,8 @@ const NetworkPoliciesPage = () => {
                                 <Box sx={{ height: 3, background: `linear-gradient(90deg, ${TYPE_COLORS.Ingress.fg}, ${p.policyTypes.includes('Egress') ? TYPE_COLORS.Egress.fg : TYPE_COLORS.Ingress.fg})` }} />
                                 <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-                                        <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #E4EEF7, #E9E6F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <ShieldIcon sx={{ color: '#4F46E5', fontSize: 18 }} />
+                                        <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #E9E6F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <ShieldIcon sx={{ color: '#BE185D', fontSize: 18 }} />
                                         </Box>
                                         <Box sx={{ flex: 1 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -209,7 +209,7 @@ const NetworkPoliciesPage = () => {
                                         {/* Ingress rules */}
                                         {p.ingressRules.length > 0 ? (
                                             <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#F8FAFC', border: '1px solid #E2E8F0', boxShadow: 'none' }}>
-                                                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#BE185D', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowDownIcon sx={{ fontSize: 12 }} /> Ingress Rules
                                                 </Typography>
                                                 {p.ingressRules.map((r, i) => (
@@ -227,7 +227,7 @@ const NetworkPoliciesPage = () => {
                                         {/* Egress rules */}
                                         {p.egressRules.length > 0 ? (
                                             <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#F8FAFC', border: '1px solid #E2E8F0', boxShadow: 'none' }}>
-                                                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#9D174D', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowUpIcon sx={{ fontSize: 12 }} /> Egress Rules
                                                 </Typography>
                                                 {p.egressRules.map((r, i) => (
@@ -246,7 +246,7 @@ const NetworkPoliciesPage = () => {
                                     {p.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 1.5 }}>Created {fmtDate(p.createdAt)}</Typography>}
                                 </CardContent>
                                 <CardActions sx={{ px: 2.5, py: 1, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, bg: '#FAFAFA', gap: 0.5 }}>
-                                    <Tooltip title="Delete"><IconButton size="small" onClick={() => setDeleteTarget(p)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                    <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(p)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
                                 </CardActions>
                             </Card>
                         );
@@ -257,43 +257,56 @@ const NetworkPoliciesPage = () => {
             )}
 
             {/* Create Dialog */}
-            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ShieldIcon sx={{ color: '#4F46E5', fontSize: 20 }} /> New Network Policy</Box>
-                    <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-                            <TextField size="small" label="Namespace" value={form.namespace} onChange={(e) => setForm((p) => ({ ...p, namespace: e.target.value }))} />
+            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ShieldIcon sx={{ color: '#BE185D', fontSize: 18 }} />
+                            </Box>
+                            <Typography sx={{ fontWeight: 800, fontSize: 17, color: C.text }}>{t('k8s.networkpolicies.new')}</Typography>
                         </Box>
-                        <TextField size="small" label="Pod Selector" value={form.podSelector} onChange={(e) => setForm((p) => ({ ...p, podSelector: e.target.value }))} placeholder="app=web,version=v1" helperText="Leave empty to target all pods" />
-                        <TextField size="small" select label="Policy Types" value={form.types} onChange={(e) => setForm((p) => ({ ...p, types: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))} slotProps={{ select: { multiple: true } }}>
+                        <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ px: 3, pt: 1 }}>
+                    <Box sx={{ display: 'grid', gap: 2 }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 1.5 }}>
+                            <TextField size="small" label={t('k8s.networkpolicies.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+                            <TextField size="small" label={t('k8s.networkpolicies.namespace')} value={form.namespace} onChange={(e) => setForm((p) => ({ ...p, namespace: e.target.value }))} />
+                        </Box>
+                        <TextField size="small" label={t('k8s.networkpolicies.podSelector')} value={form.podSelector} onChange={(e) => setForm((p) => ({ ...p, podSelector: e.target.value }))} placeholder="app=web,version=v1" helperText="Leave empty to target all pods" />
+                        <TextField size="small" select label={t('k8s.networkpolicies.policyTypes')} value={form.types} onChange={(e) => setForm((p) => ({ ...p, types: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))} slotProps={{ select: { multiple: true } }}>
                             <MenuItem value="Ingress">Ingress (incoming traffic)</MenuItem>
                             <MenuItem value="Egress">Egress (outgoing traffic)</MenuItem>
                         </TextField>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" label="Allowed Ports" value={form.ports} onChange={(e) => setForm((p) => ({ ...p, ports: e.target.value }))} placeholder="80,443,8080" helperText="Comma-separated" />
-                            <TextField size="small" label="Allowed CIDRs" value={form.ipBlocks} onChange={(e) => setForm((p) => ({ ...p, ipBlocks: e.target.value }))} placeholder="10.0.0.0/8" helperText="Comma-separated" />
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                            <TextField size="small" label={t('k8s.networkpolicies.allowedPorts')} value={form.ports} onChange={(e) => setForm((p) => ({ ...p, ports: e.target.value }))} placeholder="80,443,8080" helperText="Comma-separated" />
+                            <TextField size="small" label={t('k8s.networkpolicies.allowedCidrs')} value={form.ipBlocks} onChange={(e) => setForm((p) => ({ ...p, ipBlocks: e.target.value }))} placeholder="10.0.0.0/8" helperText="Comma-separated" />
                         </Box>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => setCreateOpen(false)} sx={{ borderRadius: '5px', textTransform: 'capitalize' }}>Cancel</Button>
-                    <MyCustomButton onClick={handleCreate} disabled={saving} sx={{ px: 3 }}>{saving ? 'Creating...' : 'Create Policy'}</MyCustomButton>
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
+                    <Button variant="outlined" onClick={() => setCreateOpen(false)} sx={{ borderRadius: 2, fontWeight: 600 }}>{t('k8s.networkpolicies.cancel')}</Button>
+                    <MyCustomButton onClick={handleCreate} disabled={saving} sx={{ px: 3 }}>{saving ? 'Creating...' : t('k8s.networkpolicies.create')}</MyCustomButton>
                 </DialogActions>
             </Dialog>
 
             {/* Delete dialog */}
-            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700 }}>Delete Network Policy</DialogTitle>
+            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EF4444, #F87171)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, pt: 3 }}>
+                    <WarningAmberIcon sx={{ color: '#DC2626' }} />
+                    {t('k8s.networkpolicies.deleteTitle')}
+                </DialogTitle>
                 <DialogContent>
-                    <Typography sx={{ color: C.muted }}>Are you sure you want to delete <strong>{deleteTarget?.name}</strong> in namespace <strong>{deleteTarget?.namespace}</strong>?</Typography>
+                    <Typography sx={{ color: C.muted }}>{t('k8s.networkpolicies.deleteConfirm', { name: deleteTarget?.name })}</Typography>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => setDeleteTarget(null)} sx={{ borderRadius: '5px', textTransform: 'capitalize' }}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={handleDelete} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>Delete</Button>
+                    <Button variant="outlined" onClick={() => setDeleteTarget(null)} sx={{ borderRadius: 2, fontWeight: 600 }}>{t('k8s.networkpolicies.cancel')}</Button>
+                    <Button variant="contained" color="error" onClick={handleDelete} sx={{ borderRadius: 2, fontWeight: 600 }}>{t('k8s.networkpolicies.delete')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

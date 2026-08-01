@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sServiceAccountController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sServiceAccountResponse>> list(
@@ -77,6 +79,7 @@ public class K8sServiceAccountController {
         if (result == null) {
             result = K8sServiceAccountResponse.fromSimulated(dto.name(), ns);
         }
+        auditService.record("K8S_SERVICE_ACCOUNT_CREATE", "k8s-service-account", dto.name(), "Service account created (name='" + dto.name() + "', namespace='" + ns + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -86,6 +89,7 @@ public class K8sServiceAccountController {
             @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteServiceAccount(name, TenantNamespaceResolver.resolve(namespace));
+        auditService.record("K8S_SERVICE_ACCOUNT_DELETE", "k8s-service-account", name, "Service account deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 
@@ -98,6 +102,7 @@ public class K8sServiceAccountController {
             for (String name : names) {
                 kubernetesClient.deleteServiceAccount(name, namespace);
             }
+            auditService.record("K8S_SERVICE_ACCOUNT_DELETE_BATCH", "k8s-service-account", null, "Service accounts deleted in batch (names=" + names + ")");
         }
         return ResponseEntity.noContent().build();
     }

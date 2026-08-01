@@ -1,7 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import TrafficIcon from '@mui/icons-material/Traffic';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import {
     Box,
     Button,
@@ -65,7 +68,7 @@ const IngressPage = () => {
             setTotalElements(result.total);
             setLoadError(null);
         } catch (e: unknown) {
-            const msg = getErrorMessage(e, 'Failed to load ingresses');
+            const msg = getErrorMessage(e, t('common.error'));
             setLoadError(msg);
             toast.error(msg);
         } finally {
@@ -180,10 +183,10 @@ const IngressPage = () => {
     };
 
     const handleSave = async () => {
-        if (!name.trim()) return toast.error('Ingress name is required');
-        if (!namespace.trim()) return toast.error('Namespace is required');
+        if (!name.trim()) return toast.error(t('common.error'));
+        if (!namespace.trim()) return toast.error(t('common.error'));
         const finalRules = buildRules();
-        if (finalRules.length === 0) return toast.error('At least one rule with a service is required');
+        if (finalRules.length === 0) return toast.error(t('common.error'));
         setSaving(true);
         try {
             const payload = {
@@ -195,15 +198,15 @@ const IngressPage = () => {
             };
             if (editing) {
                 await k8sService.updateIngress(editing.name, payload);
-                toast.success('Ingress updated');
+                toast.success(t('common.success'));
             } else {
                 await k8sService.createIngress(payload);
-                toast.success('Ingress created');
+                toast.success(t('common.success'));
             }
             setDialogOpen(false);
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, editing ? 'Failed to update ingress' : 'Failed to create ingress'));
+            toast.error(getErrorMessage(e, t('common.error')));
         } finally {
             setSaving(false);
         }
@@ -213,10 +216,10 @@ const IngressPage = () => {
         if (!window.confirm(`Delete ingress "${name}" in namespace "${namespace}"?`)) return;
         try {
             await k8sService.deleteIngress(name, namespace);
-            toast.success('Ingress deleted');
+            toast.success(t('common.success'));
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to delete ingress'));
+            toast.error(getErrorMessage(e, t('common.error')));
         }
     };
 
@@ -240,7 +243,7 @@ const IngressPage = () => {
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
                     {[
                         { label: t('k8s.ingresses.total'), value: totalCount, bg: '#F4F0FA', color: '#5E4B9E' },
-                        { label: t('k8s.ingresses.hosts'), value: hostCount, bg: '#E4EEF7', color: '#2E5C8A' },
+                        { label: t('k8s.ingresses.hosts'), value: hostCount, bg: '#FCE7F3', color: '#BE185D' },
                         { label: 'TLS', value: tlsCount, bg: '#F7ECD6', color: '#8A6A2E' },
                         { label: t('k8s.ingresses.addressed'), value: withAddresses, bg: '#D1FAE5', color: '#065F46' },
                     ].map((kpi) => (
@@ -360,7 +363,7 @@ const IngressPage = () => {
                                                 </Typography>
                                                 {r.paths.map((p, pi) => (
                                                     <Box key={pi} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 1 }}>
-                                                        <Chip label={p.pathType} size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, backgroundColor: '#E4EEF7', color: '#2E5C8A' }} />
+                                                        <Chip label={p.pathType} size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, backgroundColor: '#FCE7F3', color: '#BE185D' }} />
                                                         <Typography variant="caption" sx={{ fontFamily: 'monospace', color: C.muted }}>
                                                             {p.path} → {p.serviceName}:{p.servicePort}
                                                         </Typography>
@@ -412,22 +415,38 @@ const IngressPage = () => {
                 </>
             )}
 
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ fontWeight: 800 }}>
-                    {editing ? `Edit Ingress — ${editing.name}` : t('k8s.ingresses.create')}
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <TrafficIcon sx={{ color: '#BE185D', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, color: C.text }}>
+                                    {editing ? t('k8s.ingresses.editTitle', { name: editing.name }) : t('k8s.ingresses.create')}
+                                </Typography>
+                                <Typography sx={{ color: C.muted, fontSize: 12 }}>{t('k8s.ingresses.subtitle')}</Typography>
+                            </Box>
+                        </Box>
+                        <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
                 </DialogTitle>
                 <DialogContent>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
-                            <TextField fullWidth label="Name" value={name} onChange={(e) => setName(e.target.value)} disabled={!!editing} />
+                            <TextField fullWidth label={t('common.name')} value={name} onChange={(e) => setName(e.target.value)} disabled={!!editing} />
                             <TextField fullWidth label="Namespace" value={namespace} onChange={(e) => setNamespace(e.target.value)} disabled={!!editing} />
                             <TextField fullWidth label="Ingress Class" value={ingressClass} onChange={(e) => setIngressClass(e.target.value)} placeholder="e.g. nginx" />
                         </Box>
 
                         <Box sx={{ borderTop: `1px solid ${C.border}`, pt: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: C.text }}>Rules</Typography>
-                                <Button size="small" onClick={addRule} sx={{ textTransform: 'none', color: C.brand }}>+ Add Rule</Button>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                    <TrafficIcon sx={{ fontSize: 16, color: '#3E6E9E' }} /> Rules
+                                </Typography>
+                                <Button size="small" onClick={addRule} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>+ Add Rule</Button>
                             </Box>
                             {rules.map((rule, ri) => (
                                 <Box key={ri} sx={{ mb: 2, p: 2, border: `1px solid ${C.border}`, borderRadius: 2, bgcolor: '#FAFAFA' }}>
@@ -443,7 +462,7 @@ const IngressPage = () => {
                                         {rule.paths.map((path, pi) => (
                                             <Box key={pi} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
                                                 <TextField size="small" label="Path" value={path.path} onChange={(e) => updatePath(ri, pi, 'path', e.target.value)} placeholder="/" sx={{ width: 120 }} />
-                                                <TextField select size="small" label="Type" value={path.pathType} onChange={(e) => updatePath(ri, pi, 'pathType', e.target.value)} sx={{ width: 160 }}>
+                                                <TextField select size="small" label={t('common.type')} value={path.pathType} onChange={(e) => updatePath(ri, pi, 'pathType', e.target.value)} sx={{ width: 160 }}>
                                                     {PATH_TYPES.map((pt) => <MenuItem key={pt} value={pt}>{pt}</MenuItem>)}
                                                 </TextField>
                                                 <TextField size="small" label="Service" value={path.serviceName} onChange={(e) => updatePath(ri, pi, 'serviceName', e.target.value)} placeholder="svc-name" sx={{ width: 140 }} />
@@ -458,8 +477,10 @@ const IngressPage = () => {
 
                         <Box sx={{ borderTop: `1px solid ${C.border}`, pt: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: C.text }}>TLS</Typography>
-                                <Button size="small" onClick={addTlsEntry} sx={{ textTransform: 'none', color: C.brand }}>+ Add TLS</Button>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                    <VpnKeyIcon sx={{ fontSize: 16, color: '#8A6A2E' }} /> TLS
+                                </Typography>
+                                <Button size="small" onClick={addTlsEntry} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>+ Add TLS</Button>
                             </Box>
                             {tlsEntries.map((tls, ti) => (
                                 <Box key={ti} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -471,9 +492,9 @@ const IngressPage = () => {
                         </Box>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setDialogOpen(false)} variant="outlined">{t('common.cancel')}</Button>
-                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
+                    <Button onClick={() => setDialogOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
+                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
                         {saving ? t('common.saving') : (editing ? t('common.save') : t('k8s.ingresses.create'))}
                     </Button>
                 </DialogActions>

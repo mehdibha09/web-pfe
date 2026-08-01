@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNetworkPolicyRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNetworkPolicyResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sNetworkPolicyController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sNetworkPolicyResponse>> list(
@@ -167,6 +169,7 @@ public class K8sNetworkPolicyController {
                 dto.podSelectorLabels() != null ? dto.podSelectorLabels() : "{}",
                 types);
         }
+        auditService.record("K8S_NETWORK_POLICY_CREATE", "k8s-network-policy", dto.name(), "Network policy created (name='" + dto.name() + "', namespace='" + ns + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -176,6 +179,7 @@ public class K8sNetworkPolicyController {
             @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteNetworkPolicy(name, TenantNamespaceResolver.resolve(namespace));
+        auditService.record("K8S_NETWORK_POLICY_DELETE", "k8s-network-policy", name, "Network policy deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 
@@ -188,6 +192,7 @@ public class K8sNetworkPolicyController {
             for (String name : names) {
                 kubernetesClient.deleteNetworkPolicy(name, namespace);
             }
+            auditService.record("K8S_NETWORK_POLICY_DELETE_BATCH", "k8s-network-policy", null, "Network policies deleted in batch (names=" + names + ")");
         }
         return ResponseEntity.noContent().build();
     }

@@ -15,24 +15,31 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
+import com.auth.service.domain.Permission;
+import com.auth.service.domain.Role;
 import com.auth.service.domain.RolePermission;
+import com.auth.service.domain.RolePermissionId;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.Tenant;
 import com.auth.service.domain.TenantStatus;
 import com.auth.service.domain.User;
 import com.auth.service.domain.UserRole;
+import com.auth.service.domain.UserRoleId;
+import com.auth.service.domain.UserStatus;
 import com.auth.service.exception.BadRequestException;
 import com.auth.service.exception.ConflictException;
 import com.auth.service.exception.ForbiddenException;
 import com.auth.service.exception.NotFoundException;
 import com.auth.service.exception.UnauthorizedException;
 import com.auth.service.repository.AuditLogRepository;
+import com.auth.service.repository.PermissionRepository;
 import com.auth.service.repository.RolePermissionRepository;
 import com.auth.service.repository.RoleRepository;
 import com.auth.service.repository.SessionRepository;
@@ -51,6 +58,7 @@ import com.auth.service.web.dto.user.UserResponse;
 public class TenantService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final String SUPER_ADMIN_ROLE = "super-admin";
+    private static final String DEFAULT_ADMIN_ROLE_NAME = "admin";
     private static final Logger log = LoggerFactory.getLogger(TenantService.class);
 
     private final TenantRepository tenantRepository;
@@ -58,8 +66,10 @@ public class TenantService {
     private final UserRoleRepository userRoleRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
     private final AuditLogRepository auditLogRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${deployment-service-url}")
     private String deploymentServiceUrl;
@@ -74,6 +84,7 @@ public class TenantService {
             UserRoleRepository userRoleRepository,
                 UserRepository userRepository,
                 RoleRepository roleRepository,
+                PermissionRepository permissionRepository,
             AuditLogRepository auditLogRepository,
             RolePermissionRepository rolePermissionRepository
     ) {
@@ -82,6 +93,7 @@ public class TenantService {
         this.userRoleRepository = userRoleRepository;
             this.userRepository = userRepository;
             this.roleRepository = roleRepository;
+            this.permissionRepository = permissionRepository;
         this.auditLogRepository = auditLogRepository;
         this.rolePermissionRepository = rolePermissionRepository;
     }
@@ -169,6 +181,7 @@ public class TenantService {
         Tenant tenant = new Tenant();
         tenant.setName(tenantName);
         tenant.setContactEmail(normalizeNullable(request.contactEmail()));
+        tenant.setPhone(normalizeNullable(request.phone()));
         tenant.setModeDeployment(normalizeNullable(request.modeDeployment()));
         tenant.setStatus(parseStatusOrDefault(request.status(), TenantStatus.ACTIVE));
 
@@ -177,7 +190,67 @@ public class TenantService {
 
         createNamespaceForTenant(savedTenant, authorizationHeader);
 
+        if (request.adminEmail() != null && !request.adminEmail().isBlank()
+                && request.adminPassword() != null && !request.adminPassword().isBlank()) {
+            createAdminUserForTenant(savedTenant, request.adminEmail(), request.adminPassword(), authorizationHeader);
+        }
+
         return toResponse(savedTenant);
+    }
+
+    @Transactional
+    protected User createAdminUserForTenant(Tenant tenant, String adminEmail, String adminPassword, String authorizationHeader) {
+        String email = adminEmail.trim().toLowerCase();
+
+        userRepository.findByEmail(email).stream().findFirst().ifPresent(existing -> {
+            throw new ConflictException("Email already exists");
+        });
+
+        Role adminRole = roleRepository.findByTenant_IdAndName(tenant.getId(), DEFAULT_ADMIN_ROLE_NAME)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setTenant(tenant);
+                    role.setName(DEFAULT_ADMIN_ROLE_NAME);
+                    role.setDescription("Tenant administrator");
+                    Role savedRole = roleRepository.save(role);
+
+                    List<Permission> allPermissions = permissionRepository.findAll();
+                    for (Permission permission : allPermissions) {
+                        RolePermission rp = new RolePermission();
+                        rp.setId(new RolePermissionId(savedRole.getId(), permission.getId()));
+                        rp.setRole(savedRole);
+                        rp.setPermission(permission);
+                        rolePermissionRepository.save(rp);
+                    }
+
+                    return savedRole;
+                });
+
+        User user = new User();
+        user.setTenant(tenant);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(adminPassword));
+        user.setStatus(UserStatus.ACTIVE);
+        User savedUser = userRepository.save(user);
+
+        UserRole userRole = new UserRole();
+        userRole.setId(new UserRoleId(savedUser.getId(), adminRole.getId()));
+        userRole.setUser(savedUser);
+        userRole.setRole(adminRole);
+        userRoleRepository.save(userRole);
+
+        writeAudit(findCurrentUserSafe(authorizationHeader), "TENANT_ADMIN_CREATED",
+                "Admin user created for tenant", savedUser.getId().toString());
+
+        return savedUser;
+    }
+
+    private User findCurrentUserSafe(String authorizationHeader) {
+        try {
+            return requireCurrentUser(authorizationHeader);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void createNamespaceForTenant(Tenant tenant, String authorizationHeader) {
@@ -226,6 +299,10 @@ public class TenantService {
 
         if (request.contactEmail() != null) {
             tenant.setContactEmail(normalizeNullable(request.contactEmail()));
+        }
+
+        if (request.phone() != null) {
+            tenant.setPhone(normalizeNullable(request.phone()));
         }
 
         if (request.modeDeployment() != null) {
@@ -283,6 +360,16 @@ public class TenantService {
     private void requireSuperAdminOrTenantManage(User currentUser) {
         if (isSuperAdmin(currentUser)) {
             return;
+        }
+
+        UUID platformTenantId = userRoleRepository.findByRole_NameIgnoreCase(SUPER_ADMIN_ROLE)
+                .stream()
+                .findFirst()
+                .map(userRole -> userRole.getUser().getTenant().getId())
+                .orElse(null);
+
+        if (platformTenantId == null || !platformTenantId.equals(currentUser.getTenant().getId())) {
+            throw new ForbiddenException("Tenant management restricted to the platform tenant");
         }
 
         boolean canManage = userRoleRepository.findByUser_Id(currentUser.getId())
@@ -360,6 +447,7 @@ public class TenantService {
                 tenant.getId(),
                 tenant.getName(),
                 tenant.getContactEmail(),
+                tenant.getPhone(),
                 tenant.getModeDeployment(),
                 tenant.getStatus().name(),
                 userRepository.countByTenant_Id(tenant.getId()),

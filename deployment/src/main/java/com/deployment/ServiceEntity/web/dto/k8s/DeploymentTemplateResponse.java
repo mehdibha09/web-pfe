@@ -24,6 +24,7 @@ public record DeploymentTemplateResponse(
     String readinessProbe,
     String startupProbe,
     UUID tenantId,
+    boolean publicTemplate,
     Instant createdAt,
     Instant updatedAt) {
 
@@ -37,6 +38,6 @@ public record DeploymentTemplateResponse(
             t.getProtocol(), t.getImagePullPolicy(),
             t.getServiceType(), t.getRestartPolicy(),
             t.getLivenessProbe(), t.getReadinessProbe(), t.getStartupProbe(),
-            t.getTenantId(), t.getCreatedAt(), t.getUpdatedAt());
+            t.getTenantId(), t.isPublicTemplate(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

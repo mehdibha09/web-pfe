@@ -115,6 +115,14 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
                                     .build();
                         }
 
+                        JsonNode roles = node.has("roles") ? node.get("roles") : null;
+                        if (roles != null && roles.isArray() && roles.size() > 0) {
+                            String rolesJson = roles.toString();
+                            mutated = mutated.mutate()
+                                    .request(r -> r.header("X-User-Roles", rolesJson))
+                                    .build();
+                        }
+
                         JsonNode permissions = node.has("permissions") ? node.get("permissions") : null;
                         if (permissions != null && permissions.isArray() && permissions.size() > 0) {
                             String permsJson = permissions.toString();

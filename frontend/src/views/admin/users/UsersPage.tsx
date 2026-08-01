@@ -24,7 +24,7 @@ import {
     removeRoleFromUser,
     updateUser
 } from '../../../services/adminService';
-import { canDeleteUser, canManageUsers, canModifyUserStatus } from '../../../services/authorization';
+import { canDeleteUser, canManageUsers, canModifyUserStatus, isSuperAdmin } from '../../../services/authorization';
 import { getStoredUser } from '../../../services/authStorage';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
@@ -36,11 +36,19 @@ type UserItem = {
     status: 'ACTIVE' | 'INVITED' | 'DISABLED';
     roleName: string | null;
     roleId: string | null;
+    tenantId: string;
+    tenantName: string;
 };
 
 type RoleOption = {
     id: string;
     name: string;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+    ACTIVE: 'admin.users.active',
+    INVITED: 'admin.users.invited',
+    DISABLED: 'admin.users.disabled'
 };
 
 const toUserItem = (user: any): UserItem => ({
@@ -52,7 +60,9 @@ const toUserItem = (user: any): UserItem => ({
     email: user.email || '-',
     status: (user.status || 'ACTIVE') as UserItem['status'],
     roleName: null,
-    roleId: null
+    roleId: null,
+    tenantId: user.tenantId || '',
+    tenantName: user.tenantName || ''
 });
 
 const UsersPage = () => {
@@ -60,6 +70,7 @@ const UsersPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [status, setStatus] = useState<'ACTIVE' | 'INVITED' | 'DISABLED'>('ACTIVE');
+    const [selectedRole, setSelectedRole] = useState('');
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [users, setUsers] = useState<UserItem[]>([]);
@@ -74,6 +85,7 @@ const UsersPage = () => {
     const allowManageUsers = currentUser ? canManageUsers(currentUser) : false;
     const allowDeleteUser = currentUser ? canDeleteUser(currentUser) : false;
     const allowModifyUserStatus = currentUser ? canModifyUserStatus(currentUser) : false;
+    const currentUserIsSuperAdmin = currentUser ? isSuperAdmin(currentUser) : false;
 
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
@@ -81,7 +93,8 @@ const UsersPage = () => {
     const loadUsers = async () => {
         setLoading(true);
         try {
-            const result = await listUsersPaginated(page, PAGE_SIZE);
+            const tenantId = getStoredUser()?.tenantId;
+            const result = await listUsersPaginated(page, PAGE_SIZE, currentUserIsSuperAdmin ? undefined : tenantId);
             const baseUsers = result.items.map(toUserItem);
 
             const usersWithRoles = await Promise.all(
@@ -192,14 +205,20 @@ const UsersPage = () => {
         }
 
         try {
-            await createUser({
+            const created = await createUser({
                 email: email.trim(),
                 password: password.trim(),
                 status
             });
+
+            if (selectedRole) {
+                await assignRoleToUser(created.id || created.userId || created.user?.id, selectedRole);
+            }
+
             setEmail('');
             setPassword('');
             setStatus('ACTIVE');
+            setSelectedRole('');
             toast.success(t('admin.users.userCreated'));
             await loadUsers();
         } catch (error: any) {
@@ -211,6 +230,11 @@ const UsersPage = () => {
     const handleAssignRole = async (userId: string) => {
         if (!allowManageUsers) {
             toast.error(t('admin.users.noPermissionManageRoles'));
+            return;
+        }
+
+        if (!currentUserIsSuperAdmin && userId === currentUser?.userId) {
+            toast.error(t('admin.users.cannotChangeOwnRole'));
             return;
         }
 
@@ -263,23 +287,36 @@ const UsersPage = () => {
         }
     };
 
-    const handleDeleteUser = async (id: string) => {
+    const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeleteUser = async () => {
+        const id = deleteDialogId;
+        if (!id) return;
+
         if (!allowDeleteUser) {
             toast.error(t('admin.users.noPermissionDelete'));
             return;
         }
 
+        if (id === currentUser?.userId) {
+            toast.error(t('admin.users.cannotDeleteSelf'));
+            return;
+        }
+
+        setDeleting(true);
         try {
             await deleteUser(id);
             toast.success(t('admin.users.userDeleted'));
+            setDeleteDialogId(null);
             await loadUsers();
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('admin.users.failedToDeleteUser');
             toast.error(message);
+        } finally {
+            setDeleting(false);
         }
     };
-
-    const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
 
     return (
         <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
@@ -326,7 +363,7 @@ const UsersPage = () => {
                                 <AddIcon sx={{ color: C.brand }} />
                                 {t('admin.users.createUser')}
                             </Typography>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 140px auto' }, gap: 2 }}>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 140px 140px auto' }, gap: 2 }}>
                                 <TextField
                                     label={t('common.email')}
                                     value={email}
@@ -350,6 +387,18 @@ const UsersPage = () => {
                                     <MenuItem value="ACTIVE">{t('admin.users.active')}</MenuItem>
                                     <MenuItem value="INVITED">{t('admin.users.invited')}</MenuItem>
                                     <MenuItem value="DISABLED">{t('admin.users.disabled')}</MenuItem>
+                                </TextField>
+                                <TextField
+                                    select
+                                    label={t('admin.users.role')}
+                                    value={selectedRole}
+                                    onChange={(event) => setSelectedRole(event.target.value)}
+                                    size="small"
+                                >
+                                    <MenuItem value="">{t('admin.users.noRole')}</MenuItem>
+                                    {availableRoles.map((role) => (
+                                        <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
+                                    ))}
                                 </TextField>
                                 <Button onClick={addUser}>{t('common.create')}</Button>
                             </Box>
@@ -448,9 +497,9 @@ const UsersPage = () => {
                                                 }
                                                 sx={{ width: 120 }}
                                             >
-                                                <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-                                                <MenuItem value="INVITED">INVITED</MenuItem>
-                                                <MenuItem value="DISABLED">DISABLED</MenuItem>
+                                                <MenuItem value="ACTIVE">{t('admin.users.active')}</MenuItem>
+                                                <MenuItem value="INVITED">{t('admin.users.invited')}</MenuItem>
+                                                <MenuItem value="DISABLED">{t('admin.users.disabled')}</MenuItem>
                                             </TextField>
                                             <Button onClick={() => handleUpdateUserStatus(user.id)} disabled={!allowModifyUserStatus}>
                                                 {t('common.save')}
@@ -460,7 +509,7 @@ const UsersPage = () => {
                                     ) : (
                                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                                             <Chip
-                                                label={user.status}
+                                                label={t(STATUS_LABELS[user.status] || user.status)}
                                                 size="small"
                                                 sx={{
                                                     fontWeight: 700,
@@ -510,7 +559,17 @@ const UsersPage = () => {
                                     )}
                                 </Box>
 
-                                {allowManageUsers ? (
+                                {currentUserIsSuperAdmin && user.tenantName && (
+                                    <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 2, backgroundColor: '#F5F3FF', border: '1px solid #EDE9FE' }}>
+                                        <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                            {t('admin.users.tenant')}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#5E4B9E' }}>
+                                            {user.tenantName}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {allowManageUsers && (currentUserIsSuperAdmin || user.id !== currentUser?.userId) ? (
                                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1, mt: 2 }}>
                                         <TextField
                                             select
@@ -554,23 +613,26 @@ const UsersPage = () => {
                 </>
             )}
 
-            <Dialog open={deleteDialogId !== null} onClose={() => setDeleteDialogId(null)}>
+            <Dialog open={deleteDialogId !== null} onClose={() => !deleting && setDeleteDialogId(null)}>
                 <DialogTitle>{t('admin.users.confirmDeleteTitle')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
                         {t('admin.users.confirmDeleteBody')}
+                        {deleteDialogId && (
+                            <Typography component="span" sx={{ fontWeight: 700, color: C.danger, display: 'block', mt: 1 }}>
+                                {users.find((u) => u.id === deleteDialogId)?.email || ''}
+                            </Typography>
+                        )}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteDialogId(null)}>{t('common.cancel')}</Button>
+                    <Button onClick={() => setDeleteDialogId(null)} disabled={deleting}>{t('common.cancel')}</Button>
                     <Button
-                        onClick={async () => {
-                            if (deleteDialogId) await handleDeleteUser(deleteDialogId);
-                            setDeleteDialogId(null);
-                        }}
+                        onClick={handleDeleteUser}
+                        disabled={deleting}
                         sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}
                     >
-                        {t('common.delete')}
+                        {deleting ? t('common.deleting') : t('common.delete')}
                     </Button>
                 </DialogActions>
             </Dialog>

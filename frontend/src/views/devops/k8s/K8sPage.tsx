@@ -1,8 +1,10 @@
 import { AccountTree, Description, Dns, Lock, Security, Shield, Storage, Lan, Http } from '@mui/icons-material';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { C } from '../../../theme/tokens';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageNamespaces } from '../../../services/authorization';
 import ConfigMapsPage from './ConfigMapsPage';
 import IngressPage from './IngressPage';
 import K8sDeploymentsPage from './K8sDeploymentsPage';
@@ -17,17 +19,25 @@ const K8sPage = () => {
     const { t } = useTranslation();
     const [tab, setTab] = useState(0);
 
-    const tabs = [
-        { label: 'Namespaces', icon: <Dns sx={{ fontSize: 18 }} />, component: <NamespacesPage /> },
-        { label: 'Services', icon: <Lan sx={{ fontSize: 18 }} />, component: <ServicesPage /> },
-        { label: 'Ingress', icon: <Http sx={{ fontSize: 18 }} />, component: <IngressPage /> },
-        { label: 'Deployments', icon: <AccountTree sx={{ fontSize: 18 }} />, component: <K8sDeploymentsPage /> },
-        { label: 'ConfigMaps', icon: <Storage sx={{ fontSize: 18 }} />, component: <ConfigMapsPage /> },
-        { label: 'Secrets', icon: <Lock sx={{ fontSize: 18 }} />, component: <SecretsPage /> },
-        { label: 'Network Policies', icon: <Shield sx={{ fontSize: 18 }} />, component: <NetworkPoliciesPage /> },
-        { label: 'RBAC', icon: <Security sx={{ fontSize: 18 }} />, component: <RbacPage /> },
-        { label: 'Templates', icon: <Description sx={{ fontSize: 18 }} />, component: <TemplatesPage /> },
-    ];
+    const user = getStoredUser();
+    const showNamespaces = user ? canManageNamespaces(user) : false;
+
+    const tabs = useMemo(() => {
+        const all = [
+            { label: 'Namespaces', icon: <Dns sx={{ fontSize: 18 }} />, component: <NamespacesPage /> },
+            { label: 'Services', icon: <Lan sx={{ fontSize: 18 }} />, component: <ServicesPage /> },
+            { label: 'Ingress', icon: <Http sx={{ fontSize: 18 }} />, component: <IngressPage /> },
+            { label: 'Deployments', icon: <AccountTree sx={{ fontSize: 18 }} />, component: <K8sDeploymentsPage /> },
+            { label: 'ConfigMaps', icon: <Storage sx={{ fontSize: 18 }} />, component: <ConfigMapsPage /> },
+            { label: 'Secrets', icon: <Lock sx={{ fontSize: 18 }} />, component: <SecretsPage /> },
+            { label: 'Network Policies', icon: <Shield sx={{ fontSize: 18 }} />, component: <NetworkPoliciesPage /> },
+            { label: 'RBAC', icon: <Security sx={{ fontSize: 18 }} />, component: <RbacPage /> },
+            { label: 'Templates', icon: <Description sx={{ fontSize: 18 }} />, component: <TemplatesPage /> },
+        ];
+        return showNamespaces ? all : all.slice(1);
+    }, [showNamespaces]);
+
+    const activeTab = tab < tabs.length ? tab : 0;
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -41,12 +51,12 @@ const K8sPage = () => {
                         <Typography sx={{ color: C.muted, fontSize: 12 }}>Manage deployments, configmaps, network policies, RBAC & templates</Typography>
                     </Box>
                 </Box>
-                <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: 13, minHeight: 40, py: 0.5 }, '& .Mui-selected': { color: `${C.brand} !important` }, '& .MuiTabs-indicator': { backgroundColor: C.brand } }}>
+                <Tabs value={activeTab} onChange={(_, v) => setTab(v)} sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: 13, minHeight: 40, py: 0.5 }, '& .Mui-selected': { color: `${C.brand} !important` }, '& .MuiTabs-indicator': { backgroundColor: C.brand } }}>
                     {tabs.map((t, i) => <Tab key={i} icon={t.icon} iconPosition="start" label={t.label} />)}
                 </Tabs>
             </Box>
             <Box sx={{ flex: 1, overflow: 'auto' }}>
-                {tabs[tab].component}
+                {tabs[activeTab].component}
             </Box>
         </Box>
     );

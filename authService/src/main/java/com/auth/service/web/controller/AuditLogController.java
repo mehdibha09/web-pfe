@@ -57,4 +57,11 @@ public class AuditLogController {
     ) {
         return ResponseEntity.ok(auditLogService.listAuditResources(authorizationHeader));
     }
+
+    @GetMapping(ApiRoutes.AuditLogs.ACTIONS)
+    public ResponseEntity<List<String>> listAuditActions(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        return ResponseEntity.ok(auditLogService.listAuditActions(authorizationHeader));
+    }
 }

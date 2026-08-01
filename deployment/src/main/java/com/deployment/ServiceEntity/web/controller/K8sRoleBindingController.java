@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sRoleBindingController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sRoleBindingResponse>> list(
@@ -78,6 +80,8 @@ public class K8sRoleBindingController {
 
         K8sRoleBindingResponse result = K8sRoleBindingResponse.fromSimulated(
             dto.name(), ns, dto.isClusterBinding(), dto.roleKind(), dto.roleName());
+        auditService.record("K8S_ROLE_BINDING_CREATE", "k8s-role-binding", dto.name(),
+            "Role binding created (name='" + dto.name() + "', namespace='" + ns + "', roleKind='" + dto.roleKind() + "', roleName='" + dto.roleName() + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -88,6 +92,7 @@ public class K8sRoleBindingController {
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteRoleBinding(name, TenantNamespaceResolver.resolve(namespace), cluster);
+        auditService.record("K8S_ROLE_BINDING_DELETE", "k8s-role-binding", name, "Role binding deleted (name='" + name + "', cluster=" + cluster + ")");
         return ResponseEntity.noContent().build();
     }
 }

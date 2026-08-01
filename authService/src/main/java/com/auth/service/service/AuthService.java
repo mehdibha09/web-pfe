@@ -30,6 +30,7 @@ import com.auth.service.domain.RolePermission;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.SsoIdentity;
 import com.auth.service.domain.Tenant;
+import com.auth.service.domain.TenantStatus;
 import com.auth.service.domain.User;
 import com.auth.service.domain.UserRole;
 import com.auth.service.domain.UserStatus;
@@ -144,6 +145,10 @@ public class AuthService {
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidCredentialsException("Invalid credentials");
+        }
+
+        if (user.getTenant() != null && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
@@ -656,6 +661,12 @@ public class AuthService {
                 .sorted()
                 .toList();
 
+        UUID platformTenantId = userRoleRepository.findByRole_NameIgnoreCase("super-admin")
+                .stream()
+                .findFirst()
+                .map(userRole -> userRole.getUser().getTenant().getId())
+                .orElse(null);
+
         return new AuthMeResponse(
                 user.getId(),
                 user.getEmail(),
@@ -664,7 +675,8 @@ public class AuthService {
                 user.getStatus().name(),
                 roles,
                 permissions,
-                userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId()));
+                userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId()),
+                platformTenantId);
     }
 
     private Session getValidSessionFromAuthorization(String authorizationHeader) {

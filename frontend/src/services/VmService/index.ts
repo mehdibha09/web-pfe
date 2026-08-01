@@ -12,6 +12,7 @@ export { VM_OS_OPTIONS } from '../interfaces/vm';
 import api from '../axiosInstance';
 import type { CreateVmRequest, UpdateVmRequest, Vm, VmStatusResponse } from '../interfaces/vm';
 import type { SshExecuteRequest, SshExecuteResponse, SshInfoResponse } from '../interfaces/backup';
+import { getStoredUser } from '../authStorage';
 
 const BASE = '/vms';
 
@@ -32,8 +33,7 @@ export const vmService = {
   },
 
   async create(payload: CreateVmRequest): Promise<Vm> {
-    console.log('Creating VM with payload:', payload);
-    payload.tenantId = '11111111-1111-1111-1111-111111111111';
+    payload.tenantId = getStoredUser()?.tenantId;
     const { data } = await api.post<Vm>(BASE, payload);
     return data;
   },

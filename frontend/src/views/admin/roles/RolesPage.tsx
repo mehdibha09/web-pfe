@@ -412,12 +412,15 @@ const RolesPage = () => {
                                 background: '#FFFFFF',
                                 position: 'relative',
                                 overflow: 'visible',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                height: '100%',
                                 transition: 'box-shadow 0.25s, transform 0.25s',
                                 '&:hover': { boxShadow: '0 6px 24px rgba(0,0,0,0.07)', transform: 'translateY(-2px)' }
                             }}
                         >
                             <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${C.brandLight}, ${C.brand})`, borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                            <CardContent>
+                            <CardContent sx={{ flex: 1 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 2 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         {editingRoleId === role.id ? (
@@ -453,7 +456,7 @@ const RolesPage = () => {
                                     />
                                 </Box>
                                 <Divider sx={{ mb: 1.5, borderColor: C.border }} />
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, minHeight: 26 }}>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, minHeight: 26, maxHeight: 72, overflowY: 'auto', pr: 0.5, alignContent: 'flex-start' }}>
                                     {role.permissions.length === 0 ? (
                                         <Typography variant="body2" sx={{ color: C.subtle, fontSize: 12, py: 0.25 }}>
                                             {t('admin.roles.noPermissionsAssigned')}
@@ -478,24 +481,40 @@ const RolesPage = () => {
                                     )}
                                 </Box>
                                 {selectedRoleForPermission === role.id && (
-                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, mt: 2 }}>
-                                        <TextField
-                                            select
-                                            size="small"
-                                            label={t('admin.roles.selectPermission')}
-                                            value={selectedPermission}
-                                            onChange={(event) => setSelectedPermission(event.target.value)}
-                                        >
-                                            <MenuItem value="">{t('admin.roles.selectPermissionPlaceholder')}</MenuItem>
-                                            {permissions
-                                                .filter((perm) => !role.permissions.includes(perm.name))
-                                                .map((permission) => (
-                                                    <MenuItem key={permission.id} value={permission.id}>
-                                                        {permission.name}
-                                                    </MenuItem>
-                                                ))}
-                                        </TextField>
-                                        <Button onClick={() => handleAddPermission(role.id)}>{t('common.add')}</Button>
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: C.muted, display: 'block', mb: 1 }}>
+                                            {t('admin.roles.availablePermissions')}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                                            {permissions.filter((perm) => !role.permissions.includes(perm.name)).length === 0 ? (
+                                                <Typography variant="body2" sx={{ color: C.subtle, py: 0.5 }}>{t('admin.roles.noMorePermissions')}</Typography>
+                                            ) : (
+                                                permissions
+                                                    .filter((perm) => !role.permissions.includes(perm.name))
+                                                    .map((permission) => {
+                                                        const pc = permColor(permission.name);
+                                                        return (
+                                                            <Chip
+                                                                key={permission.id}
+                                                                label={permission.name}
+                                                                onClick={() => {
+                                                                    setSelectedPermission(permission.id);
+                                                                    setTimeout(() => handleAddPermission(role.id), 0);
+                                                                }}
+                                                                size="small"
+                                                                clickable
+                                                                sx={{
+                                                                    backgroundColor: pc.bg, color: pc.fg,
+                                                                    fontWeight: 600, fontSize: 10, height: 24,
+                                                                    cursor: 'pointer',
+                                                                    '&:hover': { opacity: 0.8, transform: 'scale(1.05)' },
+                                                                    transition: 'all 0.15s'
+                                                                }}
+                                                            />
+                                                        );
+                                                    })
+                                            )}
+                                        </Box>
                                     </Box>
                                 )}
                             </CardContent>

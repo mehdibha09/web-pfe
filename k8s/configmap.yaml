@@ -5,6 +5,7 @@ metadata:
   name: backend-config
   namespace: app-pfe
 data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/deployment_service
   DB_HOST: postgres
   DB_PORT: '5432'
   SPRING_PROFILES_ACTIVE: prod
@@ -21,6 +22,8 @@ data:
   AUTH_SERVICE_URL: http://auth-service:7070
   DEPLOYMENT_SERVICE_URL: http://deployment-service:8082
   CLOUD_PRICER_SERVICE_URL: http://cloud-pricer-service:8090
+  VM_HOST_HOST: '192.168.56.1'
+  VM_HOST_USER: 'mehdi'
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.MetricService;
 import com.deployment.ServiceEntity.web.dto.metric.MetricCreateDto;
 import com.deployment.ServiceEntity.web.dto.metric.MetricSummaryDto;
@@ -36,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 public class MetricController {
 
     private final MetricService metricService;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody MetricCreateDto dto) {
@@ -50,6 +52,7 @@ public class MetricController {
         metric.setTimestamp(dto.timestamp());
 
         Metric created = metricService.create(metric);
+        auditService.record("METRIC_CREATE", "metric", created.getId().toString(), "Metric created (serviceEnvironmentId=" + created.getServiceEnvironmentId() + ")");
         return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
     }
 
@@ -66,7 +69,9 @@ public class MetricController {
         metric.setServiceEnvironmentId(dto.serviceEnvironmentId());
         metric.setTimestamp(dto.timestamp());
 
-        return ResponseEntity.ok(map(metricService.update(id, metric)));
+        Metric updated = metricService.update(id, metric);
+        auditService.record("METRIC_UPDATE", "metric", updated.getId().toString(), "Metric updated (id=" + updated.getId() + ")");
+        return ResponseEntity.ok(map(updated));
     }
 
     @GetMapping("/{id}")

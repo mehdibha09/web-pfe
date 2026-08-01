@@ -7,6 +7,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import StorageIcon from '@mui/icons-material/Storage';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import CloseIcon from '@mui/icons-material/Close';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
 import TerminalIcon from '@mui/icons-material/Terminal';
@@ -531,7 +532,14 @@ const VmsPage = () => {
                                     return (
                                         <TableRow key={vm.id} hover sx={{ '&:hover': { backgroundColor: '#FAF8FF' }, transition: 'background 0.15s' }}>
                                             <TableCell>
-                                                <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 14 }}>{vm.name}</Typography>
+                                                <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 14 }}>
+                                                    {vm.displayName || vm.name}
+                                                </Typography>
+                                                {vm.displayName && (
+                                                    <Typography sx={{ fontFamily: 'monospace', fontSize: 11, color: C.subtle, mt: 0.25 }}>
+                                                        {vm.name}
+                                                    </Typography>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Chip size="small" icon={meta.icon as React.ReactElement} label={t(meta.labelKey)}
@@ -857,16 +865,20 @@ const VmsPage = () => {
                 </Box>
             </Dialog>
 
-            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-                <DialogTitle>{t('vms.confirmDeleteTitle')}</DialogTitle>
+            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EF4444, #F87171)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, pt: 3 }}>
+                    <WarningAmberIcon sx={{ color: '#DC2626' }} />
+                    {t('vms.confirmDeleteTitle')}
+                </DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        {deleteTarget ? t('vms.confirmDeleteBody', { name: deleteTarget.name }) : ''}
+                        {deleteTarget ? t('vms.confirmDeleteBody', { name: deleteTarget.displayName || deleteTarget.name }) : ''}
                     </DialogContentText>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
-                    <Button onClick={confirmDelete} color="error" variant="contained">{t('common.delete')}</Button>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                    <Button onClick={() => setDeleteTarget(null)} variant="outlined" sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>{t('common.cancel')}</Button>
+                    <Button onClick={confirmDelete} variant="contained" sx={{ color: '#fff', background: '#DC2626', borderRadius: 2, textTransform: 'capitalize', fontWeight: 700, '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
 

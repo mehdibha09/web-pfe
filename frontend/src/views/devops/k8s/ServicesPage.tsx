@@ -1,7 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import StorageIcon from '@mui/icons-material/Storage';
 import {
     Box,
     Button,
@@ -33,7 +35,7 @@ import { SERVICE_TYPES } from './constants';
 import PaginationBar from '../../../components/PaginationBar';
 
 const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
-    ClusterIP: { bg: '#E4EEF7', color: '#2E5C8A' },
+    ClusterIP: { bg: '#FCE7F3', color: '#BE185D' },
     NodePort: { bg: '#F7ECD6', color: '#8A6A2E' },
     LoadBalancer: { bg: '#D1FAE5', color: '#065F46' },
     ExternalName: { bg: '#E9E6F6', color: '#5E4B9E' },
@@ -71,7 +73,7 @@ const ServicesPage = () => {
             setTotalElements(result.total);
             setLoadError(null);
         } catch (e: unknown) {
-            const msg = getErrorMessage(e, 'Failed to load services');
+            const msg = getErrorMessage(e, t('common.error'));
             setLoadError(msg);
             toast.error(msg);
         } finally {
@@ -123,8 +125,8 @@ const ServicesPage = () => {
     };
 
     const handleSave = async () => {
-        if (!svcName.trim()) return toast.error('Service name is required');
-        if (!svcNamespace.trim()) return toast.error('Namespace is required');
+        if (!svcName.trim()) return toast.error(t('common.error'));
+        if (!svcNamespace.trim()) return toast.error(t('common.error'));
         setSaving(true);
         try {
             const payload = {
@@ -138,15 +140,15 @@ const ServicesPage = () => {
             };
             if (editing) {
                 await k8sService.updateService(editing.name, payload);
-                toast.success('Service updated');
+                toast.success(t('common.success'));
             } else {
                 await k8sService.createService(payload);
-                toast.success('Service created');
+                toast.success(t('common.success'));
             }
             setDialogOpen(false);
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, editing ? 'Failed to update service' : 'Failed to create service'));
+            toast.error(getErrorMessage(e, t('common.error')));
         } finally {
             setSaving(false);
         }
@@ -156,16 +158,16 @@ const ServicesPage = () => {
         if (!window.confirm(`Delete service "${name}" in namespace "${namespace}"?`)) return;
         try {
             await k8sService.deleteService(name, namespace);
-            toast.success('Service deleted');
+            toast.success(t('common.success'));
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to delete service'));
+            toast.error(getErrorMessage(e, t('common.error')));
         }
     };
 
     const kpiCards = [
         { label: t('k8s.services.total'), value: totalCount, bg: '#F4F0FA', color: '#5E4B9E' },
-        { label: 'ClusterIP', value: typeCounts['ClusterIP'] || 0, bg: '#E4EEF7', color: '#2E5C8A' },
+        { label: 'ClusterIP', value: typeCounts['ClusterIP'] || 0, bg: '#FCE7F3', color: '#BE185D' },
         { label: 'NodePort', value: typeCounts['NodePort'] || 0, bg: '#F7ECD6', color: '#8A6A2E' },
         { label: 'LoadBalancer', value: typeCounts['LoadBalancer'] || 0, bg: '#D1FAE5', color: '#065F46' },
     ];
@@ -308,7 +310,7 @@ const ServicesPage = () => {
 
                                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
                                             {Object.entries(svc.selector).map(([k, v]) => (
-                                                <Chip key={k} label={`${k}=${v}`} size="small" sx={{ backgroundColor: '#E4EEF7', color: '#2E5C8A', fontWeight: 600, fontSize: 11, height: 22 }} />
+                                                <Chip key={k} label={`${k}=${v}`} size="small" sx={{ backgroundColor: '#FCE7F3', color: '#BE185D', fontWeight: 600, fontSize: 11, height: 22 }} />
                                             ))}
                                         </Box>
 
@@ -339,15 +341,29 @@ const ServicesPage = () => {
                 </>
             )}
 
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 800 }}>
-                    {editing ? `Edit Service — ${editing.name}` : t('k8s.services.create')}
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <StorageIcon sx={{ color: '#BE185D', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, color: C.text }}>
+                                    {editing ? t('k8s.services.editTitle', { name: editing.name }) : t('k8s.services.create')}
+                                </Typography>
+                                <Typography sx={{ color: C.muted, fontSize: 12 }}>{t('k8s.services.subtitle')}</Typography>
+                            </Box>
+                        </Box>
+                        <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
                 </DialogTitle>
                 <DialogContent>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                        <TextField fullWidth label="Name" value={svcName} onChange={(e) => setSvcName(e.target.value)} disabled={!!editing} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+                        <TextField fullWidth label={t('common.name')} value={svcName} onChange={(e) => setSvcName(e.target.value)} disabled={!!editing} />
                         <TextField fullWidth label="Namespace" value={svcNamespace} onChange={(e) => setSvcNamespace(e.target.value)} disabled={!!editing} />
-                        <TextField select fullWidth label="Type" value={svcType} onChange={(e) => setSvcType(e.target.value)}>
+                        <TextField select fullWidth label={t('common.type')} value={svcType} onChange={(e) => setSvcType(e.target.value)}>
                             {SERVICE_TYPES.map((st) => (
                                 <MenuItem key={st} value={st}>{st}</MenuItem>
                             ))}
@@ -356,7 +372,7 @@ const ServicesPage = () => {
                             <TextField fullWidth type="number" label="Port" value={svcPort} onChange={(e) => setSvcPort(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                             <TextField fullWidth type="number" label="Target Port" value={svcTargetPort} onChange={(e) => setSvcTargetPort(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                         </Box>
-                        <TextField select fullWidth label="Protocol" value={svcProtocol} onChange={(e) => setSvcProtocol(e.target.value)}>
+                        <TextField select fullWidth label={t('k8s.protocol')} value={svcProtocol} onChange={(e) => setSvcProtocol(e.target.value)}>
                             <MenuItem value="TCP">TCP</MenuItem>
                             <MenuItem value="UDP">UDP</MenuItem>
                             <MenuItem value="HTTP">HTTP</MenuItem>
@@ -367,9 +383,9 @@ const ServicesPage = () => {
                         </Box>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setDialogOpen(false)} variant="outlined">{t('common.cancel')}</Button>
-                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
+                    <Button onClick={() => setDialogOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
+                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
                         {saving ? t('k8s.services.saving') : (editing ? t('common.save') : t('k8s.services.create'))}
                     </Button>
                 </DialogActions>

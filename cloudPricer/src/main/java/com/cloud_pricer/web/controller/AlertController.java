@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.cloud_pricer.domain.Alert;
 import com.cloud_pricer.service.AlertService;
+import com.cloud_pricer.service.AuditService;
 import com.cloud_pricer.web.dto.alert.AlertRequest;
 import com.cloud_pricer.web.dto.alert.AlertResponse;
 import com.cloud_pricer.web.routes.ApiRoutes;
@@ -39,6 +40,7 @@ public class AlertController {
 
   private final AlertService alertService;
   private final TenantValidator tenantValidator;
+  private final AuditService auditService;
 
   @PostMapping
   public ResponseEntity<AlertResponse> create(@Valid @RequestBody AlertRequest dto) {
@@ -53,7 +55,10 @@ public class AlertController {
     alert.setActualValue(dto.actualValue());
     alert.setSeverity(dto.severity());
     alert.setMessage(dto.message());
-    return ResponseEntity.status(HttpStatus.CREATED).body(map(alertService.create(alert)));
+    Alert created = alertService.create(alert);
+    auditService.record("ALERT_CREATE", "alert", created.getId().toString(),
+        "Alert created (type='" + created.getType() + "', metric='" + created.getMetric() + "', severity='" + created.getSeverity() + "')");
+    return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
   @GetMapping
@@ -83,19 +88,24 @@ public class AlertController {
   @PatchMapping("/{id}/acknowledge")
   public ResponseEntity<AlertResponse> acknowledge(@PathVariable UUID id) {
     UserContext.requirePermission("ALERT_MANAGE");
-    return ResponseEntity.ok(map(alertService.acknowledge(id, UserContext.getUserId().toString())));
+    Alert acknowledged = alertService.acknowledge(id, UserContext.getUserId().toString());
+    auditService.record("ALERT_ACKNOWLEDGE", "alert", acknowledged.getId().toString(), "Alert acknowledged (id=" + acknowledged.getId() + ")");
+    return ResponseEntity.ok(map(acknowledged));
   }
 
   @PatchMapping("/{id}/resolve")
   public ResponseEntity<AlertResponse> resolve(@PathVariable UUID id) {
     UserContext.requirePermission("ALERT_MANAGE");
-    return ResponseEntity.ok(map(alertService.resolve(id)));
+    Alert resolved = alertService.resolve(id);
+    auditService.record("ALERT_RESOLVE", "alert", resolved.getId().toString(), "Alert resolved (id=" + resolved.getId() + ")");
+    return ResponseEntity.ok(map(resolved));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("ALERT_MANAGE");
     alertService.delete(id);
+    auditService.record("ALERT_DELETE", "alert", id.toString(), "Alert deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

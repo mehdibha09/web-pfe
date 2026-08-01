@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.cloud_pricer.config.UserContext;
 import com.cloud_pricer.domain.PriceConfig;
+import com.cloud_pricer.service.AuditService;
 import com.cloud_pricer.service.PriceConfigService;
 import com.cloud_pricer.web.dto.pricing.CalculateCostResponse;
 import com.cloud_pricer.web.dto.pricing.PriceConfigRequest;
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class PriceConfigController {
 
     private final PriceConfigService priceConfigService;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<PriceConfigResponse>> getAll(
@@ -62,6 +64,8 @@ public class PriceConfigController {
         config.setActive(dto.isActive());
 
         PriceConfig created = priceConfigService.create(config);
+        auditService.record("PRICE_CONFIG_CREATE", "price-config", created.getId().toString(),
+            "Price config created (mode='" + created.getMode() + "', resourceType='" + created.getResourceType() + "', price=" + created.getPricePerUnit() + ")");
         return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
     }
 
@@ -77,13 +81,16 @@ public class PriceConfigController {
         config.setCurrency(dto.currency());
         config.setActive(dto.isActive());
 
-        return ResponseEntity.ok(map(priceConfigService.update(id, config)));
+        PriceConfig updated = priceConfigService.update(id, config);
+        auditService.record("PRICE_CONFIG_UPDATE", "price-config", updated.getId().toString(), "Price config updated (id=" + updated.getId() + ")");
+        return ResponseEntity.ok(map(updated));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("PRICE_CONFIG_MANAGE");
         priceConfigService.delete(id);
+        auditService.record("PRICE_CONFIG_DELETE", "price-config", id.toString(), "Price config deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 

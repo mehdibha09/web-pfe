@@ -26,7 +26,9 @@ export interface PermissionResponse {
 export interface TenantResponse {
   id: string;
   name: string;
+  code: string;
   contactEmail: string;
+  phone: string;
   modeDeployment: string;
   status: string;
   usersCount: number;

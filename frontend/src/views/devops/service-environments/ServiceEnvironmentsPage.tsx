@@ -1,4 +1,5 @@
 import LinkIcon from '@mui/icons-material/Link';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
     Alert, Box, Card, CardContent, Dialog, DialogActions, DialogContent,
     DialogContentText, DialogTitle, Typography
@@ -265,14 +266,18 @@ const ServiceEnvironmentsPage = () => {
                 </>
             )}
 
-            <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)}>
-                <DialogTitle>{t('serviceEnvs.confirmDeleteTitle')}</DialogTitle>
+            <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EF4444, #F87171)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, pt: 3 }}>
+                    <WarningAmberIcon sx={{ color: '#DC2626' }} />
+                    {t('serviceEnvs.confirmDeleteTitle')}
+                </DialogTitle>
                 <DialogContent>
                     <DialogContentText>{t('serviceEnvs.confirmDeleteBody')}</DialogContentText>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmDeleteId(null)}>{t('common.cancel')}</Button>
-                    <Button onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)} sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                    <Button onClick={() => setConfirmDeleteId(null)} variant="outlined" sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>{t('common.cancel')}</Button>
+                    <Button onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)} variant="contained" sx={{ color: '#fff', background: '#DC2626', borderRadius: 2, textTransform: 'capitalize', fontWeight: 700, '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

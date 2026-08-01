@@ -26,23 +26,16 @@ import {
     updateTenant,
     updateTenantStatus
 } from '../../../services/adminService';
-
 type TenantItem = {
     id: string;
     name: string;
     code: string;
     contactEmail: string;
-    plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+    phone: string;
     usersCount: number;
     status: 'ACTIVE' | 'DISABLED';
     createdAt: string;
     updatedAt: string;
-};
-
-const planColors: Record<TenantItem['plan'], { bg: string; color: string }> = {
-    FREE: { bg: '#E4EEF7', color: '#2E5C8A' },
-    PRO: { bg: C.brandLight, color: C.brandDark },
-    ENTERPRISE: { bg: '#E9E6F6', color: '#5E4B9E' }
 };
 
 const statusColors: Record<TenantItem['status'], { bg: string; color: string }> = {
@@ -50,45 +43,39 @@ const statusColors: Record<TenantItem['status'], { bg: string; color: string }> 
     DISABLED: { bg: '#F7DEE3', color: '#A23B4E' }
 };
 
-const toTenantItem = (tenant: any): TenantItem => {
-    const mode = String(tenant.modeDeployment || 'PRO').toUpperCase();
-    const plan: TenantItem['plan'] = mode === 'FREE' || mode === 'PRO' || mode === 'ENTERPRISE' ? mode : 'PRO';
-
-    return {
-        id: String(tenant.id),
-        name: tenant.name || '-',
-        code: String(tenant.name || '-')
-            .replace(/\s+/g, '')
-            .slice(0, 8)
-            .toUpperCase(),
-        contactEmail: tenant.contactEmail || '',
-        plan,
-        usersCount: Number(tenant.usersCount || 0),
-        createdAt: tenant.createdAt || '',
-        updatedAt: tenant.updatedAt || '',
-        status: ['DISABLED', 'DELETED'].includes(String(tenant.status || 'ACTIVE').toUpperCase())
-            ? 'DISABLED'
-            : 'ACTIVE'
-    };
-};
+const toTenantItem = (tenant: any): TenantItem => ({
+    id: String(tenant.id),
+    name: tenant.name || '-',
+    code: tenant.code || String(tenant.name || '-').replace(/\s+/g, '').slice(0, 8).toUpperCase(),
+    contactEmail: tenant.contactEmail || '',
+    phone: tenant.phone || '',
+    usersCount: Number(tenant.usersCount || 0),
+    createdAt: tenant.createdAt || '',
+    updatedAt: tenant.updatedAt || '',
+    status: ['DISABLED', 'DELETED'].includes(String(tenant.status || 'ACTIVE').toUpperCase())
+        ? 'DISABLED'
+        : 'ACTIVE'
+});
 
 const TenantsPage = () => {
     const { t } = useTranslation();
     const [tenantName, setTenantName] = useState('');
     const [tenantCode, setTenantCode] = useState('');
     const [contactEmail, setContactEmail] = useState('');
-    const [plan, setPlan] = useState<TenantItem['plan']>('PRO');
+    const [phone, setPhone] = useState('');
+    const [adminEmail, setAdminEmail] = useState('');
+    const [adminPassword, setAdminPassword] = useState('');
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
-    const [filterPlan, setFilterPlan] = useState('');
     const [tenants, setTenants] = useState<TenantItem[]>([]);
     const [totalElements, setTotalElements] = useState(0);
+    const [activeCount, setActiveCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
     const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
     const [editEmail, setEditEmail] = useState('');
-    const [editPlan, setEditPlan] = useState<TenantItem['plan']>('PRO');
+    const [editPhone, setEditPhone] = useState('');
     const [disableDialogId, setDisableDialogId] = useState<string | null>(null);
     const [disableAction, setDisableAction] = useState<'enable' | 'disable'>('disable');
     const [detailTenant, setDetailTenant] = useState<TenantItem | null>(null);
@@ -101,6 +88,12 @@ const TenantsPage = () => {
             const result = await listTenantsPaginated(page, PAGE_SIZE);
             setTenants(result.items.map(toTenantItem));
             setTotalElements(result.total);
+            try {
+                const all = await listTenants();
+                setActiveCount(all.filter((t: any) => ['ACTIVE', ''].includes(String(t.status || 'ACTIVE').toUpperCase()) || !t.status).length);
+            } catch {
+                setActiveCount(tenants.filter((t) => t.status === 'ACTIVE').length);
+            }
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('admin.tenants.failedToLoadTenants');
             toast.error(message);
@@ -120,16 +113,15 @@ const TenantsPage = () => {
     const filteredTenants = useMemo(() => {
         return tenants.filter((tenant) => {
             const matchesSearch = search
-                ? [tenant.name, tenant.code, tenant.contactEmail, tenant.plan, tenant.status]
+                ? [tenant.name, tenant.code, tenant.contactEmail, tenant.phone, tenant.status]
                       .join(' ')
                       .toLowerCase()
                       .includes(search.toLowerCase())
                 : true;
             const matchesStatus = filterStatus ? tenant.status === filterStatus : true;
-            const matchesPlan = filterPlan ? tenant.plan === filterPlan : true;
-            return matchesSearch && matchesStatus && matchesPlan;
+            return matchesSearch && matchesStatus;
         });
-    }, [filterPlan, filterStatus, search, tenants]);
+    }, [filterStatus, search, tenants]);
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
@@ -144,14 +136,18 @@ const TenantsPage = () => {
                 name: tenantName.trim(),
                 code: tenantCode.trim() || undefined,
                 contactEmail: contactEmail.trim() || undefined,
-                modeDeployment: plan,
+                phone: phone.trim() || undefined,
+                adminEmail: adminEmail.trim() || undefined,
+                adminPassword: adminPassword.trim() || undefined,
                 status: 'ACTIVE'
             });
 
             setTenantName('');
             setTenantCode('');
             setContactEmail('');
-            setPlan('PRO');
+            setPhone('');
+            setAdminEmail('');
+            setAdminPassword('');
             toast.success(t('admin.tenants.tenantCreated'));
             await loadTenants();
         } catch (error: any) {
@@ -198,7 +194,7 @@ const TenantsPage = () => {
             await updateTenant(tenantId, {
                 name: editName.trim(),
                 contactEmail: editEmail.trim() || undefined,
-                modeDeployment: editPlan
+                phone: editPhone.trim() || undefined
             });
             toast.success(t('admin.tenants.tenantUpdated'));
             setEditingTenantId(null);
@@ -213,22 +209,14 @@ const TenantsPage = () => {
         setEditingTenantId(tenant.id);
         setEditName(tenant.name);
         setEditEmail(tenant.contactEmail);
-        setEditPlan(tenant.plan);
+        setEditPhone(tenant.phone);
     };
 
     const cancelEditTenant = () => {
         setEditingTenantId(null);
         setEditName('');
         setEditEmail('');
-        setEditPlan('PRO');
-    };
-
-    const planGradient = (p: TenantItem['plan']) => {
-        switch (p) {
-            case 'FREE': return 'linear-gradient(90deg, #3B82F6, #60A5FA)';
-            case 'PRO': return 'linear-gradient(90deg, #E4477D, #BE185D)';
-            case 'ENTERPRISE': return 'linear-gradient(90deg, #7C3AED, #A78BFA)';
-        }
+        setEditPhone('');
     };
 
     return (
@@ -243,12 +231,11 @@ const TenantsPage = () => {
                 </Typography>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                 {[
                     { label: t('admin.tenants.totalTenants'), value: totalElements, icon: <DomainIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
-                    { label: t('admin.tenants.activeTenants'), value: tenants.filter((t) => t.status === 'ACTIVE').length, icon: <CheckCircleOutlinedIcon />, gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
-                    { label: t('admin.tenants.visibleTenants'), value: filteredTenants.length, icon: <VisibilityIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' },
-                    { label: t('admin.tenants.enterpriseTenants'), value: tenants.filter((t) => t.plan === 'ENTERPRISE').length, icon: <WorkspacePremiumIcon />, gradient: 'linear-gradient(135deg, #F59E0B, #FBBF24)' }
+                    { label: t('admin.tenants.activeTenants'), value: activeCount, icon: <CheckCircleOutlinedIcon />, gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
+                    { label: t('admin.tenants.visibleTenants'), value: filteredTenants.length, icon: <VisibilityIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' }
                 ].map((stat) => (
                     <Card key={stat.label} sx={{ borderRadius: 3, position: 'relative', overflow: 'visible' }}>
                         <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: stat.gradient, borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
@@ -297,16 +284,24 @@ const TenantsPage = () => {
                                 size="small"
                             />
                             <TextField
-                                select
-                                label={t('admin.tenants.plan')}
-                                value={plan}
-                                onChange={(event) => setPlan(event.target.value as TenantItem['plan'])}
+                                label={t('admin.tenants.phone')}
+                                value={phone}
+                                onChange={(event) => setPhone(event.target.value)}
                                 size="small"
-                            >
-                                <MenuItem value="FREE">{t('admin.tenants.free')}</MenuItem>
-                                <MenuItem value="PRO">{t('admin.tenants.pro')}</MenuItem>
-                                <MenuItem value="ENTERPRISE">{t('admin.tenants.enterprise')}</MenuItem>
-                            </TextField>
+                            />
+                            <TextField
+                                label={t('admin.tenants.adminEmail')}
+                                value={adminEmail}
+                                onChange={(event) => setAdminEmail(event.target.value)}
+                                size="small"
+                            />
+                            <TextField
+                                label={t('admin.tenants.adminPassword')}
+                                type="password"
+                                value={adminPassword}
+                                onChange={(event) => setAdminPassword(event.target.value)}
+                                size="small"
+                            />
                             <Box sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, display: 'flex', justifyContent: 'flex-end' }}>
                                 <Button onClick={handleCreateTenant} startIcon={<AddIcon />}>{t('common.create')}</Button>
                             </Box>
@@ -340,18 +335,6 @@ const TenantsPage = () => {
                                 <MenuItem value="">{t('common.all')}</MenuItem>
                                 <MenuItem value="ACTIVE">{t('admin.tenants.active')}</MenuItem>
                                 <MenuItem value="DISABLED">{t('admin.tenants.disabled')}</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                label={t('admin.tenants.planFilter')}
-                                value={filterPlan}
-                                onChange={(event) => setFilterPlan(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.all')}</MenuItem>
-                                <MenuItem value="FREE">{t('admin.tenants.free')}</MenuItem>
-                                <MenuItem value="PRO">{t('admin.tenants.pro')}</MenuItem>
-                                <MenuItem value="ENTERPRISE">{t('admin.tenants.enterprise')}</MenuItem>
                             </TextField>
                         </Box>
                     </CardContent>
@@ -391,7 +374,9 @@ const TenantsPage = () => {
                             <Box
                                 sx={{
                                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                                    background: planGradient(tenant.plan),
+                                    background: tenant.status === 'ACTIVE'
+                                        ? 'linear-gradient(90deg, #10B981, #34D399)'
+                                        : 'linear-gradient(90deg, #EF4444, #F87171)',
                                     borderTopLeftRadius: 12, borderTopRightRadius: 12
                                 }}
                             />
@@ -414,15 +399,10 @@ const TenantsPage = () => {
                                                 />
                                                 <TextField
                                                     size="small"
-                                                    select
-                                                    label={t('admin.tenants.plan')}
-                                                    value={editPlan}
-                                                    onChange={(event) => setEditPlan(event.target.value as TenantItem['plan'])}
-                                                >
-                                                    <MenuItem value="FREE">{t('admin.tenants.free')}</MenuItem>
-                                                    <MenuItem value="PRO">{t('admin.tenants.pro')}</MenuItem>
-                                                    <MenuItem value="ENTERPRISE">{t('admin.tenants.enterprise')}</MenuItem>
-                                                </TextField>
+                                                    label={t('admin.tenants.phone')}
+                                                    value={editPhone}
+                                                    onChange={(event) => setEditPhone(event.target.value)}
+                                                />
                                                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1 }}>
                                                     <Button onClick={() => handleUpdateTenant(tenant.id)}>{t('common.save')}</Button>
                                                     <Button onClick={cancelEditTenant}>{t('common.cancel')}</Button>
@@ -439,15 +419,6 @@ const TenantsPage = () => {
                                     </Box>
                                     {editingTenantId !== tenant.id && (
                                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end', alignSelf: 'flex-start' }}>
-                                            <Chip
-                                                label={tenant.plan}
-                                                size="small"
-                                                sx={{
-                                                    backgroundColor: planColors[tenant.plan].bg,
-                                                    color: planColors[tenant.plan].color,
-                                                    fontWeight: 700
-                                                }}
-                                            />
                                             <Chip
                                                 label={tenant.status}
                                                 size="small"
@@ -470,6 +441,14 @@ const TenantsPage = () => {
                                                 </Typography>
                                                 <Typography variant="body2" sx={{ color: C.text }}>
                                                     {tenant.contactEmail || '-'}
+                                                </Typography>
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>
+                                                    {t('admin.tenants.phone')}
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ color: C.text }}>
+                                                    {tenant.phone || '-'}
                                                 </Typography>
                                             </Box>
                                             <Box>
@@ -554,15 +533,15 @@ const TenantsPage = () => {
                         </Box>
                         <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
                             <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                {t('admin.tenants.plan')}
-                            </Typography>
-                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.plan}</Typography>
-                        </Box>
-                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
-                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                 {t('admin.tenants.contactEmail')}
                             </Typography>
                             <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.contactEmail || '—'}</Typography>
+                        </Box>
+                        <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
+                            <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                {t('admin.tenants.phone')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, color: C.text, mt: 0.5, fontSize: 14 }}>{detailTenant?.phone || '—'}</Typography>
                         </Box>
                         <Box sx={{ p: 2, borderRadius: 2, border: '1px solid #F5D8E4' }}>
                             <Typography sx={{ color: C.muted, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>

@@ -15,7 +15,7 @@ import { BTN, C } from '../../../theme/tokens';
 export { BTN, C };
 
 export const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-    CREATED: { bg: '#E4EEF7', fg: '#2E5C8A' },
+    CREATED: { bg: '#FCE7F3', fg: '#BE185D' },
     RUNNING: { bg: '#E0F1E6', fg: '#2E7A4F' },
     PENDING: { bg: '#F7ECD6', fg: '#8A6A2E' },
     SCALED: { bg: '#F7ECD6', fg: '#8A6A2E' },
@@ -28,7 +28,7 @@ export const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
 export const POD_STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
     Running: { bg: '#E0F1E6', fg: '#2E7A4F' },
     Pending: { bg: '#F7ECD6', fg: '#8A6A2E' },
-    Succeeded: { bg: '#E4EEF7', fg: '#2E5C8A' },
+    Succeeded: { bg: '#FCE7F3', fg: '#BE185D' },
     Failed: { bg: '#F7DEE3', fg: '#A23B4E' },
     Unknown: { bg: '#F3F4F6', fg: '#374151' }
 };

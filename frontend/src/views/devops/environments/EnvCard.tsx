@@ -69,7 +69,7 @@ const EnvCard = ({
                                 </Box>
                                 {fmtDate(env.createdAt) && (
                                     <Box>
-                                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.2 }}>Created</Typography>
+                                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: C.subtle, textTransform: 'uppercase', mb: 0.2 }}>{t('environments.createdAt')}</Typography>
                                         <Typography sx={{ fontSize: 12, color: C.muted }}>{fmtDate(env.createdAt)}</Typography>
                                     </Box>
                                 )}

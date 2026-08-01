@@ -19,7 +19,7 @@ import {
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getAccessToken } from '../../../services/authStorage';
+import { getAccessToken, getStoredUser } from '../../../services/authStorage';
 import { useSse } from '../../../hooks/useSse';
 
 import type {
@@ -84,12 +84,13 @@ const MetricsPage = () => {
 
     const loadCatalog = useCallback(async () => {
         setLoading(true);
+        const tenantId = getStoredUser()?.tenantId;
         try {
             const [relations, serviceList, envList, metricsResponse] = await Promise.all([
                 listServiceEnvironments(),
                 listServices(),
                 listEnvironments(),
-                listMetrics()
+                listMetrics(tenantId)
             ]);
             const metrics = Array.isArray(metricsResponse)
                 ? metricsResponse
@@ -123,11 +124,12 @@ const MetricsPage = () => {
 
     const loadSelection = useCallback(async (id: string) => {
         setSelectionLoading(true);
+        const tenantId = getStoredUser()?.tenantId;
         try {
             const [latestMetric, historyMetrics, summaryMetric] = await Promise.all([
-                getLatestMetric(id),
-                getMetricsHistory(id),
-                getMetricsSummary(id)
+                getLatestMetric(id, tenantId),
+                getMetricsHistory(id, tenantId),
+                getMetricsSummary(id, tenantId)
             ]);
 
             setLatest(latestMetric);
@@ -272,7 +274,7 @@ const MetricsPage = () => {
                 const relation = serviceEnvironments.find((item) => item.id === metric.serviceEnvironmentId);
                 const relationName = relation
                     ? serviceEnvironmentLabel(relation, services, environments)
-                    : metric.serviceEnvironmentId;
+                    : '— / —';
 
                 return [
                     metric.id,

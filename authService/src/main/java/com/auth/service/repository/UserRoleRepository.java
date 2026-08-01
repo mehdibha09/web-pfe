@@ -11,4 +11,5 @@ import com.auth.service.domain.UserRoleId;
 public interface UserRoleRepository extends JpaRepository<UserRole, UserRoleId> {
     List<UserRole> findByUser_Id(UUID userId);
     List<UserRole> findByRole_Id(UUID roleId);
+    List<UserRole> findByRole_NameIgnoreCase(String roleName);
 }

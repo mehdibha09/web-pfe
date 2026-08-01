@@ -30,9 +30,13 @@ const categories = [
     'AUTH',
     'USER',
     'ROLE',
+    'PERMISSION',
     'TENANT',
     'SESSION',
     'AUDIT',
+    'SERVICE',
+    'ENVIRONMENT',
+    'SERVICE_ENVIRONMENT',
     'DEPLOYMENT',
     'VM',
     'BACKUP',
@@ -41,7 +45,8 @@ const categories = [
     'METRIC',
     'COST',
     'QUOTA',
-    'ALERT'
+    'ALERT',
+    'GENERAL'
 ];
 
 const parsePermission = (permission: any): PermissionItem => {
@@ -322,9 +327,12 @@ const PermissionsPage = () => {
                                 <MenuItem value="">{t('common.select')}</MenuItem>
                                 <MenuItem value="USER">{t('admin.permissions.user')}</MenuItem>
                                 <MenuItem value="ROLE">{t('admin.permissions.role')}</MenuItem>
+                                <MenuItem value="PERMISSION">{t('admin.permissions.permission')}</MenuItem>
                                 <MenuItem value="TENANT">{t('admin.permissions.tenant')}</MenuItem>
                                 <MenuItem value="SESSION">{t('admin.permissions.session')}</MenuItem>
                                 <MenuItem value="AUDIT">{t('admin.permissions.audit')}</MenuItem>
+                                <MenuItem value="SERVICE">{t('admin.permissions.service')}</MenuItem>
+                                <MenuItem value="ENVIRONMENT">{t('admin.permissions.environment')}</MenuItem>
                                 <MenuItem value="DEPLOYMENT">{t('admin.permissions.deployment')}</MenuItem>
                                 <MenuItem value="VM">{t('admin.permissions.vm')}</MenuItem>
                                 <MenuItem value="BACKUP">{t('admin.permissions.backup')}</MenuItem>
@@ -403,9 +411,12 @@ const PermissionsPage = () => {
                                 <MenuItem value="">{t('common.all')}</MenuItem>
                                 <MenuItem value="USER">{t('admin.permissions.user')}</MenuItem>
                                 <MenuItem value="ROLE">{t('admin.permissions.role')}</MenuItem>
+                                <MenuItem value="PERMISSION">{t('admin.permissions.permission')}</MenuItem>
                                 <MenuItem value="TENANT">{t('admin.permissions.tenant')}</MenuItem>
                                 <MenuItem value="SESSION">{t('admin.permissions.session')}</MenuItem>
                                 <MenuItem value="AUDIT">{t('admin.permissions.audit')}</MenuItem>
+                                <MenuItem value="SERVICE">{t('admin.permissions.service')}</MenuItem>
+                                <MenuItem value="ENVIRONMENT">{t('admin.permissions.environment')}</MenuItem>
                                 <MenuItem value="DEPLOYMENT">{t('admin.permissions.deployment')}</MenuItem>
                                 <MenuItem value="VM">{t('admin.permissions.vm')}</MenuItem>
                                 <MenuItem value="BACKUP">{t('admin.permissions.backup')}</MenuItem>

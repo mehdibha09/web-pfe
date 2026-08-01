@@ -107,8 +107,8 @@ const BackupPage = () => {
     const seDisplayNameById = useMemo(() => {
         const map: Record<string, string> = {};
         serviceEnvs.forEach((se) => {
-            const svcName = serviceNameById[se.serviceId] ?? se.serviceId.slice(0, 8);
-            const envName = envNameById[se.environmentId] ?? se.environmentId.slice(0, 8);
+            const svcName = serviceNameById[se.serviceId] ?? '—';
+            const envName = envNameById[se.environmentId] ?? '—';
             map[se.id] = `${svcName} — ${envName}`;
         });
         return map;

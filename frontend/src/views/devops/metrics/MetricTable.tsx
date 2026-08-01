@@ -176,7 +176,7 @@ const MetricTable = ({
                                     );
                                     const relationName = relation
                                         ? serviceEnvironmentLabel(relation, services, environments)
-                                        : metric.serviceEnvironmentId;
+                                        : '— / —';
 
                                     return (
                                         <TableRow key={metric.id} hover>

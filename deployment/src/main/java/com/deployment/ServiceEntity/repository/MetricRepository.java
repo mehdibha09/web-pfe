@@ -3,6 +3,8 @@ package com.deployment.ServiceEntity.repository;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -16,9 +18,33 @@ public interface MetricRepository extends JpaRepository<Metric, UUID>, JpaSpecif
 
     java.util.List<Metric> findByServiceEnvironmentId(UUID serviceEnvironmentId);
 
-    java.util.List<Metric> findByTenantId(UUID tenantId);
-
     List<Metric> findByVmIdOrderByTimestampDesc(UUID vmId);
+
+    @Query("""
+            select m from Metric m
+            where m.serviceEnvironmentId in (
+                select se.id from ServiceEnvironment se where se.tenantId = :tenantId
+            )
+            order by m.timestamp desc
+            """)
+    List<Metric> findByTenant(@Param("tenantId") UUID tenantId);
+
+    @Query("""
+            select m from Metric m
+            where m.serviceEnvironmentId in (
+                select se.id from ServiceEnvironment se where se.tenantId = :tenantId
+            )
+            """)
+    Page<Metric> findByTenant(@Param("tenantId") UUID tenantId, Pageable pageable);
+
+    @Query("""
+            select m from Metric m
+            where m.id = :id
+              and m.serviceEnvironmentId in (
+                select se.id from ServiceEnvironment se where se.tenantId = :tenantId
+            )
+            """)
+    java.util.Optional<Metric> findByIdAndTenant(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
     void deleteByServiceEnvironmentId(UUID serviceEnvironmentId);
 

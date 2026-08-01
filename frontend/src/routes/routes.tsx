@@ -9,13 +9,25 @@ import ProtectedLayout from '../layout/ProtectedLayout';
 import { getStoredUser, isAuthenticated } from '../services/authStorage';
 
 import {
+    canAccessAlerts,
     canAccessAuditLogs,
+    canAccessBackups,
+    canAccessCosts,
+    canAccessDeployments,
+    canAccessEnvironments,
+    canAccessK8s,
+    canAccessMetrics,
+    canAccessNotifications,
     canAccessPermissions,
     canAccessPricing,
+    canAccessQuotas,
     canAccessRoles,
+    canAccessServiceEnvironments,
+    canAccessServices,
     canAccessSessions,
     canAccessTenants,
-    canAccessUsers
+    canAccessUsers,
+    canAccessVMs
 } from '../services/authorization';
 
 import AuditLogsPage from '../views/admin/auditLogs/AuditLogsPage.tsx';
@@ -166,19 +178,19 @@ const AppRoutes = () => {
 
                         {/* DevOps mini-Kubernetes dashboard */}
                         <Route path="/admin/devops/dashboard" element={<DevopsDashboardPage />} />
-                        <Route path="/admin/devops/services" element={<DevOpsServicesPage />} />
-                        <Route path="/admin/devops/environments" element={<DevOpsEnvironmentsPage />} />
-                        <Route path="/admin/devops/service-environments" element={<DevOpsServiceEnvironmentsPage />} />
-                        <Route path="/admin/devops/deployments" element={<DevOpsDeploymentsPage />} />
-                        <Route path="/admin/devops/metrics" element={<DevOpsMetricsPage />} />
-                        <Route path="/admin/devops/vms" element={<DevOpsVmsPage />} />
-                        <Route path="/admin/devops/backups" element={<DevOpsBackupsPage />} />
-                        <Route path="/admin/devops/k8s" element={<DevOpsK8sPage />} />
-                        <Route path="/admin/devops/costs" element={<DevOpsCostsPage />} />
-                        <Route path="/admin/devops/quotas" element={<DevOpsQuotasPage />} />
-                        <Route path="/admin/devops/alerts" element={<DevOpsAlertsPage />} />
-                        <Route path="/admin/devops/notifications" element={<DevOpsNotificationsPage />} />
-                        <Route path="/admin/devops/monitoring" element={<DevOpsMonitoringTempsReelPage />} />
+                        <Route path="/admin/devops/services" element={<AdminAccessRoute canAccess={canAccessServices}><DevOpsServicesPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/environments" element={<AdminAccessRoute canAccess={canAccessEnvironments}><DevOpsEnvironmentsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/service-environments" element={<AdminAccessRoute canAccess={canAccessServiceEnvironments}><DevOpsServiceEnvironmentsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/deployments" element={<AdminAccessRoute canAccess={canAccessDeployments}><DevOpsDeploymentsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/metrics" element={<AdminAccessRoute canAccess={canAccessMetrics}><DevOpsMetricsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/vms" element={<AdminAccessRoute canAccess={canAccessVMs}><DevOpsVmsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/backups" element={<AdminAccessRoute canAccess={canAccessBackups}><DevOpsBackupsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/k8s" element={<AdminAccessRoute canAccess={canAccessK8s}><DevOpsK8sPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/costs" element={<AdminAccessRoute canAccess={canAccessCosts}><DevOpsCostsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/quotas" element={<AdminAccessRoute canAccess={canAccessQuotas}><DevOpsQuotasPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/alerts" element={<AdminAccessRoute canAccess={canAccessAlerts}><DevOpsAlertsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/notifications" element={<AdminAccessRoute canAccess={canAccessNotifications}><DevOpsNotificationsPage /></AdminAccessRoute>} />
+                        <Route path="/admin/devops/monitoring" element={<AdminAccessRoute canAccess={canAccessMetrics}><DevOpsMonitoringTempsReelPage /></AdminAccessRoute>} />
                     </Route>
                 </Route>
 

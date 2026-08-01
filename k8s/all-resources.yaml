@@ -60,7 +60,7 @@ endpoints:
       - 192.168.56.40
 ports:
   - name: postgres
-    port: 30100
+    port: 5432
     protocol: TCP
 
 ---

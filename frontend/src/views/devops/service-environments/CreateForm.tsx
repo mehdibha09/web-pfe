@@ -1,5 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
+import LinkIcon from '@mui/icons-material/Link';
 import { Box, Button, Card, CardContent, MenuItem, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { P, type Option } from './palette';
 
 const inputSx = {
@@ -33,6 +35,7 @@ const CreateForm = ({
     loading,
     onCreate
 }: CreateFormProps) => {
+    const { t } = useTranslation();
     return (
         <Card
             sx={{
@@ -56,21 +59,21 @@ const CreateForm = ({
                             justifyContent: 'center'
                         }}
                     >
-                        <AddIcon sx={{ color: '#fff', fontSize: 18 }} />
+                        <LinkIcon sx={{ color: '#fff', fontSize: 18 }} />
                     </Box>
                     <Typography sx={{ fontWeight: 700, color: P.text }}>
-                        Create association
+                        {t('serviceEnvs.createAssociation')}
                     </Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 2, alignItems: 'end' }}>
                     <TextField
                         select
-                        label="Service"
+                        label={t('serviceEnvs.service')}
                         value={serviceId}
                         onChange={(e) => onServiceIdChange(e.target.value)}
                         sx={inputSx}
                     >
-                        <MenuItem value="">Select service</MenuItem>
+                        <MenuItem value="">{t('serviceEnvs.selectService')}</MenuItem>
                         {serviceOptions.map((s) => (
                             <MenuItem key={s.id} value={s.id}>
                                 {s.label}
@@ -79,12 +82,12 @@ const CreateForm = ({
                     </TextField>
                     <TextField
                         select
-                        label="Environment"
+                        label={t('serviceEnvs.environment')}
                         value={environmentId}
                         onChange={(e) => onEnvironmentIdChange(e.target.value)}
                         sx={inputSx}
                     >
-                        <MenuItem value="">Select environment</MenuItem>
+                        <MenuItem value="">{t('serviceEnvs.selectEnvironment')}</MenuItem>
                         {envOptions.map((e) => (
                             <MenuItem key={e.id} value={e.id}>
                                 {e.label}
@@ -106,7 +109,7 @@ const CreateForm = ({
                             '&:hover': { boxShadow: '0 6px 16px rgba(228,71,125,0.4)' }
                         }}
                     >
-                        Link
+                        {t('serviceEnvs.link')}
                     </Button>
                 </Box>
             </CardContent>

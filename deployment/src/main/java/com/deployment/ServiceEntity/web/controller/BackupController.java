@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.BackupService;
 import com.deployment.ServiceEntity.web.dto.backup.BackupCreateDto;
 import com.deployment.ServiceEntity.web.dto.backup.BackupResponseDto;
@@ -30,11 +31,14 @@ import lombok.RequiredArgsConstructor;
 public class BackupController {
 
     private final BackupService backupService;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<BackupResponseDto> create(@Valid @RequestBody BackupCreateDto dto) {
         UserContext.requirePermission("BACKUP_MANAGE");
-        return ResponseEntity.status(HttpStatus.CREATED).body(backupService.create(dto));
+        BackupResponseDto created = backupService.create(dto);
+        auditService.record("BACKUP_CREATE", "backup", created.id().toString(), "Backup created (id=" + created.id() + ")");
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping
@@ -52,13 +56,16 @@ public class BackupController {
     @PostMapping("/{id}/restore")
     public ResponseEntity<BackupResponseDto> restore(@PathVariable UUID id) {
         UserContext.requirePermission("BACKUP_MANAGE");
-        return ResponseEntity.ok(backupService.restore(id));
+        BackupResponseDto restored = backupService.restore(id);
+        auditService.record("BACKUP_RESTORE", "backup", restored.id().toString(), "Backup restored (id=" + restored.id() + ")");
+        return ResponseEntity.ok(restored);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("BACKUP_MANAGE");
         backupService.delete(id);
+        auditService.record("BACKUP_DELETE", "backup", id.toString(), "Backup deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 }

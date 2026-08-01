@@ -20,4 +20,5 @@ public record DeploymentTemplateRequest(
     String livenessProbe,
     String readinessProbe,
     String startupProbe,
+    boolean publicTemplate,
     String tenantId) {}

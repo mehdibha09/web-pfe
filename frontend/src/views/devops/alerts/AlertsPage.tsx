@@ -146,7 +146,7 @@ const AlertsPage = () => {
                 <SearchFilterBar
                     search={search}
                     onSearchChange={setSearch}
-                searchPlaceholder={t('alerts.searchPlaceholder')}
+                    searchPlaceholder={t('alerts.searchPlaceholder')}
                     filters={[
                         {
                             label: t('alerts.severity'),

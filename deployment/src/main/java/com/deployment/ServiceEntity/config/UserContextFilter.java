@@ -51,13 +51,15 @@ public class UserContextFilter extends OncePerRequestFilter {
             String userIdHeader = request.getHeader("X-User-Id");
             String tenantIdHeader = request.getHeader("X-Tenant-Id");
             String permissionsHeader = request.getHeader("X-User-Permissions");
+            String rolesHeader = request.getHeader("X-User-Roles");
 
             if (userIdHeader != null && !"unknown".equals(userIdHeader) && !userIdHeader.isBlank()) {
                 UUID userId = UUID.fromString(userIdHeader);
                 UUID tenantId = tenantIdHeader != null && !tenantIdHeader.isBlank()
                         ? UUID.fromString(tenantIdHeader) : null;
                 Set<String> permissions = parsePermissionsHeader(permissionsHeader);
-                UserContext.set(userId, tenantId, permissions);
+                Set<String> roles = parseRolesHeader(rolesHeader);
+                UserContext.set(userId, tenantId, permissions, roles);
                 chain.doFilter(request, response);
                 return;
             }
@@ -69,7 +71,7 @@ public class UserContextFilter extends OncePerRequestFilter {
                     Set<String> permissions = resolved.permissions() != null && !resolved.permissions().isEmpty()
                             ? resolved.permissions()
                             : parsePermissionsHeader(permissionsHeader);
-                    UserContext.set(resolved.userId(), resolved.tenantId(), permissions);
+                    UserContext.set(resolved.userId(), resolved.tenantId(), permissions, parseRolesHeader(rolesHeader));
                     chain.doFilter(request, response);
                     return;
                 }
@@ -93,6 +95,18 @@ public class UserContextFilter extends OncePerRequestFilter {
             return mapper.readValue(header, new TypeReference<Set<String>>() {});
         } catch (Exception e) {
             log.warn("Failed to parse X-User-Permissions header: {}", e.getMessage());
+            return new HashSet<>();
+        }
+    }
+
+    private Set<String> parseRolesHeader(String header) {
+        if (header == null || header.isBlank()) {
+            return new HashSet<>();
+        }
+        try {
+            return mapper.readValue(header, new TypeReference<Set<String>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse X-User-Roles header: {}", e.getMessage());
             return new HashSet<>();
         }
     }

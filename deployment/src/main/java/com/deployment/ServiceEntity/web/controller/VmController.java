@@ -26,6 +26,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
 import com.deployment.ServiceEntity.domain.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.VmService;
 import com.deployment.ServiceEntity.web.dto.ssh.SshExecuteRequest;
 import com.deployment.ServiceEntity.web.dto.vm.VmRequest;
@@ -41,10 +42,12 @@ public class VmController {
 
     private final VmService service;
     private final VmClient vmClient;
+    private final AuditService auditService;
 
-    public VmController(VmService service, VmClient vmClient) {
+    public VmController(VmService service, VmClient vmClient, AuditService auditService) {
         this.service = service;
         this.vmClient = vmClient;
+        this.auditService = auditService;
     }
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -54,6 +57,7 @@ public class VmController {
         UserContext.requirePermission("VM_MANAGE");
         request.setTenantId(UserContext.getTenantId());
         VmResponse response = service.create(request);
+        auditService.record("VM_CREATE", "vm", response.getId().toString(), "VM created (name='" + response.getName() + "')");
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -82,13 +86,16 @@ public class VmController {
             @Valid @RequestBody VmRequest request) {
         UserContext.requirePermission("VM_MANAGE");
         request.setTenantId(UserContext.getTenantId());
-        return ResponseEntity.ok(service.update(id, request));
+        VmResponse updated = service.update(id, request);
+        auditService.record("VM_UPDATE", "vm", updated.getId().toString(), "VM updated (name='" + updated.getName() + "')");
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("VM_MANAGE");
         service.delete(id);
+        auditService.record("VM_DELETE", "vm", id.toString(), "VM deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 
@@ -97,19 +104,25 @@ public class VmController {
     @PostMapping("/{id}/start")
     public ResponseEntity<VmResponse> start(@PathVariable UUID id) {
         UserContext.requirePermission("VM_MANAGE");
-        return ResponseEntity.ok(service.start(id));
+        VmResponse started = service.start(id);
+        auditService.record("VM_START", "vm", started.getId().toString(), "VM started (name='" + started.getName() + "')");
+        return ResponseEntity.ok(started);
     }
 
     @PostMapping("/{id}/stop")
     public ResponseEntity<VmResponse> stop(@PathVariable UUID id) {
         UserContext.requirePermission("VM_MANAGE");
-        return ResponseEntity.ok(service.stop(id));
+        VmResponse stopped = service.stop(id);
+        auditService.record("VM_STOP", "vm", stopped.getId().toString(), "VM stopped (name='" + stopped.getName() + "')");
+        return ResponseEntity.ok(stopped);
     }
 
     @PostMapping("/{id}/restart")
     public ResponseEntity<VmResponse> restart(@PathVariable UUID id) {
         UserContext.requirePermission("VM_MANAGE");
-        return ResponseEntity.ok(service.restart(id));
+        VmResponse restarted = service.restart(id);
+        auditService.record("VM_RESTART", "vm", restarted.getId().toString(), "VM restarted (name='" + restarted.getName() + "')");
+        return ResponseEntity.ok(restarted);
     }
 
     // ── Monitoring ────────────────────────────────────────────────────────────
@@ -133,7 +146,9 @@ public class VmController {
             @PathVariable UUID id,
             @Valid @RequestBody SshExecuteRequest request) {
         UserContext.requirePermission("SSH_MANAGE");
-        return ResponseEntity.ok(service.executeSshCommand(id, request.command()));
+        Map<String, Object> result = service.executeSshCommand(id, request.command());
+        auditService.record("VM_SSH_EXECUTE", "vm", id.toString(), "SSH command executed (id=" + id + ")");
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}/ssh/info")

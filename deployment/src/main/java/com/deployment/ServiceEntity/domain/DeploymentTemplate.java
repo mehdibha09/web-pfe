@@ -69,6 +69,9 @@ public class DeploymentTemplate {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(name = "public_template", nullable = false)
+    private boolean publicTemplate = false;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -124,6 +127,8 @@ public class DeploymentTemplate {
     public void setStartupProbe(String startupProbe) { this.startupProbe = startupProbe; }
     public UUID getTenantId() { return tenantId; }
     public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
+    public boolean isPublicTemplate() { return publicTemplate; }
+    public void setPublicTemplate(boolean publicTemplate) { this.publicTemplate = publicTemplate; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

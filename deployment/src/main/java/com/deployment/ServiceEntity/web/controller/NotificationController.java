@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.deployment.ServiceEntity.config.UserContext;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.NotificationService;
 import com.deployment.ServiceEntity.web.dto.notification.NotificationCreateDto;
 import com.deployment.ServiceEntity.web.dto.notification.NotificationResponseDto;
@@ -39,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final AuditService auditService;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -46,6 +48,7 @@ public class NotificationController {
     public ResponseEntity<NotificationResponseDto> create(@Valid @RequestBody NotificationCreateDto dto) {
         UserContext.requirePermission("NOTIFICATION_MANAGE");
         NotificationResponseDto created = notificationService.create(dto);
+        auditService.record("NOTIFICATION_CREATE", "notification", created.id().toString(), "Notification created (title='" + created.title() + "')");
         pushToAll(created);
         return ResponseEntity.ok(created);
     }
@@ -76,13 +79,16 @@ public class NotificationController {
     @PatchMapping("/{id}/read")
     public ResponseEntity<NotificationResponseDto> markAsRead(@PathVariable UUID id) {
         UserContext.requirePermission("NOTIFICATION_MANAGE");
-        return ResponseEntity.ok(notificationService.markAsRead(id));
+        NotificationResponseDto updated = notificationService.markAsRead(id);
+        auditService.record("NOTIFICATION_READ", "notification", updated.id().toString(), "Notification marked as read (id=" + updated.id() + ")");
+        return ResponseEntity.ok(updated);
     }
 
     @PatchMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead() {
         UserContext.requirePermission("NOTIFICATION_MANAGE");
         notificationService.markAllAsRead(UserContext.getUserId());
+        auditService.record("NOTIFICATION_READ_ALL", "notification", null, "All notifications marked as read");
         return ResponseEntity.ok().build();
     }
 
@@ -90,6 +96,7 @@ public class NotificationController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("NOTIFICATION_MANAGE");
         notificationService.delete(id);
+        auditService.record("NOTIFICATION_DELETE", "notification", id.toString(), "Notification deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 
@@ -101,6 +108,7 @@ public class NotificationController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
         }
         notificationService.deleteByUserId(userId);
+        auditService.record("NOTIFICATION_DELETE_USER", "notification", userId.toString(), "Notifications deleted for user (userId=" + userId + ")");
         return ResponseEntity.noContent().build();
     }
 

@@ -486,7 +486,7 @@ public class VagrantClient {
 
             String snapshotFolder = null;
             for (String line : output.split("\n")) {
-                if (line.startsWith("\"SnapshotFolder\"")) {
+                if (line.startsWith("SnapFldr=")) {
                     snapshotFolder = line.split("=", 2)[1].replaceAll("\"", "").trim();
                 }
             }

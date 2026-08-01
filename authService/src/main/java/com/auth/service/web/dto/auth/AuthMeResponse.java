@@ -11,6 +11,7 @@ public record AuthMeResponse(
         String status,
         List<String> roles,
         List<String> permissions,
-        boolean twoFaEnabled
+        boolean twoFaEnabled,
+        UUID platformTenantId
 ) {
 }

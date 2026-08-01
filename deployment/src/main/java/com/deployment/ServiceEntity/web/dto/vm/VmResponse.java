@@ -9,6 +9,7 @@ public class VmResponse {
 
     private UUID id;
     private String name;
+    private String displayName;
     private int cpu;
     private String vboxName;
     private int ram;
@@ -33,6 +34,7 @@ public class VmResponse {
         VmResponse r = new VmResponse();
         r.id = vm.getId();
         r.name = vm.getName();
+        r.displayName = vm.getDisplayName();
         r.cpu = vm.getCpu();
         r.ram = vm.getRam();
         r.disk = vm.getDisk();
@@ -70,6 +72,14 @@ public class VmResponse {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public int getCpu() {

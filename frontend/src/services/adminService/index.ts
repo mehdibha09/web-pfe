@@ -16,10 +16,11 @@ export const listUsers = async (): Promise<import('../interfaces/admin').UserRes
   return response.data || [];
 };
 
-export const listUsersPaginated = async (page: number, size: number): Promise<{ items: import('../interfaces/admin').UserResponse[]; total: number }> => {
+export const listUsersPaginated = async (page: number, size: number, tenantId?: string): Promise<{ items: import('../interfaces/admin').UserResponse[]; total: number }> => {
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('size', String(size));
+  if (tenantId) params.set('tenantId', tenantId);
   const response = await axiosInstance.get<import('../interfaces/admin').UserResponse[]>(`/users?${params}`);
   return { items: response.data || [], total: response.pagination?.totalElements ?? 0 };
 };
@@ -104,7 +105,7 @@ export const removePermissionFromRole = async (roleId: string, permissionId: str
 };
 
 export const listPermissions = async (): Promise<import('../interfaces/admin').PermissionResponse[]> => {
-  const response = await axiosInstance.get('/permissions');
+  const response = await axiosInstance.get('/permissions?size=2000');
   return response.data || [];
 };
 
@@ -156,6 +157,9 @@ export const createTenant = async (payload: {
   name: string;
   code?: string;
   contactEmail?: string;
+  phone?: string;
+  adminEmail?: string;
+  adminPassword?: string;
   modeDeployment?: string;
   status?: string;
 }) => {
@@ -175,7 +179,7 @@ export const updateTenantStatus = async (tenantId: string, status: 'ACTIVE' | 'D
 
 export const updateTenant = async (
   tenantId: string,
-  payload: { name?: string; code?: string; contactEmail?: string; modeDeployment?: string },
+  payload: { name?: string; code?: string; contactEmail?: string; phone?: string; modeDeployment?: string },
 ) => {
   const response = await axiosInstance.patch(`/tenants/${tenantId}`, payload);
   return response.data;
@@ -229,5 +233,10 @@ export const listAuditLogsPaginated = async (page: number, size: number, query: 
 
 export const listAuditResources = async (): Promise<string[]> => {
   const response = await axiosInstance.get('/audit-logs/resources');
+  return response.data || [];
+};
+
+export const listAuditActions = async (): Promise<string[]> => {
+  const response = await axiosInstance.get('/audit-logs/actions');
   return response.data || [];
 };

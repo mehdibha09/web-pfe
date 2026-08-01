@@ -95,25 +95,13 @@ public class VmService {
         }
 
         if (req.getName() == null || req.getName().isBlank()) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_REQUEST",
-                    "VM name is required");
-        }
-
-        if (vmRepository.existsByNameAndServiceEnvironmentId(
-                req.getName(),
-                req.getServiceEnvironmentId())) {
-
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "CONFLICT",
-                    "VM with this name already exists in this service environment");
+            req.setName("vm-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
         Vm vm = new Vm();
 
         vm.setName(req.getName());
+        vm.setDisplayName(req.getDisplayName());
         vm.setCpu(req.getCpu());
         vm.setRam(req.getRam());
         vm.setDisk(req.getDisk());
@@ -189,6 +177,7 @@ public class VmService {
         Vm vm = vmRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
         vm.setName(req.getName());
+        vm.setDisplayName(req.getDisplayName());
         vm.setCpu(req.getCpu());
         vm.setRam(req.getRam());
         vm.setDisk(req.getDisk());

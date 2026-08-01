@@ -27,6 +27,7 @@ type Props = {
     saving: boolean;
     onRedeploy: (id: string) => void;
     onDelete: (id: string) => void;
+    allowManage: boolean;
 };
 
 const statusGradient = (status: string) => {
@@ -42,12 +43,12 @@ const DeploymentCard = ({
     deployment: d, serviceEnvironments, services, environments,
     isEditing, editingVersion, editingNotes, editingStatus, editingServiceEnvironmentId,
     onVersionChange, onNotesChange, onStatusChange, onServiceEnvironmentChange,
-    onStartEdit, onCancelEdit, onSave, saving, onRedeploy, onDelete
+    onStartEdit, onCancelEdit, onSave, saving, onRedeploy, onDelete, allowManage
 }: Props) => {
     const { t } = useTranslation();
     const c = statusColors[d.status] || { bg: C.brandLight, color: C.brand };
     const rel = serviceEnvironments.find((r) => r.id === d.serviceEnvironmentId);
-    const envLabel = rel ? seLabel(rel) : d.serviceEnvironmentId;
+    const envLabel = rel ? seLabel(rel, services, environments) : d.serviceEnvironmentId;
 
     return (
         <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible', border: `1px solid ${C.border}`, backgroundColor: '#fff' }}>
@@ -89,8 +90,12 @@ const DeploymentCard = ({
                 ) : (
                     <>
                         <Button variant="outlined" onClick={onStartEdit} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
-                        <Button variant="outlined" startIcon={<RestartAltIcon />} onClick={() => onRedeploy(d.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#B45309', borderColor: '#D8C48E', '&:hover': { borderColor: '#8A6A2E', backgroundColor: '#FFFBEB' } }}>{t('deployments.redeploy')}</Button>
-                        <Button variant="outlined" onClick={() => onDelete(d.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.danger, borderColor: '#E6C2C9', '&:hover': { borderColor: C.danger, backgroundColor: '#F7DEE3' } }}>{t('common.delete')}</Button>
+                        {allowManage && (
+                            <>
+                                <Button variant="outlined" startIcon={<RestartAltIcon />} onClick={() => onRedeploy(d.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#B45309', borderColor: '#D8C48E', '&:hover': { borderColor: '#8A6A2E', backgroundColor: '#FFFBEB' } }}>{t('deployments.redeploy')}</Button>
+                                <Button variant="outlined" onClick={() => onDelete(d.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.danger, borderColor: '#E6C2C9', '&:hover': { borderColor: C.danger, backgroundColor: '#F7DEE3' } }}>{t('common.delete')}</Button>
+                            </>
+                        )}
                     </>
                 )}
             </CardActions>

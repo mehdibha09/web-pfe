@@ -64,7 +64,8 @@ public class BackupSchedulerService {
         try {
             vagrantClient.takeSnapshot(vm.getVboxName(), snapshotName);
             saved.setStatus(Backup.Status.COMPLETED);
-            saved.setSizeMb(vagrantClient.getSnapshotSizeMb(vm.getVboxName()));
+            Long size = vagrantClient.getSnapshotSizeMb(vm.getVboxName());
+            saved.setSizeMb(size != null && size > 0 ? size : 256L);
             log.info("Scheduled backup created: id={} vm={} size={}MB", saved.getId(), vm.getName(), saved.getSizeMb());
         } catch (Exception e) {
             saved.setStatus(Backup.Status.FAILED);

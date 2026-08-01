@@ -1,7 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DnsIcon from '@mui/icons-material/Dns';
 import SearchIcon from '@mui/icons-material/Search';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
     Box,
     Button,
@@ -29,7 +31,7 @@ import type { K8sNamespaceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { canManageNamespaces } from '../../../services/authorization';
 import PaginationBar from '../../../components/PaginationBar';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
@@ -50,7 +52,7 @@ const NamespacesPage = () => {
     const [page, setPage] = useState(0);
     const PAGE_SIZE = 9;
     const currentUser = getStoredUser();
-    const allowManage = currentUser ? canManageK8s(currentUser) : false;
+    const allowManage = currentUser ? canManageNamespaces(currentUser) : false;
 
     const load = async () => {
         setLoading(true);
@@ -60,7 +62,7 @@ const NamespacesPage = () => {
             setTotalElements(result.total);
             setLoadError(null);
         } catch (e: unknown) {
-            const msg = getErrorMessage(e, 'Failed to load namespaces');
+            const msg = getErrorMessage(e, t('common.error'));
             setLoadError(msg);
             toast.error(msg);
         } finally {
@@ -73,16 +75,16 @@ const NamespacesPage = () => {
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const handleCreate = async () => {
-        if (!newName.trim()) return toast.error('Namespace name is required');
+        if (!newName.trim()) return toast.error(t('common.error'));
         setCreating(true);
         try {
             await k8sService.createNamespace({ name: newName.trim() });
-            toast.success('Namespace created');
+            toast.success(t('common.success'));
             setCreateOpen(false);
             setNewName('');
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to create namespace'));
+            toast.error(getErrorMessage(e, t('common.error')));
         } finally {
             setCreating(false);
         }
@@ -92,10 +94,10 @@ const NamespacesPage = () => {
         if (!window.confirm(`Delete namespace "${name}"? This will remove all resources inside.`)) return;
         try {
             await k8sService.deleteNamespace(name);
-            toast.success('Namespace deleted');
+            toast.success(t('common.success'));
             await load();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to delete namespace'));
+            toast.error(getErrorMessage(e, t('common.error')));
         }
     };
 
@@ -285,23 +287,37 @@ const NamespacesPage = () => {
                 </>
             )}
 
-            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 800 }}>{t('k8s.namespaces.create')}</DialogTitle>
+            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <DnsIcon sx={{ color: '#BE185D', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, color: C.text }}>{t('k8s.namespaces.create')}</Typography>
+                                <Typography sx={{ color: C.muted, fontSize: 12 }}>{t('k8s.namespaces.subtitle')}</Typography>
+                            </Box>
+                        </Box>
+                        <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
                         fullWidth
-                        label="Namespace name"
+                        label={t('common.name')}
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="e.g. tenant-a"
-                        sx={{ mt: 1 }}
+                        placeholder={t('k8s.namespaces.create')}
+                        sx={{ mt: 1.5 }}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
                     />
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setCreateOpen(false)} variant="outlined">{t('common.cancel')}</Button>
-                    <Button onClick={handleCreate} variant="contained" disabled={creating} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
+                    <Button onClick={() => setCreateOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
+                    <Button onClick={handleCreate} variant="contained" disabled={creating} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
                         {creating ? t('k8s.namespaces.creating') : t('k8s.namespaces.create')}
                     </Button>
                 </DialogActions>

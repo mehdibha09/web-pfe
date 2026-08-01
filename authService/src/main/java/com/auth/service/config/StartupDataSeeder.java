@@ -116,32 +116,46 @@ public class StartupDataSeeder implements CommandLineRunner {
                 costRead, costManage, quotaRead, quotaManage, alertRead, alertManage, metricRead, metricManage,
                 priceConfigRead, priceConfigManage, forecastRead, sshManage);
 
-        List<Permission> devopsPermissions = List.of(
-                deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage,
-                k8sRead, k8sManage, notificationRead, notificationManage, metricRead, sshManage);
+        List<Permission> readOnlyDevops = List.of(
+                userRead, deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead);
 
-        List<Permission> costPermissions = List.of(
+        List<Permission> managerPermissions = List.of(
+                userRead, userManage, sessionManage, auditRead,
+                deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage,
+                k8sRead, k8sManage, notificationRead, notificationManage,
+                metricRead, metricManage, sshManage);
+
+        List<Permission> financeManagerPermissions = List.of(
+                userRead, userManage, sessionManage, auditRead,
+                deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
                 costRead, costManage, quotaRead, quotaManage, alertRead, alertManage,
                 priceConfigRead, priceConfigManage, forecastRead);
 
-        List<Permission> readOnlyDevops = List.of(
-                deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead);
+        List<Permission> analystPermissions = List.of(
+                userRead, auditRead,
+                deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
+                costRead, quotaRead, alertRead, forecastRead);
+
+        List<Permission> financeViewerPermissions = List.of(
+                userRead,
+                deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
+                costRead, quotaRead, alertRead, priceConfigRead, forecastRead);
 
         seedRolePermissions(defaultSuperAdminRole, allPermissions);
-        seedRolePermissions(defaultAdminRole, List.of(userRead, userManage, roleManage, sessionManage, permissionManage, auditRead, tenantManage, deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage, k8sRead, k8sManage, notificationRead, notificationManage, costRead, costManage, quotaRead, quotaManage, alertRead, alertManage, metricRead, metricManage, priceConfigRead, priceConfigManage, forecastRead, sshManage));
-        seedRolePermissions(defaultManagerRole, List.of(userRead, userManage, sessionManage, deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage, k8sRead, notificationRead, metricRead, sshManage));
-        seedRolePermissions(defaultViewerRole, List.of(userRead, deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead));
+        seedRolePermissions(defaultAdminRole, allPermissions);
+        seedRolePermissions(defaultManagerRole, managerPermissions);
+        seedRolePermissions(defaultViewerRole, readOnlyDevops);
         seedRolePermissions(defaultSupportRole, List.of(userRead, sessionManage, deploymentRead, vmRead, k8sRead, notificationRead, metricRead));
 
-        seedRolePermissions(salesAdminRole, List.of(userRead, userManage, roleManage, sessionManage, auditRead));
-        seedRolePermissions(salesManagerRole, List.of(userRead, userManage, sessionManage));
-        seedRolePermissions(salesAnalystRole, List.of(userRead, auditRead));
-        seedRolePermissions(salesViewerRole, List.of(userRead));
+        seedRolePermissions(salesAdminRole, allPermissions);
+        seedRolePermissions(salesManagerRole, managerPermissions);
+        seedRolePermissions(salesAnalystRole, analystPermissions);
+        seedRolePermissions(salesViewerRole, readOnlyDevops);
 
-        seedRolePermissions(financeAdminRole, List.of(userRead, userManage, roleManage, sessionManage, permissionManage, auditRead, costRead, costManage, quotaRead, quotaManage, alertRead, alertManage));
-        seedRolePermissions(financeManagerRole, List.of(userRead, userManage, auditRead, costRead, quotaRead, alertRead));
-        seedRolePermissions(financeAnalystRole, List.of(userRead, auditRead, costRead, quotaRead, alertRead));
-        seedRolePermissions(financeViewerRole, List.of(userRead));
+        seedRolePermissions(financeAdminRole, allPermissions);
+        seedRolePermissions(financeManagerRole, financeManagerPermissions);
+        seedRolePermissions(financeAnalystRole, analystPermissions);
+        seedRolePermissions(financeViewerRole, financeViewerPermissions);
 
         User superAdmin = seedUser(defaultTenant, DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_PASSWORD, UserStatus.ACTIVE);
         User defaultAdmin = seedUser(defaultTenant, DEFAULT_ADMIN_EMAIL, DEFAULT_PASSWORD, UserStatus.ACTIVE);

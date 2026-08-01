@@ -83,12 +83,18 @@ const Profile = () => {
                 setStoredUser(me);
                 setUser(me);
                 setTwoFaEnabled(Boolean(me.twoFaEnabled));
-            } catch (_error) {
+            } catch (error) {
                 if (!mounted) {
                     return;
                 }
-                clearSession();
-                navigate('/login', { replace: true });
+                const status = (error as { response?: { status?: number } } | null)?.response?.status;
+                if (status === 401 || status === 403) {
+                    clearSession();
+                    navigate('/login', { replace: true });
+                    return;
+                }
+                setUser(getStoredUser());
+                toast.error((error as Error)?.message || t('profile.profileLoadFailed'));
             } finally {
                 if (mounted) {
                     setProfileLoading(false);

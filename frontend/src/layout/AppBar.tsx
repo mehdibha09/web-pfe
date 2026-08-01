@@ -384,10 +384,10 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
 
         <Box sx={{ textAlign: 'right' }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: C.text }}>
-            {user?.email || 'local.user@example.com'}
+            {user?.email}
           </Typography>
           <Typography variant="caption" sx={{ color: C.muted }}>
-            {user?.tenantName || 'Local Tenant'}
+            {user?.tenantName}
           </Typography>
         </Box>
         <Avatar sx={{ width: 40, height: 40, backgroundColor: C.brand }}>

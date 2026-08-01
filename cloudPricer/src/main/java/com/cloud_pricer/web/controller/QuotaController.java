@@ -11,6 +11,7 @@ import org.springframework.data.web.PageableDefault;
 import com.cloud_pricer.config.TenantValidator;
 import com.cloud_pricer.config.UserContext;
 import com.cloud_pricer.domain.Quota;
+import com.cloud_pricer.service.AuditService;
 import com.cloud_pricer.service.QuotaService;
 import com.cloud_pricer.web.dto.quota.QuotaRequest;
 import com.cloud_pricer.web.dto.quota.QuotaResponse;
@@ -36,6 +37,7 @@ public class QuotaController {
 
   private final QuotaService quotaService;
   private final TenantValidator tenantValidator;
+  private final AuditService auditService;
 
   @GetMapping
   public ResponseEntity<Page<QuotaResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
@@ -69,6 +71,8 @@ public class QuotaController {
     quota.setTenantId(UserContext.getTenantId());
 
     Quota created = quotaService.create(quota);
+    auditService.record("QUOTA_CREATE", "quota", created.getId().toString(),
+        "Quota created (serviceEnvironmentId=" + created.getServiceEnvironmentId() + ", period='" + created.getPeriod() + "')");
     return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
@@ -86,13 +90,16 @@ public class QuotaController {
     quota.setPeriod(dto.period());
     quota.setActive(dto.isActive());
 
-    return ResponseEntity.ok(map(quotaService.update(id, quota)));
+    Quota updated = quotaService.update(id, quota);
+    auditService.record("QUOTA_UPDATE", "quota", updated.getId().toString(), "Quota updated (id=" + updated.getId() + ")");
+    return ResponseEntity.ok(map(updated));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("QUOTA_MANAGE");
     quotaService.delete(id);
+    auditService.record("QUOTA_DELETE", "quota", id.toString(), "Quota deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

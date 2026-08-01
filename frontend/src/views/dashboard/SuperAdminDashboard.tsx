@@ -22,7 +22,7 @@ import {
     Divider,
     Typography
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -66,6 +66,28 @@ const statusColor = (s: string) => {
     if (up === 'INVITED') return { bg: '#E4EEF7', fg: '#2E5C8A' };
     return { bg: '#F3F4F6', fg: '#6B7280' };
 };
+
+const SectionHeader = ({ icon, title, bg, fg }: { icon: ReactNode; title: string; bg: string; fg: string }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Box
+            sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 999,
+                backgroundColor: bg,
+                color: fg
+            }}
+        >
+            {icon}
+            <Typography sx={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: fg }}>
+                {title}
+            </Typography>
+        </Box>
+    </Box>
+);
 
 const SuperAdminDashboard = () => {
     const { t } = useTranslation();
@@ -162,130 +184,154 @@ const SuperAdminDashboard = () => {
                 </Typography>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 3 }}>
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiUsers')}
-                    value={users.length}
-                    subtitle={t('dashboard.superAdmin.activeCount', { count: activeUsers })}
-                    icon={<PeopleIcon sx={{ color: C.brand, fontSize: 26 }} />}
-                    bgColor={C.brandLight}
-                    color={C.brand}
-                    onClick={() => navigate('/admin/users')}
+            <Box sx={{ mb: 4 }}>
+                <SectionHeader
+                    icon={<SecurityIcon sx={{ color: '#5E4B9E', fontSize: 16 }} />}
+                    title={t('dashboard.superAdmin.sectionAccessIdentity', 'Access & Identity')}
+                    bg="#F5F3FF"
+                    fg="#5E4B9E"
                 />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiRoles')}
-                    value={roles.length}
-                    subtitle={t('dashboard.superAdmin.definedRoles')}
-                    icon={<SecurityIcon sx={{ color: '#2E5C8A', fontSize: 26 }} />}
-                    bgColor="#E4EEF7"
-                    color="#2E5C8A"
-                    onClick={() => navigate('/admin/roles')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiTenants')}
-                    value={tenants.length}
-                    subtitle={t('dashboard.superAdmin.activeCount', { count: activeTenants })}
-                    icon={<VerifiedUserIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
-                    bgColor="#F5F3FF"
-                    color="#5E4B9E"
-                    onClick={() => navigate('/admin/tenants')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiSessions')}
-                    value={sessions.length}
-                    subtitle={t('dashboard.superAdmin.activeCount', { count: activeSessions })}
-                    icon={<VpnKeyIcon sx={{ color: '#8A6A2E', fontSize: 26 }} />}
-                    bgColor="#FFF7ED"
-                    color="#8A6A2E"
-                    onClick={() => navigate('/admin/sessions')}
-                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)', xl: 'repeat(5, 1fr)' }, gap: 2.5 }}>
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiUsers')}
+                        value={users.length}
+                        subtitle={t('dashboard.superAdmin.activeCount', { count: activeUsers })}
+                        icon={<PeopleIcon sx={{ color: C.brand, fontSize: 26 }} />}
+                        bgColor={C.brandLight}
+                        color={C.brand}
+                        onClick={() => navigate('/admin/users')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiRoles')}
+                        value={roles.length}
+                        subtitle={t('dashboard.superAdmin.definedRoles')}
+                        icon={<SecurityIcon sx={{ color: '#2E5C8A', fontSize: 26 }} />}
+                        bgColor="#E4EEF7"
+                        color="#2E5C8A"
+                        onClick={() => navigate('/admin/roles')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiTenants')}
+                        value={tenants.length}
+                        subtitle={t('dashboard.superAdmin.activeCount', { count: activeTenants })}
+                        icon={<VerifiedUserIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
+                        bgColor="#F5F3FF"
+                        color="#5E4B9E"
+                        onClick={() => navigate('/admin/tenants')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiSessions')}
+                        value={sessions.length}
+                        subtitle={t('dashboard.superAdmin.activeCount', { count: activeSessions })}
+                        icon={<VpnKeyIcon sx={{ color: '#8A6A2E', fontSize: 26 }} />}
+                        bgColor="#FFF7ED"
+                        color="#8A6A2E"
+                        onClick={() => navigate('/admin/sessions')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiAssignments')}
+                        value={roles.reduce((sum, r) => sum + (r.permissions?.length || 0), 0)}
+                        subtitle={t('dashboard.superAdmin.acrossRoles', { count: roles.length })}
+                        icon={<AssignmentIcon sx={{ color: C.muted, fontSize: 26 }} />}
+                        bgColor="#F8FAFC"
+                        color={C.muted}
+                        onClick={() => navigate('/admin/permissions')}
+                    />
+                </Box>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 3 }}>
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiServices')}
-                    value={services.length}
-                    subtitle={t('dashboard.superAdmin.devopsServices')}
-                    icon={<HubIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
-                    bgColor="#ECFDF5"
-                    color="#2E7A4F"
-                    onClick={() => navigate('/admin/devops/services')}
+            <Box sx={{ mb: 4 }}>
+                <SectionHeader
+                    icon={<WidgetsIcon sx={{ color: '#2E7A4F', fontSize: 16 }} />}
+                    title={t('dashboard.superAdmin.sectionDevOps', 'DevOps')}
+                    bg="#ECFDF5"
+                    fg="#2E7A4F"
                 />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiDeployments')}
-                    value={deployments.length}
-                    subtitle={t('dashboard.superAdmin.succeededCount', { count: successDeployments })}
-                    icon={<TrendingUpIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
-                    bgColor="#FDF4FF"
-                    color="#5E4B9E"
-                    onClick={() => navigate('/admin/devops/deployments')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiAuditLogs')}
-                    value={auditLogs.length}
-                    subtitle={t('dashboard.superAdmin.recordedEvents')}
-                    icon={<HistoryIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
-                    bgColor="#E4EEF7"
-                    color="#0EA5E9"
-                    onClick={() => navigate('/admin/audit-logs')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiAssignments')}
-                    value={roles.reduce((sum, r) => sum + (r.permissions?.length || 0), 0)}
-                    subtitle={t('dashboard.superAdmin.acrossRoles', { count: roles.length })}
-                    icon={<AssignmentIcon sx={{ color: C.muted, fontSize: 26 }} />}
-                    bgColor="#F8FAFC"
-                    color={C.muted}
-                    onClick={() => navigate('/admin/permissions')}
-                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)', xl: 'repeat(5, 1fr)' }, gap: 2.5 }}>
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiServices')}
+                        value={services.length}
+                        subtitle={t('dashboard.superAdmin.devopsServices')}
+                        icon={<HubIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
+                        bgColor="#ECFDF5"
+                        color="#2E7A4F"
+                        onClick={() => navigate('/admin/devops/services')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiDeployments')}
+                        value={deployments.length}
+                        subtitle={t('dashboard.superAdmin.succeededCount', { count: successDeployments })}
+                        icon={<TrendingUpIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
+                        bgColor="#FDF4FF"
+                        color="#5E4B9E"
+                        onClick={() => navigate('/admin/devops/deployments')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiVms')}
+                        value={vms.length}
+                        subtitle={t('dashboard.superAdmin.runningCount', { count: vms.filter((v) => v.status === 'RUNNING').length })}
+                        icon={<DnsIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
+                        bgColor="#E4EEF7"
+                        color="#0EA5E9"
+                        onClick={() => navigate('/admin/vms')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiK8s')}
+                        value={k8sDeployments.length}
+                        subtitle={t('dashboard.superAdmin.k8sDeployments')}
+                        icon={<WidgetsIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
+                        bgColor="#F5F3FF"
+                        color="#5E4B9E"
+                        onClick={() => navigate('/admin/kubernetes')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiBackups')}
+                        value={backups.length}
+                        subtitle={t('dashboard.superAdmin.backupRecords')}
+                        icon={<RestorePageIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
+                        bgColor="#ECFDF5"
+                        color="#2E7A4F"
+                        onClick={() => navigate('/admin/backups')}
+                    />
+                </Box>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(5, 1fr)' }, gap: 2.5, mb: 3 }}>
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiVms')}
-                    value={vms.length}
-                    subtitle={t('dashboard.superAdmin.runningCount', { count: vms.filter((v) => v.status === 'RUNNING').length })}
-                    icon={<DnsIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
-                    bgColor="#E4EEF7"
-                    color="#0EA5E9"
-                    onClick={() => navigate('/admin/vms')}
+            <Box sx={{ mb: 4 }}>
+                <SectionHeader
+                    icon={<HistoryIcon sx={{ color: '#0EA5E9', fontSize: 16 }} />}
+                    title={t('dashboard.superAdmin.sectionObservability', 'Observability & Billing')}
+                    bg="#E4EEF7"
+                    fg="#0EA5E9"
                 />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiK8s')}
-                    value={k8sDeployments.length}
-                    subtitle={t('dashboard.superAdmin.k8sDeployments')}
-                    icon={<WidgetsIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
-                    bgColor="#F5F3FF"
-                    color="#5E4B9E"
-                    onClick={() => navigate('/admin/kubernetes')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiBackups')}
-                    value={backups.length}
-                    subtitle={t('dashboard.superAdmin.backupRecords')}
-                    icon={<RestorePageIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
-                    bgColor="#ECFDF5"
-                    color="#2E7A4F"
-                    onClick={() => navigate('/admin/backups')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiAlerts')}
-                    value={alerts.filter((a) => a.status === 'OPEN').length}
-                    subtitle={t('dashboard.superAdmin.openAlertsCount', { count: alerts.length })}
-                    icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
-                    bgColor="#FDF2F4"
-                    color="#A23B4E"
-                    onClick={() => navigate('/admin/alerts')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.superAdmin.kpiCosts')}
-                    value={costs.length}
-                    subtitle={t('dashboard.superAdmin.costRecords')}
-                    icon={<PaymentsIcon sx={{ color: '#B45309', fontSize: 26 }} />}
-                    bgColor="#FFFAF0"
-                    color="#B45309"
-                    onClick={() => navigate('/admin/costs')}
-                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiAuditLogs')}
+                        value={auditLogs.length}
+                        subtitle={t('dashboard.superAdmin.recordedEvents')}
+                        icon={<HistoryIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
+                        bgColor="#E4EEF7"
+                        color="#0EA5E9"
+                        onClick={() => navigate('/admin/audit-logs')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiAlerts')}
+                        value={alerts.filter((a) => a.status === 'OPEN').length}
+                        subtitle={t('dashboard.superAdmin.openAlertsCount', { count: alerts.length })}
+                        icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
+                        bgColor="#FDF2F4"
+                        color="#A23B4E"
+                        onClick={() => navigate('/admin/alerts')}
+                    />
+                    <DashboardKpiCard
+                        title={t('dashboard.superAdmin.kpiCosts')}
+                        value={costs.length}
+                        subtitle={t('dashboard.superAdmin.costRecords')}
+                        icon={<PaymentsIcon sx={{ color: '#B45309', fontSize: 26 }} />}
+                        bgColor="#FFFAF0"
+                        color="#B45309"
+                        onClick={() => navigate('/admin/costs')}
+                    />
+                </Box>
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 2.5, mb: 3 }}>

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -36,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sSecretController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sSecretResponse>> list(
@@ -91,6 +93,7 @@ public class K8sSecretController {
         if (result == null) {
             result = K8sSecretResponse.fromSimulated(dto.name(), ns, type);
         }
+        auditService.record("K8S_SECRET_CREATE", "k8s-secret", dto.name(), "Secret created (name='" + dto.name() + "', namespace='" + ns + "', type='" + type + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -119,6 +122,7 @@ public class K8sSecretController {
         if (result == null) {
             result = K8sSecretResponse.fromSimulated(name, ns, type);
         }
+        auditService.record("K8S_SECRET_UPDATE", "k8s-secret", name, "Secret updated (name='" + name + "', namespace='" + ns + "')");
         return ResponseEntity.ok(result);
     }
 
@@ -128,6 +132,7 @@ public class K8sSecretController {
             @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteSecret(name, TenantNamespaceResolver.resolve(namespace));
+        auditService.record("K8S_SECRET_DELETE", "k8s-secret", name, "Secret deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 
@@ -140,6 +145,7 @@ public class K8sSecretController {
             for (String name : names) {
                 kubernetesClient.deleteSecret(name, namespace);
             }
+            auditService.record("K8S_SECRET_DELETE_BATCH", "k8s-secret", null, "Secrets deleted in batch (names=" + names + ")");
         }
         return ResponseEntity.noContent().build();
     }

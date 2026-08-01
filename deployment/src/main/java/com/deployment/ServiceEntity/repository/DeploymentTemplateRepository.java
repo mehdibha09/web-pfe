@@ -12,4 +12,6 @@ import org.springframework.stereotype.Repository;
 public interface DeploymentTemplateRepository extends JpaRepository<DeploymentTemplate, UUID> {
     List<DeploymentTemplate> findByTenantId(UUID tenantId);
     Page<DeploymentTemplate> findByTenantId(UUID tenantId, Pageable pageable);
+    List<DeploymentTemplate> findByPublicTemplateTrueOrTenantId(UUID tenantId);
+    Page<DeploymentTemplate> findByPublicTemplateTrueOrTenantId(UUID tenantId, Pageable pageable);
 }

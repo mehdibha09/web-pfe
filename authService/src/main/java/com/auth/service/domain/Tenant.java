@@ -29,6 +29,8 @@ public class Tenant {
 
     private String contactEmail;
 
+    private String phone;
+
     private String modeDeployment;
 
     @Enumerated(EnumType.STRING)

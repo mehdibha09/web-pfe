@@ -74,12 +74,20 @@ const ForecastCard = () => {
                         <TextField fullWidth select label={t('costs.serviceEnvironmentId')} value={forecastSeId} onChange={(e) => setForecastSeId(e.target.value)} helperText={t('costs.serviceEnvHelper')}>
                             <MenuItem value="">{t('costs.selectServiceEnvironment')}</MenuItem>
                             {seList.map((se) => (
-                                <MenuItem key={se.id} value={se.id}>{seLabel(se, services, environments)}</MenuItem>
+                                <MenuItem key={se.id} value={se.id}>{seLabel(se)}</MenuItem>
                             ))}
                         </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField fullWidth label={t('costs.period')} value={forecastPeriod} onChange={(e) => setForecastPeriod(e.target.value)} placeholder={t('costs.periodPlaceholder')} />
+                        <TextField
+                            fullWidth
+                            label={t('costs.period')}
+                            type="month"
+                            value={forecastPeriod}
+                            onChange={(e) => setForecastPeriod(e.target.value)}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            helperText={t('costs.periodMonthHelper')}
+                        />
                     </Grid>
                 </Grid>
 

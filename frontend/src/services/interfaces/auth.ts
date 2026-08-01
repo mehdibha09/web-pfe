@@ -23,6 +23,7 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   twoFaEnabled: boolean;
+  platformTenantId?: string | null;
 }
 
 export interface AuthTokens {

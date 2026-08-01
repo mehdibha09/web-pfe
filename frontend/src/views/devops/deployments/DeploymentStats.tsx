@@ -1,4 +1,5 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 import type { DeploymentResponse } from '../../../services/devopsService';
 import { STATUSES, statusColors } from './constants';
@@ -9,8 +10,10 @@ type Props = {
     onStatusFilterChange: (v: string) => void;
 };
 
-const DeploymentStats = ({ deployments, statusFilter, onStatusFilterChange }: Props) => (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 3 }}>
+const DeploymentStats = ({ deployments, statusFilter, onStatusFilterChange }: Props) => {
+    const { t } = useTranslation();
+    return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, mb: 3 }}>
         {STATUSES.map((s) => {
             const count = deployments.filter((d) => d.status === s).length;
             const c = statusColors[s];
@@ -21,27 +24,22 @@ const DeploymentStats = ({ deployments, statusFilter, onStatusFilterChange }: Pr
                     sx={{
                         borderRadius: 3,
                         cursor: 'pointer',
-                        background: isSelected ? (c.gradient || c.bg) : '#fff',
-                        border: isSelected ? 'none' : `1px solid ${c.border}`,
-                        boxShadow: isSelected ? `0 6px 20px ${c.border || 'rgba(0,0,0,0.1)'}` : 'none',
+                        background: isSelected ? c.bg : '#fff',
+                        border: isSelected ? `2px solid ${c.color}` : `1px solid ${c.border || '#E5E7EB'}`,
                         transition: 'all 0.2s ease',
                         '&:hover': {
                             transform: 'translateY(-2px)',
-                            boxShadow: `0 6px 20px ${c.border || 'rgba(0,0,0,0.1)'}`
-                        },
-                        ...(isSelected && {
-                            outline: `2px solid ${c.color}`,
-                            outlineOffset: '2px'
-                        })
+                            boxShadow: `0 4px 12px ${c.border || 'rgba(0,0,0,0.1)'}`
+                        }
                     }}
                     onClick={() => onStatusFilterChange(isSelected ? 'ALL' : s)}
                 >
-                    <CardContent sx={{ py: 2.5, textAlign: 'center' }}>
+                    <CardContent sx={{ py: 2, textAlign: 'center' }}>
                         <Typography
-                            variant="h3"
+                            variant="h4"
                             sx={{
                                 fontWeight: 900,
-                                color: isSelected ? '#fff' : c.color,
+                                color: c.color,
                                 lineHeight: 1,
                                 mb: 0.5
                             }}
@@ -50,20 +48,21 @@ const DeploymentStats = ({ deployments, statusFilter, onStatusFilterChange }: Pr
                         </Typography>
                         <Typography
                             sx={{
-                                color: isSelected ? 'rgba(255,255,255,0.85)' : c.color,
+                                color: c.color,
                                 fontWeight: 700,
-                                fontSize: 13,
+                                fontSize: 11,
                                 letterSpacing: 0.5,
                                 textTransform: 'uppercase'
                             }}
                         >
-                            {s}
+                            {t(`deployments.statusLabels.${s}`)}
                         </Typography>
                     </CardContent>
                 </Card>
             );
         })}
     </Box>
-);
+    );
+};
 
 export default DeploymentStats;

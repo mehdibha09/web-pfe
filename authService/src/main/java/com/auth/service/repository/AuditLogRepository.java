@@ -12,6 +12,7 @@ import com.auth.service.domain.AuditLog;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findByTenant_IdAndTimestampBetween(UUID tenantId, Instant from, Instant to);
+    List<AuditLog> findByTimestampBetween(Instant from, Instant to);
     List<AuditLog> findByTenant_IdOrderByTimestampDesc(UUID tenantId);
 
         @Query("""
@@ -23,4 +24,32 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
                         order by lower(a.resource)
                         """)
         List<String> findDistinctResourcesByTenantId(@Param("tenantId") UUID tenantId);
+
+        @Query("""
+                        select distinct lower(a.resource)
+                        from AuditLog a
+                        where a.resource is not null
+                            and trim(a.resource) <> ''
+                        order by lower(a.resource)
+                        """)
+        List<String> findDistinctResources();
+
+        @Query("""
+                        select distinct lower(a.action)
+                        from AuditLog a
+                        where a.tenant.id = :tenantId
+                            and a.action is not null
+                            and trim(a.action) <> ''
+                        order by lower(a.action)
+                        """)
+        List<String> findDistinctActionsByTenantId(@Param("tenantId") UUID tenantId);
+
+        @Query("""
+                        select distinct lower(a.action)
+                        from AuditLog a
+                        where a.action is not null
+                            and trim(a.action) <> ''
+                        order by lower(a.action)
+                        """)
+        List<String> findDistinctActions();
 }

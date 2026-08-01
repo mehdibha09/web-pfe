@@ -8,11 +8,24 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import PersonIcon from '@mui/icons-material/Person';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
-import { listAuditLogsPaginated, listAuditResources } from '../../../services/adminService';
+import { listAuditActions, listAuditLogsPaginated, listAuditResources } from '../../../services/adminService';
 import { C } from '../../../theme/tokens';
+
+const fmtAuditDate = (iso?: string) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
 
 type AuditLogItem = {
     id: string;
@@ -20,8 +33,17 @@ type AuditLogItem = {
     action: string;
     resource: string;
     userId: string;
+    userEmail: string;
     details: string;
 };
+
+const COMMON_RESOURCES = [
+    'USER', 'ROLE', 'PERMISSION', 'TENANT', 'SESSION',
+    'DEPLOYMENT', 'SERVICE', 'ENVIRONMENT', 'SERVICE_ENVIRONMENT',
+    'VM', 'BACKUP', 'K8S', 'NAMESPACE',
+    'METRIC', 'COST', 'QUOTA', 'ALERT', 'NOTIFICATION',
+    'AUDIT', 'SSH', 'PRICE_CONFIG', 'FORECAST'
+];
 
 const AuditLogsPage = () => {
     const { t } = useTranslation();
@@ -40,6 +62,7 @@ const AuditLogsPage = () => {
     const [logs, setLogs] = useState<AuditLogItem[]>([]);
     const [resources, setResources] = useState<string[]>([]);
     const [allActions, setAllActions] = useState<string[]>([]);
+    const [userOptions, setUserOptions] = useState<{ id: string; email: string }[]>([]);
     const [total, setTotal] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const PAGE_SIZE = 10;
@@ -60,12 +83,30 @@ const AuditLogsPage = () => {
             timestamp: log.timestamp,
             action: log.action || '-',
             resource: log.resource || '-',
-            userId: String(log.userId || '-'),
+            userId: String(log.userId || ''),
+            userEmail: log.userEmail || '-',
             details: log.details || '-'
         }));
 
         setLogs(mapped);
         setTotal(response.total);
+
+        if (allActions.length === 0) {
+            const actions = [...new Set(mapped.map((l) => l.action).filter(Boolean))].sort();
+            setAllActions(actions);
+        }
+
+        const usersMap = new Map<string, { id: string; email: string }>();
+        mapped.filter((l) => l.userId).forEach((l) => {
+            if (l.userId) usersMap.set(l.userId, { id: l.userId, email: l.userEmail || '' });
+        });
+        const users = [...usersMap.values()];
+        setUserOptions((prev) => {
+            const merged = new Map(prev.map((u) => [u.id, u]));
+            users.forEach((u) => merged.set(u.id, u));
+            return [...merged.values()];
+        });
+
         setLoading(false);
     };
 
@@ -76,18 +117,24 @@ const AuditLogsPage = () => {
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                const [resourcesResponse] = await Promise.all([
-                    listAuditResources()
+                const [resourcesResponse, actionsResponse] = await Promise.all([
+                    listAuditResources(),
+                    listAuditActions()
                 ]);
                 setResources(resourcesResponse);
-                setAllActions([]);
+                const actions = [...new Set(actionsResponse.map((a) => a.toUpperCase()).filter(Boolean))].sort();
+                setAllActions(actions);
             } catch {
                 // silently fail
             }
         };
-
         loadInitialData();
     }, []);
+
+    const mergedResources = useMemo(() => {
+        const set = new Set([...COMMON_RESOURCES, ...resources.map((r) => r.toUpperCase())]);
+        return [...set].sort();
+    }, [resources]);
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -132,6 +179,8 @@ const AuditLogsPage = () => {
         return 'linear-gradient(90deg, #6B7280, #9CA3AF)';
     };
 
+    const selectedUserEmail = userOptions.find((u) => u.id === userId)?.email || '';
+
     return (
         <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
@@ -170,10 +219,10 @@ const AuditLogsPage = () => {
             </Box>
 
             <Card sx={{ borderRadius: 3, mb: 3, position: 'relative', overflow: 'visible' }}>
-                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EC4899, #F472B6)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                 <CardContent sx={{ pt: 3 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <FilterListIcon sx={{ color: '#0EA5E9' }} />
+                        <FilterListIcon sx={{ color: '#EC4899' }} />
                         {t('admin.auditLogs.filterLogs')}
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr) auto auto' }, gap: 2 }}>
@@ -184,6 +233,12 @@ const AuditLogsPage = () => {
                             value={from}
                             onChange={(event) => setFrom(event.target.value)}
                             size="small"
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    '&.Mui-focused fieldset': { borderColor: '#EC4899' }
+                                },
+                                '& label.Mui-focused': { color: '#EC4899' }
+                            }}
                         />
                         <TextField
                             label={t('admin.auditLogs.to')}
@@ -192,6 +247,12 @@ const AuditLogsPage = () => {
                             value={to}
                             onChange={(event) => setTo(event.target.value)}
                             size="small"
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    '&.Mui-focused fieldset': { borderColor: '#EC4899' }
+                                },
+                                '& label.Mui-focused': { color: '#EC4899' }
+                            }}
                         />
                         <TextField
                             select
@@ -215,18 +276,26 @@ const AuditLogsPage = () => {
                             size="small"
                         >
                             <MenuItem value="">{t('common.all')}</MenuItem>
-                            {resources.map((resourceItem) => (
+                            {mergedResources.map((resourceItem) => (
                                 <MenuItem key={resourceItem} value={resourceItem}>
                                     {resourceItem}
                                 </MenuItem>
                             ))}
                         </TextField>
                         <TextField
+                            select
                             label={t('admin.auditLogs.userId')}
                             value={userId}
                             onChange={(event) => setUserId(event.target.value)}
                             size="small"
-                        />
+                        >
+                            <MenuItem value="">{t('common.all')}</MenuItem>
+                            {userOptions.map((u) => (
+                                <MenuItem key={u.id} value={u.id}>
+                                    {u.email || u.id}
+                                </MenuItem>
+                            ))}
+                        </TextField>
                         <Button onClick={applyFilter} startIcon={<SearchIcon />}>{t('common.filter')}</Button>
                         <Button onClick={clearFilter} variant="text" sx={{ color: C.muted, background: 'transparent', '&:hover': { background: 'rgba(0,0,0,0.05)' } }}>{t('common.clear')}</Button>
                     </Box>
@@ -280,19 +349,22 @@ const AuditLogsPage = () => {
                                             </Typography>
                                             <Typography sx={{ color: C.muted }}>{log.resource}</Typography>
                                         </Box>
-                                        <Chip
-                                            label={log.userId}
-                                            size="small"
-                                            sx={{ backgroundColor: ac.bg, color: ac.color, fontWeight: 700, flexShrink: 0 }}
-                                        />
+                                        {log.userEmail && log.userEmail !== '-' && (
+                                            <Chip
+                                                icon={<PersonIcon sx={{ fontSize: 12 }} />}
+                                                label={log.userEmail}
+                                                size="small"
+                                                sx={{ backgroundColor: ac.bg, color: ac.color, fontWeight: 600, flexShrink: 0, fontSize: 11 }}
+                                            />
+                                        )}
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
                                         <Box>
                                             <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>
                                                 {t('admin.auditLogs.timestamp')}
                                             </Typography>
-                                            <Typography variant="body2" sx={{ color: C.text }}>
-                                                {log.timestamp}
+                                            <Typography variant="body2" sx={{ color: C.text, fontFamily: 'monospace', fontSize: 12 }}>
+                                                {fmtAuditDate(log.timestamp)}
                                             </Typography>
                                         </Box>
                                     </Box>

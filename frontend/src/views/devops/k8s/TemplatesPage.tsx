@@ -1,11 +1,12 @@
 import {
     Add as AddIcon, Close as CloseIcon, Delete as DeleteIcon, Description as TemplateIcon,
-    Edit as EditIcon, Refresh as RefreshIcon, Search as SearchIcon
+    Edit as EditIcon, Lock as LockIcon, Public as PublicIcon, Refresh as RefreshIcon,
+    Search as SearchIcon
 } from '@mui/icons-material';
 import {
     Alert, Box, Button, Card, CardContent, CardActions, Chip, Dialog, DialogActions,
-    DialogContent, DialogTitle, Fade, IconButton, InputAdornment, MenuItem, Skeleton,
-    TextField, Tooltip, Typography
+    DialogContent, DialogTitle, Divider, Fade, FormControlLabel, IconButton, InputAdornment,
+    MenuItem, Radio, RadioGroup, Skeleton, TextField, Tooltip, Typography
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,8 @@ const SkeletonCard = () => (
 
 const defaultForm = (tenantId: string): DeploymentTemplateRequest => ({
     name: '', description: '', dockerImage: '', port: 80, tenantId,
-    protocol: 'TCP', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always'
+    protocol: 'TCP', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always',
+    publicTemplate: false
 });
 
 const TemplatesPage = () => {
@@ -36,6 +38,7 @@ const TemplatesPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const [visibilityFilter, setVisibilityFilter] = useState('');
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,7 +58,7 @@ const TemplatesPage = () => {
             setTemplates(result.items);
             setTotalElements(result.total);
         } catch (e: unknown) {
-            setError(getErrorMessage(e, 'Failed to load templates'));
+            setError(getErrorMessage(e, t('k8s.templates.saveFailed')));
         } finally { setLoading(false); }
     };
 
@@ -65,9 +68,13 @@ const TemplatesPage = () => {
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
-        if (!q) return templates;
-        return templates.filter((t) => [t.name, t.description, t.dockerImage].join(' ').toLowerCase().includes(q));
-    }, [templates, search]);
+        return templates.filter((tl) => {
+            const matchesSearch = !q || [tl.name, tl.description, tl.dockerImage].join(' ').toLowerCase().includes(q);
+            const isPublic = !!tl.publicTemplate;
+            const matchesVis = visibilityFilter === '' || (visibilityFilter === 'PUBLIC' ? isPublic : !isPublic);
+            return matchesSearch && matchesVis;
+        });
+    }, [templates, search, visibilityFilter]);
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
@@ -89,27 +96,28 @@ const TemplatesPage = () => {
             protocol: tpl.protocol || 'TCP', imagePullPolicy: tpl.imagePullPolicy || 'IfNotPresent',
             serviceType: tpl.serviceType || 'ClusterIP', restartPolicy: tpl.restartPolicy || 'Always',
             livenessProbe: tpl.livenessProbe || '', readinessProbe: tpl.readinessProbe || '',
-            startupProbe: tpl.startupProbe || ''
+            startupProbe: tpl.startupProbe || '',
+            publicTemplate: !!tpl.publicTemplate
         });
         setDialogOpen(true);
     };
 
     const handleSave = async () => {
-        if (!form.name.trim()) return toast.error('Name is required');
-        if (!form.dockerImage.trim()) return toast.error('Docker image is required');
+        if (!form.name.trim()) return toast.error(t('k8s.templates.nameRequired'));
+        if (!form.dockerImage.trim()) return toast.error(t('k8s.templates.dockerRequired'));
         setSaving(true);
         try {
             if (editingId) {
                 await k8sService.updateTemplate(editingId, form);
-                toast.success('Template updated');
+                toast.success(t('k8s.templates.updatedToast'));
             } else {
                 await k8sService.createTemplate(form);
-                toast.success('Template created');
+                toast.success(t('k8s.templates.createdToast'));
             }
             setDialogOpen(false);
             await load(true);
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to save template'));
+            toast.error(getErrorMessage(e, t('k8s.templates.saveFailed')));
         } finally { setSaving(false); }
     };
 
@@ -117,11 +125,11 @@ const TemplatesPage = () => {
         if (!deleteTarget) return;
         try {
             await k8sService.deleteTemplate(deleteTarget.id);
-            toast.success('Template deleted');
+            toast.success(t('k8s.templates.deletedToast'));
             setDeleteTarget(null);
             await load(true);
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to delete template'));
+            toast.error(getErrorMessage(e, t('k8s.templates.deleteFailed')));
         }
     };
 
@@ -135,8 +143,8 @@ const TemplatesPage = () => {
                         <TemplateIcon sx={{ color: '#fff', fontSize: 22 }} />
                     </Box>
                     <Box>
-                        <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>Deployment Templates</Typography>
-                        <Typography sx={{ color: C.muted, fontSize: 14 }}>{totalElements} templates</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.templates.title')}</Typography>
+                        <Typography sx={{ color: C.muted, fontSize: 14 }}>{t('k8s.templates.subtitle')}</Typography>
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -147,15 +155,27 @@ const TemplatesPage = () => {
                             </IconButton>
                         </span>
                     </Tooltip>
-                    <MyCustomButton startIcon={<AddIcon />} onClick={openCreate} sx={{ px: 2.5 }}>New Template</MyCustomButton>
+                    <MyCustomButton startIcon={<AddIcon />} onClick={openCreate} sx={{ px: 2.5 }}>{t('k8s.templates.new')}</MyCustomButton>
                 </Box>
             </Box>
 
             <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 3 }}>
                 <CardContent sx={{ py: '14px !important' }}>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <TextField size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search templates..." sx={{ flex: 1 }}
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <TextField size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('k8s.templates.search')} sx={{ flex: 1, minWidth: 200 }}
                             slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: C.subtle, fontSize: 18 }} /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></InputAdornment> : null } }} />
+                        <TextField
+                            size="small"
+                            select
+                            value={visibilityFilter}
+                            onChange={(e) => setVisibilityFilter(e.target.value)}
+                            slotProps={{ select: { displayEmpty: true } }}
+                            sx={{ minWidth: 170 }}
+                        >
+                            <MenuItem value="">{t('k8s.templates.public')} + {t('k8s.templates.private')}</MenuItem>
+                            <MenuItem value="PUBLIC"><PublicIcon sx={{ fontSize: 16, mr: 0.5 }} /> {t('k8s.templates.public')}</MenuItem>
+                            <MenuItem value="PRIVATE"><LockIcon sx={{ fontSize: 16, mr: 0.5 }} /> {t('k8s.templates.private')}</MenuItem>
+                        </TextField>
                         <Chip label={`${filtered.length} / ${totalElements}`} size="small" sx={{ backgroundColor: '#D1FAE5', color: '#065F46', fontWeight: 700, fontSize: 12 }} />
                     </Box>
                 </CardContent>
@@ -171,9 +191,9 @@ const TemplatesPage = () => {
                 <Fade in>
                     <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
                         <TemplateIcon sx={{ fontSize: 48, color: C.subtle, mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>No templates</Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>Create your first deployment template</Typography>
-                        <MyCustomButton startIcon={<AddIcon />} onClick={openCreate}>New Template</MyCustomButton>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.templates.noTemplates')}</Typography>
+                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{t('k8s.templates.createFirst')}</Typography>
+                        <MyCustomButton startIcon={<AddIcon />} onClick={openCreate}>{t('k8s.templates.new')}</MyCustomButton>
                     </Card>
                 </Fade>
             )}
@@ -181,88 +201,144 @@ const TemplatesPage = () => {
             {!loading && filtered.length > 0 && (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }, gap: 2.5 }}>
-                    {filtered.map((tpl) => (
-                        <Card key={tpl.id} sx={{ borderRadius: 3, border: `1px solid ${C.border}`, backgroundColor: '#fff', transition: 'transform 0.2s ease', '&:hover': { transform: 'translateY(-2px)' } }}>
-                            <Box sx={{ height: 4, background: 'linear-gradient(90deg, #5FB985, #3F9B66)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                            <CardContent sx={{ p: 2.5 }}>
+                    {filtered.map((tpl) => {
+                        const isPublic = !!tpl.publicTemplate;
+                        return (
+                        <Card key={tpl.id} sx={{ borderRadius: 3, border: `1px solid ${C.border}`, backgroundColor: '#fff', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s ease', '&:hover': { transform: 'translateY(-2px)' } }}>
+                            <Box sx={{ height: 4, background: isPublic ? 'linear-gradient(90deg, #E4477D, #BE185D)' : 'linear-gradient(90deg, #5FB985, #3F9B66)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                            <CardContent sx={{ p: 2.5, flex: 1 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                                    <Box sx={{ width: 40, height: 40, borderRadius: 2, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <TemplateIcon sx={{ color: '#065F46', fontSize: 20 }} />
+                                    <Box sx={{ width: 40, height: 40, borderRadius: 2, background: isPublic ? '#FCE7F3' : '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        {isPublic ? <PublicIcon sx={{ color: '#BE185D', fontSize: 20 }} /> : <TemplateIcon sx={{ color: '#065F46', fontSize: 20 }} />}
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h6" sx={{ fontWeight: 800, color: C.text, fontSize: 15 }}>{tpl.name}</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: C.text, fontSize: 15 }}>{tpl.name}</Typography>
+                                            <Chip
+                                                icon={isPublic ? <PublicIcon sx={{ fontSize: 12 }} /> : <LockIcon sx={{ fontSize: 12 }} />}
+                                                label={isPublic ? t('k8s.templates.public') : t('k8s.templates.private')}
+                                                size="small"
+                                                sx={{ height: 20, fontSize: 9, fontWeight: 700, backgroundColor: isPublic ? '#FCE7F3' : '#D1FAE5', color: isPublic ? '#BE185D' : '#065F46' }}
+                                            />
+                                        </Box>
                                         <Typography sx={{ color: C.muted, fontSize: 12, mt: 0.2 }}>{tpl.description || '-'}</Typography>
                                         <Typography sx={{ color: C.subtle, fontFamily: 'monospace', fontSize: 11, mt: 1 }}>{tpl.dockerImage}</Typography>
                                     </Box>
                                 </Box>
                                 <Box sx={{ mt: 1.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                    <Chip label={`Port ${tpl.port}`} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#F3F4F6', color: '#374151' }} />
+                                    <Chip label={`${t('k8s.templates.port')} ${tpl.port}`} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#F3F4F6', color: '#374151' }} />
                                     {tpl.cpuLimit && <Chip label={`CPU: ${tpl.cpuLimit}`} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#F3F4F6', color: '#374151' }} />}
                                     {tpl.memoryLimit && <Chip label={`Mem: ${tpl.memoryLimit}`} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#F3F4F6', color: '#374151' }} />}
-                                    <Chip label={tpl.protocol} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#E4EEF7', color: '#2E5C8A' }} />
+                                    <Chip label={tpl.protocol} size="small" sx={{ height: 18, fontSize: 10, backgroundColor: '#FCE7F3', color: '#BE185D' }} />
                                 </Box>
-                                {tpl.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 1 }}>Created: {fmtDate(tpl.createdAt)}</Typography>}
+                                {tpl.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 1 }}>{t('k8s.templates.createdAt')}: {fmtDate(tpl.createdAt)}</Typography>}
                             </CardContent>
                             <CardActions sx={{ px: 2.5, py: 1.5, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, background: '#FAFAFA', gap: 0.5 }}>
-                                <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(tpl)} sx={{ color: '#065F46' }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                                <Tooltip title="Delete"><IconButton size="small" onClick={() => setDeleteTarget(tpl)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                <Tooltip title={t('common.edit')}><IconButton size="small" onClick={() => openEdit(tpl)} sx={{ color: '#065F46' }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(tpl)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
                             </CardActions>
                         </Card>
-                    ))}
+                        );
+                    })}
                 </Box>
                 <PaginationBar page={page + 1} pageCount={pageCount} total={totalElements} onPageChange={(p) => setPage(p - 1)} />
                 </>
             )}
 
             {/* Create/Edit Dialog */}
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{editingId ? 'Edit Template' : 'New Template'}</span>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 32, height: 32, borderRadius: 2, background: 'linear-gradient(135deg, #5FB985, #3F9B66)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <TemplateIcon sx={{ color: '#fff', fontSize: 18 }} />
+                        </Box>
+                        {editingId ? t('k8s.templates.edit') : t('k8s.templates.new')}
+                    </Box>
                     <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'grid', gap: 1.5, mt: 1 }}>
-                        <TextField size="small" label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-                        <TextField size="small" label="Description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} multiline rows={2} />
-                        <TextField size="small" label="Docker Image" value={form.dockerImage} onChange={(e) => setForm((p) => ({ ...p, dockerImage: e.target.value }))} required placeholder="nginx:1.25" />
-                        <TextField size="small" type="number" label="Port" value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" label="CPU Request" value={form.cpuRequest} onChange={(e) => setForm((p) => ({ ...p, cpuRequest: e.target.value }))} placeholder="500m" />
-                            <TextField size="small" label="CPU Limit" value={form.cpuLimit} onChange={(e) => setForm((p) => ({ ...p, cpuLimit: e.target.value }))} placeholder="1" />
-                            <TextField size="small" label="Memory Request" value={form.memoryRequest} onChange={(e) => setForm((p) => ({ ...p, memoryRequest: e.target.value }))} placeholder="512Mi" />
-                            <TextField size="small" label="Memory Limit" value={form.memoryLimit} onChange={(e) => setForm((p) => ({ ...p, memoryLimit: e.target.value }))} placeholder="1Gi" />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TemplateIcon sx={{ fontSize: 16, color: '#3F9B66' }} /> {t('k8s.templates.templateInfo')}
+                        </Typography>
+                        <TextField size="small" label={t('k8s.templates.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+                        <TextField size="small" label={t('k8s.templates.description')} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} multiline rows={2} />
+                        <TextField size="small" label={t('k8s.templates.dockerImage')} value={form.dockerImage} onChange={(e) => setForm((p) => ({ ...p, dockerImage: e.target.value }))} required placeholder="nginx:1.25" />
+
+                        <Divider sx={{ my: 0.5 }} />
+
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PublicIcon sx={{ fontSize: 16, color: '#3F9B66' }} /> {t('k8s.templates.visibility')}
+                        </Typography>
+                        <RadioGroup
+                            row
+                            value={form.publicTemplate ? 'PUBLIC' : 'PRIVATE'}
+                            onChange={(e) => setForm((p) => ({ ...p, publicTemplate: e.target.value === 'PUBLIC' }))}
+                        >
+                            <FormControlLabel value="PRIVATE" control={<Radio size="small" />} label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <LockIcon sx={{ fontSize: 16, color: '#065F46' }} /> {t('k8s.templates.private')}
+                                </Box>
+                            } />
+                            <FormControlLabel value="PUBLIC" control={<Radio size="small" />} label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <PublicIcon sx={{ fontSize: 16, color: '#BE185D' }} /> {t('k8s.templates.public')}
+                                </Box>
+                            } />
+                        </RadioGroup>
+                        <Typography variant="caption" sx={{ color: C.muted }}>
+                            {t('k8s.templates.visibilityHint')}
+                        </Typography>
+
+                        <Divider sx={{ my: 0.5 }} />
+
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.templates.resources')}</Typography>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 1.5 }}>
+                            <TextField size="small" label={t('k8s.templates.cpuRequest')} value={form.cpuRequest} onChange={(e) => setForm((p) => ({ ...p, cpuRequest: e.target.value }))} placeholder="500m" />
+                            <TextField size="small" label={t('k8s.templates.cpuLimit')} value={form.cpuLimit} onChange={(e) => setForm((p) => ({ ...p, cpuLimit: e.target.value }))} placeholder="1" />
+                            <TextField size="small" label={t('k8s.templates.memoryRequest')} value={form.memoryRequest} onChange={(e) => setForm((p) => ({ ...p, memoryRequest: e.target.value }))} placeholder="512Mi" />
+                            <TextField size="small" label={t('k8s.templates.memoryLimit')} value={form.memoryLimit} onChange={(e) => setForm((p) => ({ ...p, memoryLimit: e.target.value }))} placeholder="1Gi" />
                         </Box>
-                        <TextField size="small" select label="Protocol" value={form.protocol} onChange={(e) => setForm((p) => ({ ...p, protocol: e.target.value }))}>
-                            {PROTOCOLS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                        </TextField>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" select label="Image Pull" value={form.imagePullPolicy} onChange={(e) => setForm((p) => ({ ...p, imagePullPolicy: e.target.value }))}>
-                                {IMAGE_PULL_POLICIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+
+                        <Divider sx={{ my: 0.5 }} />
+
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.templates.networking')}</Typography>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                            <TextField size="small" type="number" label={t('k8s.templates.port')} value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
+                            <TextField size="small" select label={t('k8s.templates.protocol')} value={form.protocol} onChange={(e) => setForm((p) => ({ ...p, protocol: e.target.value }))}>
+                                {PROTOCOLS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                             </TextField>
-                            <TextField size="small" select label="Service Type" value={form.serviceType} onChange={(e) => setForm((p) => ({ ...p, serviceType: e.target.value }))}>
+                            <TextField size="small" select label={t('k8s.templates.serviceType')} value={form.serviceType} onChange={(e) => setForm((p) => ({ ...p, serviceType: e.target.value }))}>
                                 {SERVICE_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                             </TextField>
-                            <TextField size="small" select label="Restart Policy" value={form.restartPolicy} onChange={(e) => setForm((p) => ({ ...p, restartPolicy: e.target.value }))}>
+                            <TextField size="small" select label={t('k8s.templates.imagePullPolicy')} value={form.imagePullPolicy} onChange={(e) => setForm((p) => ({ ...p, imagePullPolicy: e.target.value }))}>
+                                {IMAGE_PULL_POLICIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                            </TextField>
+                            <TextField size="small" select label={t('k8s.templates.restartPolicy')} value={form.restartPolicy} onChange={(e) => setForm((p) => ({ ...p, restartPolicy: e.target.value }))}>
                                 {RESTART_POLICIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                             </TextField>
                         </Box>
-                        <TextField size="small" label="Labels" value={form.labels} onChange={(e) => setForm((p) => ({ ...p, labels: e.target.value }))} placeholder="app=web,version=v1" helperText="Comma-separated key=value" />
-                        <TextField size="small" label="Environment Variables" value={form.envVars} onChange={(e) => setForm((p) => ({ ...p, envVars: e.target.value }))} placeholder="KEY1=val1,KEY2=val2" multiline rows={2} helperText="Comma-separated KEY=value pairs" />
+
+                        <Divider sx={{ my: 0.5 }} />
+
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.templates.configData')}</Typography>
+                        <TextField size="small" label={t('k8s.templates.labels')} value={form.labels} onChange={(e) => setForm((p) => ({ ...p, labels: e.target.value }))} placeholder="app=web,version=v1" helperText={t('k8s.templates.labelsHint')} />
+                        <TextField size="small" label={t('k8s.templates.envVars')} value={form.envVars} onChange={(e) => setForm((p) => ({ ...p, envVars: e.target.value }))} placeholder="KEY1=val1,KEY2=val2" multiline rows={2} helperText={t('k8s.templates.envVarsHint')} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                    <MyCustomButton onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update' : 'Create'}</MyCustomButton>
+                    <Button variant="outlined" onClick={() => setDialogOpen(false)}>{t('k8s.templates.cancel')}</Button>
+                    <MyCustomButton onClick={handleSave} disabled={saving}>{saving ? t('k8s.templates.creating') : editingId ? t('k8s.templates.save') : t('common.create')}</MyCustomButton>
                 </DialogActions>
             </Dialog>
 
             {/* Delete dialog */}
             <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700 }}>Delete Template</DialogTitle>
-                <DialogContent><Typography sx={{ color: C.muted }}>Delete "{deleteTarget?.name}"?</Typography></DialogContent>
+                <DialogTitle sx={{ fontWeight: 700 }}>{t('k8s.templates.deleteTitle')}</DialogTitle>
+                <DialogContent><Typography sx={{ color: C.muted }}>{t('k8s.templates.deleteConfirm', { name: deleteTarget?.name })}</Typography></DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={handleDelete}>Delete</Button>
+                    <Button variant="outlined" onClick={() => setDeleteTarget(null)}>{t('k8s.templates.cancel')}</Button>
+                    <Button variant="contained" color="error" onClick={handleDelete}>{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

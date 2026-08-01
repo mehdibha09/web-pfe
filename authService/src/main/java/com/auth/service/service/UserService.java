@@ -1,5 +1,6 @@
 package com.auth.service.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -140,6 +141,10 @@ public class UserService {
         ensureCanManageUsers(currentUser);
         String email = normalizeEmail(request.email());
 
+        if (!userRepository.findByEmail(email).isEmpty()) {
+            throw new ConflictException("Email already exists");
+        }
+
         userRepository.findByTenant_IdAndEmail(currentUser.getTenant().getId(), email)
                 .ifPresent(existing -> {
                     throw new ConflictException("User email already exists in this tenant");
@@ -165,6 +170,9 @@ public class UserService {
         if (request.email() != null && !request.email().isBlank()) {
             String newEmail = normalizeEmail(request.email());
             if (!newEmail.equals(user.getEmail())) {
+                if (!userRepository.findByEmail(newEmail).isEmpty()) {
+                    throw new ConflictException("Email already exists");
+                }
                 userRepository.findByTenant_IdAndEmail(currentUser.getTenant().getId(), newEmail)
                         .ifPresent(existing -> {
                             throw new ConflictException("User email already exists in this tenant");
@@ -200,10 +208,19 @@ public class UserService {
             throw new ForbiddenException("Super-admin account cannot be deleted");
         }
 
-        user.setStatus(UserStatus.DELETED);
-        userRepository.save(user);
+        userRoleRepository.findByUser_Id(user.getId()).forEach(userRole -> {
+            userRoleRepository.delete(userRole);
+        });
 
-        writeAudit(currentUser, "USER_DELETE", "User marked as deleted", user.getId().toString());
+        List<Session> sessions = sessionRepository.findByUser_Id(user.getId());
+        for (Session session : sessions) {
+            session.setRevokedAt(Instant.now());
+            sessionRepository.save(session);
+        }
+
+        userRepository.delete(user);
+
+        writeAudit(currentUser, "USER_DELETE", "User deleted", user.getId().toString());
         return new AuthActionResponse("User deleted successfully");
     }
 

@@ -116,9 +116,9 @@ export const serviceEnvironmentLabel = (
     services: ServiceResponse[],
     environments: EnvironmentResponse[]
 ) => {
-    const serviceName = services.find((s) => s.id === relation.serviceId)?.name ?? relation.serviceId.slice(0, 8);
+    const serviceName = services.find((s) => s.id === relation.serviceId)?.name ?? '—';
     const environmentName =
-        environments.find((e) => e.id === relation.environmentId)?.name ?? relation.environmentId.slice(0, 8);
+        environments.find((e) => e.id === relation.environmentId)?.name ?? '—';
 
     return `${serviceName} / ${environmentName}`;
 };

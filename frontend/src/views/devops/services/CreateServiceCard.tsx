@@ -14,7 +14,7 @@ type CreateServiceCardProps = {
 const CreateServiceCard = ({ onCreated }: CreateServiceCardProps) => {
     const tenantId = getStoredUser()?.tenantId || '';
     const [name, setName] = useState('');
-    const [type, setType] = useState('backend');
+    const [type, setType] = useState('WEB');
     const [status, setStatus] = useState('ACTIVE');
 
     const handleCreate = async () => {
@@ -53,9 +53,14 @@ const CreateServiceCard = ({ onCreated }: CreateServiceCardProps) => {
                 >
                     <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
                     <TextField select label="Type" value={type} onChange={(e) => setType(e.target.value)}>
-                        <MenuItem value="backend">backend</MenuItem>
-                        <MenuItem value="frontend">frontend</MenuItem>
-                        <MenuItem value="worker">worker</MenuItem>
+                        <MenuItem value="WEB">WEB</MenuItem>
+                        <MenuItem value="API">API</MenuItem>
+                        <MenuItem value="WORKER">WORKER</MenuItem>
+                        <MenuItem value="DATABASE">DATABASE</MenuItem>
+                        <MenuItem value="CACHE">CACHE</MenuItem>
+                        <MenuItem value="QUEUE">QUEUE</MenuItem>
+                        <MenuItem value="STORAGE">STORAGE</MenuItem>
+                        <MenuItem value="OTHER">OTHER</MenuItem>
                     </TextField>
                     <TextField select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
                         <MenuItem value="ACTIVE">ACTIVE</MenuItem>

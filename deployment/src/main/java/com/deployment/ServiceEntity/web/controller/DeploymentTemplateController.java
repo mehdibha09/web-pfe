@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.deployment.ServiceEntity.config.UserContext;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.DeploymentTemplateService;
 import com.deployment.ServiceEntity.web.dto.k8s.DeploymentTemplateRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.DeploymentTemplateResponse;
@@ -28,11 +29,14 @@ import lombok.RequiredArgsConstructor;
 public class DeploymentTemplateController {
 
     private final DeploymentTemplateService service;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<DeploymentTemplateResponse> create(@Valid @RequestBody DeploymentTemplateRequest dto) {
         UserContext.requirePermission("DEPLOYMENT_MANAGE");
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto));
+        DeploymentTemplateResponse created = service.create(dto);
+        auditService.record("DEPLOYMENT_TEMPLATE_CREATE", "deployment-template", created.id().toString(), "Deployment template created (name='" + created.name() + "')");
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping
@@ -50,13 +54,16 @@ public class DeploymentTemplateController {
     @PutMapping("/{id}")
     public ResponseEntity<DeploymentTemplateResponse> update(@PathVariable UUID id, @Valid @RequestBody DeploymentTemplateRequest dto) {
         UserContext.requirePermission("DEPLOYMENT_MANAGE");
-        return ResponseEntity.ok(service.update(id, dto));
+        DeploymentTemplateResponse updated = service.update(id, dto);
+        auditService.record("DEPLOYMENT_TEMPLATE_UPDATE", "deployment-template", updated.id().toString(), "Deployment template updated (name='" + updated.name() + "')");
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("DEPLOYMENT_MANAGE");
         service.delete(id);
+        auditService.record("DEPLOYMENT_TEMPLATE_DELETE", "deployment-template", id.toString(), "Deployment template deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 }

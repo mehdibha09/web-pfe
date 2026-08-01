@@ -94,6 +94,7 @@ export interface DeploymentTemplate {
   readinessProbe?: string;
   startupProbe?: string;
   tenantId: string;
+  publicTemplate?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -117,6 +118,7 @@ export interface DeploymentTemplateRequest {
   readinessProbe?: string;
   startupProbe?: string;
   tenantId: string;
+  publicTemplate?: boolean;
 }
 
 export interface NetworkPolicyRule {

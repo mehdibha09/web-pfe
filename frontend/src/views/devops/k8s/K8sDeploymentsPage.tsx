@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
 import { getStoredUser } from '../../../services/authStorage';
+import { canManageK8s } from '../../../services/authorization';
 import {
     listEnvironments,
     listServiceEnvironments,
@@ -114,6 +115,8 @@ const K8sDeploymentsPage = () => {
     const [rollbackRevision, setRollbackRevision] = useState(0);
     const [rollbackSaving, setRollbackSaving] = useState(false);
 
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageK8s(currentUser) : false;
     const [serviceEnvs, setServiceEnvs] = useState<ServiceEnvironmentResponse[]>([]);
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
@@ -374,7 +377,7 @@ const K8sDeploymentsPage = () => {
                         <Typography sx={{ color: C.muted, fontSize: 14 }}>
                             {t('k8s.deploymentCount', { count: deployments.length })}
                             {hasPending && (
-                                <Chip size="small" icon={<AutorenewIcon sx={{ fontSize: 12, animation: 'spin 1s linear infinite', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />} label={t('k8s.autoRefreshing')} sx={{ ml: 1, height: 20, fontSize: 10, fontWeight: 700, backgroundColor: '#E4EEF7', color: '#2E5C8A', '& .MuiChip-icon': { ml: 0.5 } }} />
+                                <Chip size="small" icon={<AutorenewIcon sx={{ fontSize: 12, animation: 'spin 1s linear infinite', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />} label={t('k8s.autoRefreshing')} sx={{ ml: 1, height: 20, fontSize: 10, fontWeight: 700, backgroundColor: '#FCE7F3', color: '#BE185D', '& .MuiChip-icon': { ml: 0.5 } }} />
                             )}
                         </Typography>
                     </Box>
@@ -388,22 +391,24 @@ const K8sDeploymentsPage = () => {
                             </IconButton>
                         </span>
                     </Tooltip>
+                    {allowManage && (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`, borderRadius: 2, fontWeight: 700, px: 2.5, boxShadow: '0 4px 12px rgba(228,71,125,0.3)', '&:hover': { boxShadow: '0 6px 16px rgba(228,71,125,0.4)' } }}>
                         {t('k8s.createDeployment')}
                     </Button>
+                    )}
                 </Box>
             </Box>
 
             {/* KPI Cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-                <KpiCard label={t('k8s.totalDeployments')} value={kpis.total} bg="#E4EEF7" color="#2E5C8A" />
+                <KpiCard label={t('k8s.totalDeployments')} value={kpis.total} bg="#FCE7F3" color="#BE185D" />
                 <KpiCard label={t('k8s.running')} value={kpis.running} bg="#D1FAE5" color="#065F46" />
                 <KpiCard label={t('k8s.pending')} value={kpis.pending} bg="#F7ECD6" color="#8A6A2E" />
                 <KpiCard label={t('k8s.failed')} value={kpis.failed} bg="#F7DEE3" color="#A23B4E" />
             </Box>
 
             {/* Create form */}
-            <CreateK8sForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => load(true)} serviceEnvs={serviceEnvs} services={services} environments={environments} />
+            {allowManage && <CreateK8sForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => load(true)} serviceEnvs={serviceEnvs} services={services} environments={environments} />}
 
             {/* Search / filter bar */}
             <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 3, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -436,7 +441,7 @@ const K8sDeploymentsPage = () => {
                         <PlayArrowIcon sx={{ fontSize: 48, color: C.subtle, mb: 2 }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{search || statusFilter !== 'All' ? t('k8s.noResults') : t('k8s.noDeployments')}</Typography>
                         <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{search || statusFilter !== 'ALL' ? t('k8s.adjustSearch') : t('k8s.createFirstDeployment')}</Typography>
-                        {!search && statusFilter === 'All' && (
+                        {allowManage && !search && statusFilter === 'All' && (
                             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`, fontWeight: 700 }}>{t('k8s.createDeployment')}</Button>
                         )}
                     </Card>
@@ -452,6 +457,7 @@ const K8sDeploymentsPage = () => {
                             dep={dep}
                             envName={envName}
                             hpaConfig={hpaConfigs[dep.id]}
+                            allowManage={allowManage}
                             onScale={(d) => { setScaleReplicas(d.replicas); setScaleTarget(d); }}
                             onRestart={handleRestart}
                             onViewPods={handleViewPods}

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Environment;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.EnvironmentService;
 import com.deployment.ServiceEntity.web.dto.environment.EnvironmentCreateDto;
 import com.deployment.ServiceEntity.web.dto.environment.EnvironmentResponseDto;
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class EnvironmentController {
 
   private final EnvironmentService environmentService;
+  private final AuditService auditService;
 
   @PostMapping
   public ResponseEntity<EnvironmentResponseDto> create(@Valid @RequestBody EnvironmentCreateDto dto) {
@@ -43,6 +45,7 @@ public class EnvironmentController {
     environment.setTenantId(UserContext.getTenantId());
 
     Environment created = environmentService.create(environment);
+    auditService.record("ENVIRONMENT_CREATE", "environment", created.getId().toString(), "Environment '" + created.getName() + "' created");
     return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
@@ -73,13 +76,16 @@ public class EnvironmentController {
     environment.setDescription(dto.description());
     environment.setTenantId(UserContext.getTenantId());
 
-    return ResponseEntity.ok(map(environmentService.update(id, environment)));
+    Environment updated = environmentService.update(id, environment);
+    auditService.record("ENVIRONMENT_UPDATE", "environment", updated.getId().toString(), "Environment '" + updated.getName() + "' updated");
+    return ResponseEntity.ok(map(updated));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_MANAGE");
     environmentService.delete(id);
+    auditService.record("ENVIRONMENT_DELETE", "environment", id.toString(), "Environment deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

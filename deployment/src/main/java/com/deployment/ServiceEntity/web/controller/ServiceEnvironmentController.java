@@ -21,6 +21,7 @@ import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.repository.EnvironmentRepository;
 import com.deployment.ServiceEntity.repository.ServiceRepository;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.ServiceEnvironmentService;
 import com.deployment.ServiceEntity.web.dto.serviceEnvironment.ServiceEnvironmentCreateDto;
 import com.deployment.ServiceEntity.web.dto.serviceEnvironment.ServiceEnvironmentResponseDto;
@@ -37,6 +38,7 @@ public class ServiceEnvironmentController {
   private final ServiceEnvironmentService serviceEnvironmentService;
   private final ServiceRepository serviceRepository;
   private final EnvironmentRepository environmentRepository;
+  private final AuditService auditService;
 
   @PostMapping
   public ResponseEntity<ServiceEnvironmentResponseDto> create(
@@ -48,6 +50,8 @@ public class ServiceEnvironmentController {
     serviceEnvironment.setTenantId(UserContext.getTenantId());
 
     ServiceEnvironment created = serviceEnvironmentService.create(serviceEnvironment);
+    auditService.record("SERVICE_ENV_CREATE", "service-environment", created.getId().toString(),
+        "Service-environment created (serviceId=" + created.getServiceId() + ", environmentId=" + created.getEnvironmentId() + ")");
     return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
@@ -78,13 +82,17 @@ public class ServiceEnvironmentController {
     serviceEnvironment.setEnvironmentId(dto.environmentId());
     serviceEnvironment.setTenantId(UserContext.getTenantId());
 
-    return ResponseEntity.ok(map(serviceEnvironmentService.update(id, serviceEnvironment)));
+    ServiceEnvironment updated = serviceEnvironmentService.update(id, serviceEnvironment);
+    auditService.record("SERVICE_ENV_UPDATE", "service-environment", updated.getId().toString(),
+        "Service-environment updated (serviceId=" + updated.getServiceId() + ", environmentId=" + updated.getEnvironmentId() + ")");
+    return ResponseEntity.ok(map(updated));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_MANAGE");
     serviceEnvironmentService.delete(id);
+    auditService.record("SERVICE_ENV_DELETE", "service-environment", id.toString(), "Service-environment deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

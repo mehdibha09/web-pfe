@@ -26,6 +26,8 @@ import {
     updateDeployment
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageDeployments } from '../../../services/authorization';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
@@ -46,6 +48,9 @@ const DeploymentsPage = () => {
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageDeployments(currentUser) : false;
 
     // ── Create form ───────────────────────────────────────────────────────────
     const [version, setVersion] = useState('1.0.0');
@@ -250,7 +255,7 @@ const DeploymentsPage = () => {
             </Box>
 
             {/* ── Create form ──────────────────────────────────────────────── */}
-            <CreateDeploymentForm
+            {allowManage && <CreateDeploymentForm
                 version={version}
                 onVersionChange={setVersion}
                 notes={notes}
@@ -264,7 +269,7 @@ const DeploymentsPage = () => {
                 environments={environments}
                 creating={creating}
                 onCreate={handleCreate}
-            />
+            />}
 
             {/* ── Search & filter ──────────────────────────────────────────── */}
             <DeploymentFilters
@@ -323,6 +328,7 @@ const DeploymentsPage = () => {
                             onCancelEdit={cancelEdit}
                             onSave={() => handleUpdate(d.id)}
                             saving={saving}
+                            allowManage={allowManage}
                             onRedeploy={(id) => setConfirmRedeployId(id)}
                             onDelete={(id) => setConfirmDeleteId(id)}
                         />

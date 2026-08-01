@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.K8sDeploymentService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sDeploymentRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sDeploymentResponse;
@@ -36,11 +37,14 @@ import lombok.RequiredArgsConstructor;
 public class K8sDeploymentController {
 
     private final K8sDeploymentService k8sDeploymentService;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<K8sDeploymentResponse> create(@Valid @RequestBody K8sDeploymentRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        return ResponseEntity.status(HttpStatus.CREATED).body(k8sDeploymentService.create(dto));
+        K8sDeploymentResponse created = k8sDeploymentService.create(dto);
+        auditService.record("K8S_DEPLOYMENT_CREATE", "k8s-deployment", created.id().toString(), "K8s deployment created (name='" + created.name() + "')");
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping
@@ -59,6 +63,7 @@ public class K8sDeploymentController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("K8S_MANAGE");
         k8sDeploymentService.delete(id, UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_DELETE", "k8s-deployment", id.toString(), "K8s deployment deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 
@@ -67,7 +72,10 @@ public class K8sDeploymentController {
             @PathVariable UUID id,
             @Valid @RequestBody K8sScaleRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        return ResponseEntity.ok(k8sDeploymentService.scale(id, dto.replicas(), UserContext.getTenantId()));
+        K8sDeploymentResponse scaled = k8sDeploymentService.scale(id, dto.replicas(), UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_SCALE", "k8s-deployment", scaled.id().toString(),
+            "K8s deployment scaled (name='" + scaled.name() + "', replicas=" + dto.replicas() + ")");
+        return ResponseEntity.ok(scaled);
     }
 
     @PostMapping("/{id}/rollback")
@@ -76,13 +84,18 @@ public class K8sDeploymentController {
             @RequestBody(required = false) Map<String, Integer> body) {
         UserContext.requirePermission("K8S_MANAGE");
         Integer revision = body != null ? body.get("revision") : null;
-        return ResponseEntity.ok(k8sDeploymentService.rollback(id, revision, UserContext.getTenantId()));
+        K8sDeploymentResponse rolledBack = k8sDeploymentService.rollback(id, revision, UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_ROLLBACK", "k8s-deployment", rolledBack.id().toString(),
+            "K8s deployment rolled back (name='" + rolledBack.name() + "', revision=" + revision + ")");
+        return ResponseEntity.ok(rolledBack);
     }
 
     @PostMapping("/{id}/restart")
     public ResponseEntity<K8sDeploymentResponse> restart(@PathVariable UUID id) {
         UserContext.requirePermission("K8S_MANAGE");
-        return ResponseEntity.ok(k8sDeploymentService.restart(id, UserContext.getTenantId()));
+        K8sDeploymentResponse restarted = k8sDeploymentService.restart(id, UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_RESTART", "k8s-deployment", restarted.id().toString(), "K8s deployment restarted (name='" + restarted.name() + "')");
+        return ResponseEntity.ok(restarted);
     }
 
     @GetMapping("/{id}/status")
@@ -114,7 +127,10 @@ public class K8sDeploymentController {
             @PathVariable UUID id,
             @Valid @RequestBody K8sHpaRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        return ResponseEntity.ok(k8sDeploymentService.configureHpa(id, dto, UserContext.getTenantId()));
+        K8sHpaResponse hpa = k8sDeploymentService.configureHpa(id, dto, UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_HPA_CONFIG", "k8s-deployment", id.toString(),
+            "K8s deployment HPA configured (min=" + dto.minReplicas() + ", max=" + dto.maxReplicas() + ")");
+        return ResponseEntity.ok(hpa);
     }
 
     @GetMapping("/{id}/hpa")
@@ -131,6 +147,7 @@ public class K8sDeploymentController {
     public ResponseEntity<Void> removeHpa(@PathVariable UUID id) {
         UserContext.requirePermission("K8S_MANAGE");
         k8sDeploymentService.removeHpa(id, UserContext.getTenantId());
+        auditService.record("K8S_DEPLOYMENT_HPA_REMOVE", "k8s-deployment", id.toString(), "K8s deployment HPA removed (id=" + id + ")");
         return ResponseEntity.noContent().build();
     }
 }

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Deployment;
 import com.deployment.ServiceEntity.exception.ApiException;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.DeploymentService;
 import com.deployment.ServiceEntity.web.dto.deployment.DeploymentCreateDto;
 import com.deployment.ServiceEntity.web.dto.deployment.DeploymentResponseDto;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class DeploymentController {
 
   private final DeploymentService deploymentService;
+  private final AuditService auditService;
 
   @PostMapping
   public ResponseEntity<DeploymentResponseDto> create(@Valid @RequestBody DeploymentCreateDto dto) {
@@ -47,6 +49,8 @@ public class DeploymentController {
     deployment.setDeployedAt(Instant.now());
 
     Deployment created = deploymentService.create(deployment);
+    auditService.record("DEPLOYMENT_CREATE", "deployment", created.getId().toString(),
+        "Deployment created (version='" + created.getVersion() + "', serviceEnvironmentId=" + created.getServiceEnvironmentId() + ")");
     return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
@@ -73,19 +77,26 @@ public class DeploymentController {
     deployment.setDeployedBy(UserContext.getUserId());
     deployment.setServiceEnvironmentId(dto.serviceEnvironmentId());
 
-    return ResponseEntity.ok(map(deploymentService.update(id, deployment)));
+    Deployment updated = deploymentService.update(id, deployment);
+    auditService.record("DEPLOYMENT_UPDATE", "deployment", updated.getId().toString(),
+        "Deployment updated (version='" + updated.getVersion() + "', serviceEnvironmentId=" + updated.getServiceEnvironmentId() + ")");
+    return ResponseEntity.ok(map(updated));
   }
 
   @PostMapping("/{id}/redeploy")
   public ResponseEntity<DeploymentResponseDto> redeploy(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_MANAGE");
-    return ResponseEntity.status(HttpStatus.CREATED).body(map(deploymentService.redeploy(id)));
+    Deployment redeployed = deploymentService.redeploy(id);
+    auditService.record("DEPLOYMENT_REDEPLOY", "deployment", redeployed.getId().toString(),
+        "Deployment redeployed (version='" + redeployed.getVersion() + "')");
+    return ResponseEntity.status(HttpStatus.CREATED).body(map(redeployed));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("DEPLOYMENT_MANAGE");
     deploymentService.delete(id);
+    auditService.record("DEPLOYMENT_DELETE", "deployment", id.toString(), "Deployment deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

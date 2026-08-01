@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNamespaceRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNamespaceResponse;
 import com.deployment.ServiceEntity.web.routes.ApiRoutes;
@@ -44,6 +45,7 @@ public class K8sNamespaceController {
     );
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sNamespaceResponse>> list(
@@ -54,7 +56,7 @@ public class K8sNamespaceController {
         List<K8sNamespaceResponse> filtered = all.stream()
             .filter(ns -> !SYSTEM_NAMESPACES.contains(ns.name()))
             .filter(ns -> {
-                if (UserContext.hasPermission("K8S_MANAGE")) {
+                if (UserContext.isSuperAdmin()) {
                     return true;
                 }
                 String tenantId = UserContext.getTenantId() != null
@@ -86,6 +88,7 @@ public class K8sNamespaceController {
         if (result == null) {
             result = K8sNamespaceResponse.fromSimulated(dto.name());
         }
+        auditService.record("K8S_NAMESPACE_CREATE", "k8s-namespace", dto.name(), "Namespace created (name='" + dto.name() + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -93,6 +96,7 @@ public class K8sNamespaceController {
     public ResponseEntity<Void> delete(@PathVariable String name) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteNamespace(name);
+        auditService.record("K8S_NAMESPACE_DELETE", "k8s-namespace", name, "Namespace deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 }

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sRoleController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sRoleResponse>> list(
@@ -121,6 +123,7 @@ public class K8sRoleController {
         if (result == null) {
             result = K8sRoleResponse.fromSimulated(dto.name(), ns, dto.isClusterRole());
         }
+        auditService.record("K8S_ROLE_CREATE", "k8s-role", dto.name(), "Role created (name='" + dto.name() + "', namespace='" + ns + "', cluster=" + dto.isClusterRole() + ")");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -131,6 +134,7 @@ public class K8sRoleController {
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteRole(name, TenantNamespaceResolver.resolve(namespace), cluster);
+        auditService.record("K8S_ROLE_DELETE", "k8s-role", name, "Role deleted (name='" + name + "', cluster=" + cluster + ")");
         return ResponseEntity.noContent().build();
     }
 }

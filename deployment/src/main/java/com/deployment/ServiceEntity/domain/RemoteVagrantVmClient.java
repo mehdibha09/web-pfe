@@ -412,12 +412,12 @@ public class RemoteVagrantVmClient implements VmClient {
             String output = sshVbox("showvminfo " + vbName + " --machinereadable");
             String snapshotFolder = null;
             for (String line : output.split("\n")) {
-                if (line.startsWith("\"SnapshotFolder\"")) {
+                if (line.startsWith("SnapFldr=")) {
                     snapshotFolder = line.split("=", 2)[1].replaceAll("\"", "").trim();
                 }
             }
             if (snapshotFolder == null) return 0L;
-            String sizeOutput = ssh("du -sb " + snapshotFolder + " | cut -f1");
+            String sizeOutput = ssh("du -sb \"" + snapshotFolder + "\" | cut -f1");
             long bytes = Long.parseLong(sizeOutput.trim());
             return bytes / (1024L * 1024L);
         } catch (Exception e) {

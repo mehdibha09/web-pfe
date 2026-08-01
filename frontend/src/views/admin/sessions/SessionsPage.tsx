@@ -31,6 +31,8 @@ type SessionItem = {
     createdAt: string;
     lastActive: string;
     status: 'ACTIVE' | 'REVOKED';
+    userEmail: string;
+    userId: string;
 };
 
 const getDeviceType = (os: string): string => {
@@ -60,7 +62,9 @@ const toSessionItem = (session: any): SessionItem => ({
     location: session.localization || 'Unknown',
     createdAt: session.createdAt ? new Date(session.createdAt).toLocaleString() : '-',
     lastActive: session.expirationDate ? new Date(session.expirationDate).toLocaleString() : '-',
-    status: session.revokedAt ? 'REVOKED' : 'ACTIVE'
+    status: session.revokedAt ? 'REVOKED' : 'ACTIVE',
+    userEmail: session.userEmail || '-',
+    userId: session.userId || '-'
 });
 
 const SessionsPage = () => {
@@ -268,21 +272,21 @@ const SessionsPage = () => {
                                 }}
                             />
                             <CardContent sx={{ pt: 3 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
-                                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                                        <Box sx={{ color: session.status === 'ACTIVE' ? '#10B981' : '#EF4444' }}>
-                                            {deviceIcon(session.os)}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
+                                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                                            <Box sx={{ color: session.status === 'ACTIVE' ? '#10B981' : '#EF4444' }}>
+                                                {deviceIcon(session.os)}
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
+                                                    {session.deviceType}
+                                                </Typography>
+                                                <Typography sx={{ color: C.muted }}>
+                                                    {session.browser} &middot; {session.os}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                        <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                                                {session.deviceType}
-                                            </Typography>
-                                            <Typography sx={{ color: C.muted }}>
-                                                {session.browser} &middot; {session.os}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                    <Chip
+                                        <Chip
                                         label={session.status}
                                         size="small"
                                         sx={{
@@ -294,8 +298,13 @@ const SessionsPage = () => {
                                     />
                                 </Box>
 
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
-                                    <Box>
+                                    <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, mb: 0.5, display: 'block' }}>
+                                        {t('admin.sessions.user')}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: C.text, mb: 1 }}>{session.userEmail}</Typography>
+
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
+                                        <Box>
                                         <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
                                             {t('admin.sessions.ipAddress')}
                                         </Typography>

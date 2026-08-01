@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sConfigMapRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sConfigMapResponse;
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sConfigMapController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sConfigMapResponse>> list(
@@ -96,6 +98,7 @@ public class K8sConfigMapController {
         if (result == null) {
             result = K8sConfigMapResponse.fromSimulated(dto.name(), ns, dto.data());
         }
+        auditService.record("K8S_CONFIGMAP_CREATE", "k8s-configmap", dto.name(), "ConfigMap created (name='" + dto.name() + "', namespace='" + ns + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -126,6 +129,7 @@ public class K8sConfigMapController {
         if (result == null) {
             result = K8sConfigMapResponse.fromSimulated(name, ns, dto.data());
         }
+        auditService.record("K8S_CONFIGMAP_UPDATE", "k8s-configmap", name, "ConfigMap updated (name='" + name + "', namespace='" + ns + "')");
         return ResponseEntity.ok(result);
     }
 
@@ -136,6 +140,7 @@ public class K8sConfigMapController {
         UserContext.requirePermission("K8S_MANAGE");
         String ns = TenantNamespaceResolver.resolve(namespace);
         kubernetesClient.deleteConfigMap(name, ns);
+        auditService.record("K8S_CONFIGMAP_DELETE", "k8s-configmap", name, "ConfigMap deleted (name='" + name + "', namespace='" + ns + "')");
         return ResponseEntity.noContent().build();
     }
 
@@ -148,6 +153,7 @@ public class K8sConfigMapController {
             for (String name : names) {
                 kubernetesClient.deleteConfigMap(name, ns);
             }
+            auditService.record("K8S_CONFIGMAP_DELETE_BATCH", "k8s-configmap", null, "ConfigMaps deleted in batch (names=" + names + ")");
         }
         return ResponseEntity.noContent().build();
     }

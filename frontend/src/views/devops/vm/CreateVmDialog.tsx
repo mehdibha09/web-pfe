@@ -61,7 +61,7 @@ interface CreateVmDialogProps {
 }
 
 const emptyForm: CreateVmRequest = {
-    name: '',
+    displayName: '',
     cpu: 2,
     ram: 2048,
     disk: 20,
@@ -97,7 +97,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
     }, [open]);
 
     const isValid =
-        form.name.trim().length > 0 &&
+        (form.displayName || '').trim().length > 0 &&
         form.serviceEnvironmentId.trim().length > 0 &&
         form.cpu > 0 &&
         form.ram > 0 &&
@@ -171,9 +171,9 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
                     )}
 
                     <TextField
-                        label={t('vms.vmName')}
-                        value={form.name}
-                        onChange={handleChange('name')}
+                        label={t('vms.displayName')}
+                        value={form.displayName}
+                        onChange={handleChange('displayName')}
                         required
                         fullWidth
                         autoFocus
@@ -182,7 +182,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
                                 startAdornment: <DnsIcon sx={{ mr: 1, color: C.subtle, fontSize: 20 }} />
                             }
                         }}
-                        placeholder={t('vms.vmNamePlaceholder')}
+                        placeholder={t('vms.displayNamePlaceholder')}
                     />
 
                     <Grid container spacing={2}>

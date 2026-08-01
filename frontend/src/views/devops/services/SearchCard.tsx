@@ -1,7 +1,8 @@
-import { Box, Card, CardContent, TextField, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, TextField, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { cardSx } from './constants';
 import { C} from '../../../theme/tokens';
+import SearchIcon from '@mui/icons-material/Search';
 
 type SearchCardProps = {
     search: string;
@@ -17,14 +18,26 @@ const SearchCard = ({ search, onSearchChange, resultCount }: SearchCardProps) =>
                 <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: C.text }}>
                     {t('services.search')}
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                     <TextField
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <SearchIcon sx={{ color: C.subtle, mr: 1, fontSize: 18 }} />
+                                )
+                            }
+                        }}
                         label={t('common.search')}
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder={t('services.searchPlaceholder')}
+                        sx={{ flex: 1 }}
                     />
-                    <TextField label={t('services.results')} value={String(resultCount)} disabled />
+                    <Chip
+                        label={`${resultCount} résultat(s)`}
+                        size="small"
+                        sx={{ backgroundColor: C.brandLight, color: C.brand, fontWeight: 700, fontSize: 12, flexShrink: 0 }}
+                    />
                 </Box>
             </CardContent>
         </Card>

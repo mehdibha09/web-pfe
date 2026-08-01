@@ -1,6 +1,3 @@
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import {
     Box, Button, Card, CardActions, CardContent, Chip, MenuItem, TextField, Typography
 } from '@mui/material';
@@ -11,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import type { ServiceResponse } from '../../../services/devopsService';
 import {
-    deleteService, restartService, startService, stopService, updateService
+    deleteService, updateService
 } from '../../../services/devopsService';
 import MyCustomButton from '../../../components/MyCustomButton';
 import { getErrorMessage } from '../../../utils/errorMessage';
@@ -67,16 +64,6 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
         }
     };
 
-    const handleStart = async () => {
-        try { await startService(service.id); toast.success('Service started'); await onRefresh(); } catch (e: unknown) { toast.error(getErrorMessage(e, 'Failed to start service')); }
-    };
-    const handleStop = async () => {
-        try { await stopService(service.id); toast.success('Service stopped'); await onRefresh(); } catch (e: unknown) { toast.error(getErrorMessage(e, 'Failed to stop service')); }
-    };
-    const handleRestart = async () => {
-        try { await restartService(service.id); toast.success('Service restarted'); await onRefresh(); } catch (e: unknown) { toast.error(getErrorMessage(e, 'Failed to restart service')); }
-    };
-
     return (
         <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible', border: `1px solid ${C.border}`, backgroundColor: '#fff' }}>
             <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: BTN.primary.gradient, borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
@@ -84,7 +71,16 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
                 {editing ? (
                     <Box sx={{ display: 'grid', gap: 1.5 }}>
                         <TextField size="small" label={t('common.name')} value={editName} onChange={(e) => setEditName(e.target.value)} />
-                        <TextField size="small" label={t('common.type')} value={editType} onChange={(e) => setEditType(e.target.value)} />
+                        <TextField size="small" select label={t('common.type')} value={editType} onChange={(e) => setEditType(e.target.value)}>
+                            <MenuItem value="WEB">WEB</MenuItem>
+                            <MenuItem value="API">API</MenuItem>
+                            <MenuItem value="WORKER">WORKER</MenuItem>
+                            <MenuItem value="DATABASE">DATABASE</MenuItem>
+                            <MenuItem value="CACHE">CACHE</MenuItem>
+                            <MenuItem value="QUEUE">QUEUE</MenuItem>
+                            <MenuItem value="STORAGE">STORAGE</MenuItem>
+                            <MenuItem value="OTHER">OTHER</MenuItem>
+                        </TextField>
                         <TextField size="small" select label={t('common.status')} value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
                             <MenuItem value="ACTIVE">ACTIVE</MenuItem>
                             <MenuItem value="PENDING">PENDING</MenuItem>
@@ -104,9 +100,6 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
             </CardContent>
             {!editing && (
                 <CardActions sx={{ px: 3, pb: 2.5, gap: 0.5, flexWrap: 'wrap' }}>
-                    <Button size="small" variant="outlined" color="success" startIcon={<PlayArrowIcon />} onClick={handleStart} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.start')}</Button>
-                    <Button size="small" variant="outlined" color="error" startIcon={<StopIcon />} onClick={handleStop} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.stop')}</Button>
-                    <Button size="small" variant="outlined" color="warning" startIcon={<RestartAltIcon />} onClick={handleRestart} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('services.restart')}</Button>
                     <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/devops/deployments')} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>
                     <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
                     <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('common.delete')}</Button>

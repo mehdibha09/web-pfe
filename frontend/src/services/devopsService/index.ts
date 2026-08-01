@@ -142,8 +142,8 @@ export const deleteDeployment = async (deploymentId: string) => {
   return response.data;
 };
 
-export const listMetrics = async (): Promise<import('../interfaces/devops').MetricResponse[]> => {
-  const response = await axiosInstance.get('/metrics');
+export const listMetrics = async (tenantId?: string): Promise<import('../interfaces/devops').MetricResponse[]> => {
+  const response = await axiosInstance.get(tenantId ? `/metrics?tenantId=${encodeURIComponent(tenantId)}` : '/metrics');
   return response.data || [];
 };
 
@@ -159,9 +159,11 @@ export const createMetric = async (payload: {
   return response.data;
 };
 
-export const getLatestMetric = async (serviceEnvironmentId: string): Promise<import('../interfaces/devops').MetricResponse | null> => {
+export const getLatestMetric = async (serviceEnvironmentId: string, tenantId?: string): Promise<import('../interfaces/devops').MetricResponse | null> => {
   try {
-    const response = await axiosInstance.get(`/metrics/latest/${serviceEnvironmentId}`);
+    const response = await axiosInstance.get(tenantId
+      ? `/metrics/latest/${serviceEnvironmentId}?tenantId=${encodeURIComponent(tenantId)}`
+      : `/metrics/latest/${serviceEnvironmentId}`);
     return response.data;
   } catch (error: any) {
     if (error?.response?.status === 404) return null;
@@ -169,9 +171,11 @@ export const getLatestMetric = async (serviceEnvironmentId: string): Promise<imp
   }
 };
 
-export const getMetricsHistory = async (serviceEnvironmentId: string): Promise<import('../interfaces/devops').MetricResponse[]> => {
+export const getMetricsHistory = async (serviceEnvironmentId: string, tenantId?: string): Promise<import('../interfaces/devops').MetricResponse[]> => {
   try {
-    const response = await axiosInstance.get(`/metrics/service-environment/${serviceEnvironmentId}`);
+    const response = await axiosInstance.get(tenantId
+      ? `/metrics/service-environment/${serviceEnvironmentId}?tenantId=${encodeURIComponent(tenantId)}`
+      : `/metrics/service-environment/${serviceEnvironmentId}`);
     return response.data || [];
   } catch (error: any) {
     if (error?.response?.status === 404) return [];
@@ -180,7 +184,8 @@ export const getMetricsHistory = async (serviceEnvironmentId: string): Promise<i
 };
 
 export const getMetricsSummary = async (
-  serviceEnvironmentId: string
+  serviceEnvironmentId: string,
+  tenantId?: string
 ): Promise<{
   cpuUsage: number;
   ramUsage: number;
@@ -190,7 +195,9 @@ export const getMetricsSummary = async (
   [key: string]: any;
 } | null> => {
   try {
-    const response = await axiosInstance.get(`/metrics/summary/${serviceEnvironmentId}`);
+    const response = await axiosInstance.get(tenantId
+      ? `/metrics/summary/${serviceEnvironmentId}?tenantId=${encodeURIComponent(tenantId)}`
+      : `/metrics/summary/${serviceEnvironmentId}`);
     return response.data;
   } catch (error: any) {
     if (error?.response?.status === 404) return null;

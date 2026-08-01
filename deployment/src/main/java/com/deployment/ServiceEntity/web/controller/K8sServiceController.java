@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceResponse;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class K8sServiceController {
 
     private final KubernetesClient kubernetesClient;
+    private final AuditService auditService;
 
     @GetMapping
     public ResponseEntity<Page<K8sServiceResponse>> list(
@@ -91,6 +93,7 @@ public class K8sServiceController {
         if (result == null) {
             result = K8sServiceResponse.fromSimulated(dto.name(), ns, svcType, dto.port(), targetPort, selector);
         }
+        auditService.record("K8S_SERVICE_CREATE", "k8s-service", dto.name(), "K8s service created (name='" + dto.name() + "', namespace='" + ns + "', type='" + svcType + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -121,6 +124,7 @@ public class K8sServiceController {
             Map<String, String> sel = dto.selector() != null ? dto.selector() : Map.of("app", name);
             result = K8sServiceResponse.fromSimulated(name, ns, "ClusterIP", dto.port(), dto.targetPort() != null ? dto.targetPort() : dto.port(), sel);
         }
+        auditService.record("K8S_SERVICE_UPDATE", "k8s-service", name, "K8s service updated (name='" + name + "', namespace='" + ns + "')");
         return ResponseEntity.ok(result);
     }
 
@@ -130,6 +134,7 @@ public class K8sServiceController {
             @RequestParam(required = false) String namespace) {
         UserContext.requirePermission("K8S_MANAGE");
         kubernetesClient.deleteService(name, TenantNamespaceResolver.resolve(namespace));
+        auditService.record("K8S_SERVICE_DELETE", "k8s-service", name, "K8s service deleted (name='" + name + "')");
         return ResponseEntity.noContent().build();
     }
 }

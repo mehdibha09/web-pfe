@@ -54,8 +54,14 @@ public class AuditLogService {
             throw new BadRequestException("from must be before to");
         }
 
-        return auditLogRepository.findByTenant_IdAndTimestampBetween(currentUser.getTenant().getId(), from, to)
-                .stream()
+        List<AuditLog> logs;
+        if (isSuperAdmin(currentUser)) {
+            logs = auditLogRepository.findByTimestampBetween(from, to);
+        } else {
+            logs = auditLogRepository.findByTenant_IdAndTimestampBetween(currentUser.getTenant().getId(), from, to);
+        }
+
+        return logs.stream()
                 .filter(log -> query.action() == null || query.action().isBlank() || log.getAction().equalsIgnoreCase(query.action().trim()))
                 .filter(log -> query.resource() == null || query.resource().isBlank() || (log.getResource() != null && log.getResource().equalsIgnoreCase(query.resource().trim())))
                 .filter(log -> query.userId() == null || (log.getUser() != null && query.userId().equals(log.getUser().getId())))
@@ -69,8 +75,29 @@ public class AuditLogService {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanReadAuditLogs(currentUser);
 
-        return auditLogRepository.findDistinctResourcesByTenantId(currentUser.getTenant().getId())
-                .stream()
+        List<String> resources;
+        if (isSuperAdmin(currentUser)) {
+            resources = auditLogRepository.findDistinctResources();
+        } else {
+            resources = auditLogRepository.findDistinctResourcesByTenantId(currentUser.getTenant().getId());
+        }
+        return resources.stream()
+                .map(String::toUpperCase)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> listAuditActions(String authorizationHeader) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadAuditLogs(currentUser);
+
+        List<String> actions;
+        if (isSuperAdmin(currentUser)) {
+            actions = auditLogRepository.findDistinctActions();
+        } else {
+            actions = auditLogRepository.findDistinctActionsByTenantId(currentUser.getTenant().getId());
+        }
+        return actions.stream()
                 .map(String::toUpperCase)
                 .toList();
     }

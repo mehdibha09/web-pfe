@@ -44,6 +44,7 @@ interface K8sCardProps {
     dep: K8sDeployment;
     envName: (id: string) => string;
     hpaConfig?: K8sHpaResponse | null;
+    allowManage?: boolean;
     onScale: (dep: K8sDeployment) => void;
     onRestart: (dep: K8sDeployment) => void;
     onViewPods: (dep: K8sDeployment) => void;
@@ -54,7 +55,7 @@ interface K8sCardProps {
     onDelete: (dep: K8sDeployment) => void;
 }
 
-const K8sCard = ({ dep, envName, hpaConfig, onScale, onRestart, onViewPods, onViewLogs, onViewEvents, onConfigureHpa, onRollback, onDelete }: K8sCardProps) => {
+const K8sCard = ({ dep, envName, hpaConfig, allowManage = false, onScale, onRestart, onViewPods, onViewLogs, onViewEvents, onConfigureHpa, onRollback, onDelete }: K8sCardProps) => {
     const { t } = useTranslation();
     const sc = STATUS_COLORS[dep.status] ?? { bg: '#F3F4F6', fg: '#374151' };
     const created = fmtDate(dep.createdAt);
@@ -140,26 +141,34 @@ const K8sCard = ({ dep, envName, hpaConfig, onScale, onRestart, onViewPods, onVi
                     </Typography>
 
                     <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap' }}>
-                        <Tooltip title={t('k8s.scale')}>
-                            <IconButton size="small" onClick={() => onScale(dep)} sx={{ color: '#2E5C8A' }}>
-                                <ScaleIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('k8s.restart')}>
-                            <IconButton size="small" onClick={() => onRestart(dep)} sx={{ color: '#9333EA' }}>
-                                <RestartAltIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Rollback">
-                            <IconButton size="small" onClick={() => onRollback(dep)} sx={{ color: '#B45309' }}>
-                                <RollbackIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="HPA">
-                            <IconButton size="small" onClick={() => onConfigureHpa(dep)} sx={{ color: hpaConfig ? '#5E4B9E' : C.subtle }}>
-                                <HpaIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                        </Tooltip>
+                        {allowManage && (
+                            <Tooltip title={t('k8s.scale')}>
+                                <IconButton size="small" onClick={() => onScale(dep)} sx={{ color: '#BE185D' }}>
+                                    <ScaleIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {allowManage && (
+                            <Tooltip title={t('k8s.restart')}>
+                                <IconButton size="small" onClick={() => onRestart(dep)} sx={{ color: '#9333EA' }}>
+                                    <RestartAltIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {allowManage && (
+                            <Tooltip title="Rollback">
+                                <IconButton size="small" onClick={() => onRollback(dep)} sx={{ color: '#B45309' }}>
+                                    <RollbackIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {allowManage && (
+                            <Tooltip title="HPA">
+                                <IconButton size="small" onClick={() => onConfigureHpa(dep)} sx={{ color: hpaConfig ? '#5E4B9E' : C.subtle }}>
+                                    <HpaIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                         <Tooltip title={t('k8s.viewPods')}>
                             <IconButton size="small" onClick={() => onViewPods(dep)} sx={{ color: '#0D9488' }}>
                                 <VisibilityIcon sx={{ fontSize: 16 }} />
@@ -175,11 +184,13 @@ const K8sCard = ({ dep, envName, hpaConfig, onScale, onRestart, onViewPods, onVi
                                 <EventsIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                         </Tooltip>
-                        <Tooltip title={t('common.delete')}>
-                            <IconButton size="small" onClick={() => onDelete(dep)} sx={{ color: C.danger }}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                        </Tooltip>
+                        {allowManage && (
+                            <Tooltip title={t('common.delete')}>
+                                <IconButton size="small" onClick={() => onDelete(dep)} sx={{ color: C.danger }}>
+                                    <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Box>
                 </Box>
             </Card>

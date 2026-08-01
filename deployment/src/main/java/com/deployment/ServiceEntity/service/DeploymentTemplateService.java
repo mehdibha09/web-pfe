@@ -45,23 +45,24 @@ public class DeploymentTemplateService {
         t.setReadinessProbe(dto.readinessProbe());
         t.setStartupProbe(dto.startupProbe());
         t.setTenantId(tenantId);
+        t.setPublicTemplate(dto.publicTemplate() && UserContext.isSuperAdmin());
         return DeploymentTemplateResponse.from(repository.save(t));
     }
 
     public List<DeploymentTemplateResponse> getAll(UUID tenantId) {
-        return repository.findByTenantId(tenantId).stream()
+        return repository.findByPublicTemplateTrueOrTenantId(tenantId).stream()
                 .map(DeploymentTemplateResponse::from).toList();
     }
 
     public Page<DeploymentTemplateResponse> getAll(UUID tenantId, Pageable pageable) {
-        return repository.findByTenantId(tenantId, pageable)
+        return repository.findByPublicTemplateTrueOrTenantId(tenantId, pageable)
                 .map(DeploymentTemplateResponse::from);
     }
 
     public DeploymentTemplateResponse getById(UUID id) {
         DeploymentTemplate t = repository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Template not found: " + id));
-        if (!t.getTenantId().equals(UserContext.getTenantId())) {
+        if (!t.isPublicTemplate() && !t.getTenantId().equals(UserContext.getTenantId())) {
             throw new EntityNotFoundException("Template not found: " + id);
         }
         return DeploymentTemplateResponse.from(t);
@@ -70,6 +71,7 @@ public class DeploymentTemplateService {
     public DeploymentTemplateResponse update(UUID id, DeploymentTemplateRequest dto) {
         DeploymentTemplate t = repository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Template not found: " + id));
+        requireOwnerOrSuperAdmin(t);
         t.setName(dto.name());
         t.setDescription(dto.description());
         t.setDockerImage(dto.dockerImage());
@@ -87,14 +89,24 @@ public class DeploymentTemplateService {
         t.setLivenessProbe(dto.livenessProbe());
         t.setReadinessProbe(dto.readinessProbe());
         t.setStartupProbe(dto.startupProbe());
+        t.setPublicTemplate(dto.publicTemplate() && UserContext.isSuperAdmin());
         return DeploymentTemplateResponse.from(repository.save(t));
     }
 
     public void delete(UUID id) {
-        if (!repository.existsById(id)) {
-            throw new EntityNotFoundException("Template not found: " + id);
-        }
-        repository.deleteById(id);
+        DeploymentTemplate t = repository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Template not found: " + id));
+        requireOwnerOrSuperAdmin(t);
+        repository.delete(t);
         log.info("Deployment template deleted: id={}", id);
+    }
+
+    private void requireOwnerOrSuperAdmin(DeploymentTemplate t) {
+        if (UserContext.isSuperAdmin()) {
+            return;
+        }
+        if (!t.getTenantId().equals(UserContext.getTenantId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only modify templates of your own tenant");
+        }
     }
 }

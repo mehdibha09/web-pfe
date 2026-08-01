@@ -10,6 +10,7 @@ import org.springframework.data.web.PageableDefault;
 
 import com.cloud_pricer.config.TenantValidator;
 import com.cloud_pricer.config.UserContext;
+import com.cloud_pricer.service.AuditService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,7 @@ public class CostController {
   private final CostRecordService costRecordService;
   private final ForecastService forecastService;
   private final TenantValidator tenantValidator;
+  private final AuditService auditService;
 
   @GetMapping
   public ResponseEntity<Page<CostRecordResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
@@ -88,6 +90,8 @@ public class CostController {
 
     CostRecord created = costRecordService.create(record, breakdowns);
     List<CostBreakdown> savedBreakdowns = costRecordService.getBreakdowns(created.getId());
+    auditService.record("COST_CREATE", "cost-record", created.getId().toString(),
+        "Cost record created (serviceEnvironmentId=" + created.getServiceEnvironmentId() + ", total=" + created.getTotalCost() + ")");
     return ResponseEntity.status(HttpStatus.CREATED).body(mapWithBreakdowns(created, savedBreakdowns));
   }
 
@@ -95,6 +99,7 @@ public class CostController {
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     UserContext.requirePermission("COST_MANAGE");
     costRecordService.delete(id);
+    auditService.record("COST_DELETE", "cost-record", id.toString(), "Cost record deleted (id=" + id + ")");
     return ResponseEntity.noContent().build();
   }
 

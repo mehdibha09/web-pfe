@@ -10,6 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
 import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.MetricRepository;
@@ -29,15 +30,21 @@ public class MetricService {
     }
 
     public Metric getById(UUID id) {
+        return getById(id, UserContext.getTenantId());
+    }
+
+    public Metric getById(UUID id, UUID tenantId) {
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            return metricRepository.findByIdAndTenant(id, tenantId)
+                    .orElseThrow(() -> new EntityNotFoundException("Metric not found"));
+        }
         return metricRepository
                 .findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Metric not found"));
     }
 
     public Metric update(UUID id, Metric metric) {
-        Metric existing = metricRepository
-                .findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Metric not found"));
+        Metric existing = getById(id, UserContext.getTenantId());
 
         existing.setCpuUsage(metric.getCpuUsage());
         existing.setRamUsage(metric.getRamUsage());
@@ -53,11 +60,23 @@ public class MetricService {
     }
 
     public List<Metric> getAll() {
+        return getAll(UserContext.getTenantId());
+    }
+
+    public List<Metric> getAll(UUID tenantId) {
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            return metricRepository.findByTenant(tenantId);
+        }
         return metricRepository.findAll();
     }
 
     public Page<Metric> getAll(
             UUID serviceEnvironmentId, Instant from, Instant to, Pageable pageable) {
+        return getAll(serviceEnvironmentId, from, to, pageable, UserContext.getTenantId());
+    }
+
+    public Page<Metric> getAll(
+            UUID serviceEnvironmentId, Instant from, Instant to, Pageable pageable, UUID tenantId) {
         if (from != null && to != null && from.isAfter(to)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "from must be before to");
         }
@@ -68,6 +87,16 @@ public class MetricService {
             specification = specification.and(
                     (root, query, criteriaBuilder) -> criteriaBuilder.equal(
                             root.get("serviceEnvironmentId"), serviceEnvironmentId));
+        }
+
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            specification = specification.and((root, query, criteriaBuilder) -> {
+                var subquery = query.subquery(UUID.class);
+                var seRoot = subquery.from(com.deployment.ServiceEntity.domain.ServiceEnvironment.class);
+                subquery.select(seRoot.get("id"))
+                        .where(criteriaBuilder.equal(seRoot.get("tenantId"), tenantId));
+                return criteriaBuilder.in(root.get("serviceEnvironmentId")).value(subquery);
+            });
         }
 
         if (from != null) {
@@ -85,11 +114,19 @@ public class MetricService {
         return metricRepository.findAll(specification, pageable);
     }
 
-    // public void delete(UUID id) {
-    // metricRepository.deleteById(id);
-    // }
-
     public Metric getLatest(UUID serviceEnvId) {
+        return getLatest(serviceEnvId, UserContext.getTenantId());
+    }
+
+    public Metric getLatest(UUID serviceEnvId, UUID tenantId) {
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            List<Metric> owned = metricRepository.findByTenant(tenantId);
+            return owned.stream()
+                    .filter(m -> m.getServiceEnvironmentId().equals(serviceEnvId))
+                    .max((first, second) -> first.getTimestamp().compareTo(second.getTimestamp()))
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "No metric found for service environment: " + serviceEnvId));
+        }
         return metricRepository
                 .findTopByServiceEnvironmentIdOrderByCreatedAtDesc(serviceEnvId)
                 .orElseThrow(
@@ -101,10 +138,30 @@ public class MetricService {
     }
 
     public List<Metric> getMetricsByServiceEnvironment(UUID serviceEnvironmentId) {
+        return getMetricsByServiceEnvironment(serviceEnvironmentId, UserContext.getTenantId());
+    }
+
+    public List<Metric> getMetricsByServiceEnvironment(UUID serviceEnvironmentId, UUID tenantId) {
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            return metricRepository.findByTenant(tenantId).stream()
+                    .filter(m -> m.getServiceEnvironmentId().equals(serviceEnvironmentId))
+                    .toList();
+        }
         return metricRepository.findByServiceEnvironmentId(serviceEnvironmentId);
     }
 
     public MetricSummaryDto getSummary(UUID serviceEnvironmentId) {
+        return getSummary(serviceEnvironmentId, UserContext.getTenantId());
+    }
+
+    public MetricSummaryDto getSummary(UUID serviceEnvironmentId, UUID tenantId) {
+        if (tenantId != null && !UserContext.isSuperAdmin()) {
+            boolean owned = metricRepository.findByTenant(tenantId).stream()
+                    .anyMatch(m -> m.getServiceEnvironmentId().equals(serviceEnvironmentId));
+            if (!owned) {
+                return new MetricSummaryDto();
+            }
+        }
         Object result = metricRepository.getSummary(serviceEnvironmentId);
         MetricSummaryDto dto = new MetricSummaryDto();
 

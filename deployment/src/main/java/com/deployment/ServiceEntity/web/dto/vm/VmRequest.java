@@ -14,6 +14,8 @@ public class VmRequest {
     @NotBlank(message = "Name is required")
     private String name;
 
+    private String displayName;
+
     @NotNull(message = "CPU is required")
     @Min(value = 1, message = "CPU must be at least 1")
     @Max(value = 32, message = "CPU must be at most 32")
@@ -47,6 +49,14 @@ public class VmRequest {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public Integer getCpu() {

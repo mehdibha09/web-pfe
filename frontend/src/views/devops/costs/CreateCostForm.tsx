@@ -159,7 +159,7 @@ const CreateCostForm = ({ open, onClose, onCreated, costs }: CreateCostFormProps
                         <TextField fullWidth select label={t('costs.serviceEnvironmentId')} value={serviceEnvironmentId} onChange={(e) => setServiceEnvironmentId(e.target.value)} helperText={t('costs.serviceEnvHelper')} sx={labelSx}>
                             <MenuItem value="">{t('costs.selectServiceEnvironment')}</MenuItem>
                             {seList.map((se) => (
-                                <MenuItem key={se.id} value={se.id}>{seLabel(se, services, environments)}</MenuItem>
+                                <MenuItem key={se.id} value={se.id}>{seLabel(se)}</MenuItem>
                             ))}
                         </TextField>
                     </Grid>

@@ -6,6 +6,7 @@ export type VmOs = (typeof VM_OS_OPTIONS)[number];
 export interface Vm {
   id: string;
   name: string;
+  displayName?: string;
   cpu: number;
   ram: number;
   disk: number;
@@ -29,12 +30,13 @@ export interface VmStatusResponse {
 }
 
 export interface CreateVmRequest {
-  name: string;
+  name?: string;
+  displayName?: string;
   cpu: number;
   ram: number;
   disk: number;
   os: VmOs;
-  tenantId: string;
+  tenantId?: string;
   serviceEnvironmentId: string;
   backupEnabled: boolean;
 }
