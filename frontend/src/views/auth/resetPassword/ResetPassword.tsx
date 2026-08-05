@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined';
 import Button from '../../../components/MyCustomButton';
 import { resetPassword } from '../../../services/authService';
 import { C} from '../../../theme/tokens';
@@ -60,10 +61,12 @@ const ResetPassword = () => {
         <Box
             sx={{
                 width: '100%',
-                height: '100vh',
+                minHeight: '100vh',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                background: 'linear-gradient(160deg, #FDFCFF 0%, #F5F0FA 50%, #F8F5FA 100%)',
+                p: 2
             }}
         >
             <Box
@@ -71,21 +74,30 @@ const ResetPassword = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    width: '30%',
-                    minWidth: '360px',
-
-                    padding: '2rem',
-                    borderRadius: '10px',
+                    width: 440,
+                    maxWidth: '100%',
+                    padding: '2.5rem 2rem',
+                    borderRadius: '16px',
                     backgroundColor: 'white',
-                    boxShadow: 20,
-                    boxShadowColor: 'rgba(0, 0, 0, 0.35)'
+                    boxShadow: '0 12px 40px rgba(124, 58, 237, 0.12)',
+                    border: `1px solid ${C.border}`
                 }}
             >
-                <img
-                    //   src={LogoAscend}
-                    alt="logo"
-                    style={{ width: '400px', height: '70px', margin: '2rem 0' }}
-                />
+                <Box
+                    sx={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 3,
+                        background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 2,
+                        boxShadow: '0 6px 18px rgba(124, 58, 237, 0.35)'
+                    }}
+                >
+                    <LockResetOutlinedIcon sx={{ color: '#fff', fontSize: 32 }} />
+                </Box>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: C.text, mb: 1 }}>
                     {t('auth.resetPasswordTitle')}
                 </Typography>
@@ -110,6 +122,12 @@ const ResetPassword = () => {
                     placeholder={t('auth.newPassword')}
                     error={!!errors.password}
                     helperText={errors.password?.message}
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            '&.Mui-focused fieldset': { borderColor: C.brand }
+                        },
+                        '& label.Mui-focused': { color: C.brand }
+                    }}
                 />
                 <TextField
                     label={t('auth.confirmPassword')}
@@ -125,20 +143,27 @@ const ResetPassword = () => {
                     placeholder={t('auth.confirmPassword')}
                     error={!!errors.confirmPassword}
                     helperText={errors.confirmPassword?.message}
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            '&.Mui-focused fieldset': { borderColor: C.brand }
+                        },
+                        '& label.Mui-focused': { color: C.brand }
+                    }}
                 />
-                <Box>
-                    <Button
-                        onClick={handleSubmit(handleResetPassword)}
-                        disabled={loading}
-                        sx={{
-                            my: 2,
-                            padding: '0.5rem 2rem',
-                            alignSelf: 'flex-end'
-                        }}
-                    >
-                        {loading ? t('common.saving') : t('auth.resetPassword')}
-                    </Button>
-                </Box>
+                <Button
+                    onClick={handleSubmit(handleResetPassword)}
+                    disabled={loading}
+                    sx={{
+                        my: 2,
+                        width: '100%',
+                        padding: '0.7rem',
+                        fontSize: 15,
+                        fontWeight: 700,
+                        borderRadius: '10px'
+                    }}
+                >
+                    {loading ? t('common.saving') : t('auth.resetPassword')}
+                </Button>
 
                 <Typography
                     variant="body2"

@@ -18,35 +18,37 @@ import { C, BTN } from '../../../theme/tokens';
 type ServiceCardProps = {
     service: ServiceResponse;
     onRefresh: () => void;
+    allowManage?: boolean;
+    canViewAudit?: boolean;
 };
 
-const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
+const ServiceCard = ({ service, onRefresh, allowManage = false, canViewAudit = false }: ServiceCardProps) => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const c = getStatusColor(service.status);
     const [editing, setEditing] = useState(false);
     const [editName, setEditName] = useState('');
     const [editType, setEditType] = useState('');
-    const [editStatus, setEditStatus] = useState('ACTIVE');
+    const [editRuntime, setEditRuntime] = useState('VAGRANT');
 
     const startEdit = (s: ServiceResponse) => {
         setEditing(true);
         setEditName(s.name);
         setEditType(s.type || '');
-        setEditStatus(s.status);
+        setEditRuntime(s.runtime || 'VAGRANT');
     };
 
     const cancelEdit = () => {
         setEditing(false);
         setEditName('');
         setEditType('');
-        setEditStatus('ACTIVE');
+        setEditRuntime('VAGRANT');
     };
 
     const handleUpdate = async (id: string) => {
         try {
-            await updateService(id, { name: editName.trim(), type: editType.trim(), status: editStatus, tenantId: service.tenantId });
-            toast.success('Service updated');
+            await updateService(id, { name: editName.trim(), type: editType.trim(), runtime: editRuntime, tenantId: service.tenantId });
+            toast.success(t('services.updatedSuccess'));
             cancelEdit();
             await onRefresh();
         } catch (e: unknown) {
@@ -57,7 +59,7 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
     const handleDelete = async (id: string) => {
         try {
             await deleteService(id);
-            toast.success('Service deleted');
+            toast.success(t('services.deletedSuccess'));
             await onRefresh();
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, 'Failed to delete service'));
@@ -81,10 +83,9 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
                             <MenuItem value="STORAGE">STORAGE</MenuItem>
                             <MenuItem value="OTHER">OTHER</MenuItem>
                         </TextField>
-                        <TextField size="small" select label={t('common.status')} value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                            <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-                            <MenuItem value="PENDING">PENDING</MenuItem>
-                            <MenuItem value="DISABLED">DISABLED</MenuItem>
+                        <TextField size="small" select label="Runtime" value={editRuntime} onChange={(e) => setEditRuntime(e.target.value)}>
+                            <MenuItem value="VAGRANT">VAGRANT</MenuItem>
+                            <MenuItem value="K8S">K8S</MenuItem>
                         </TextField>
                     </Box>
                 ) : (
@@ -92,6 +93,9 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                             <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>{service.name}</Typography>
                             <Chip label={service.status} size="small" sx={{ backgroundColor: c.bg, color: c.color, fontWeight: 700, fontSize: 10 }} />
+                            {service.runtime && (
+                                <Chip label={service.runtime} size="small" variant="outlined" sx={{ fontWeight: 700, fontSize: 10, color: C.brand, borderColor: C.brandLight }} />
+                            )}
                         </Box>
                         <Typography sx={{ color: C.muted, fontSize: 14 }}>{service.type || '-'}</Typography>
                         <Typography sx={{ color: C.subtle, fontFamily: 'monospace', fontSize: 11, mt: 1.5 }}>{service.id}</Typography>
@@ -100,9 +104,13 @@ const ServiceCard = ({ service, onRefresh }: ServiceCardProps) => {
             </CardContent>
             {!editing && (
                 <CardActions sx={{ px: 3, pb: 2.5, gap: 0.5, flexWrap: 'wrap' }}>
-                    <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/devops/deployments')} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>
-                    <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
-                    <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('common.delete')}</Button>
+                    {canViewAudit && <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/audit-logs')} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>}
+                    {allowManage && (
+                        <>
+                            <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
+                            <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('common.delete')}</Button>
+                        </>
+                    )}
                 </CardActions>
             )}
             {editing && (

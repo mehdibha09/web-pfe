@@ -13,7 +13,6 @@ import {
     canAccessAuditLogs,
     canAccessBackups,
     canAccessCosts,
-    canAccessDeployments,
     canAccessEnvironments,
     canAccessK8s,
     canAccessMetrics,
@@ -70,7 +69,6 @@ const AdminAccessRoute = ({ canAccess, children }: AdminAccessRouteProps) => {
 const DevOpsServicesPage = lazy(() => import('../views/devops/services/DevopsServicesPage'));
 const DevOpsEnvironmentsPage = lazy(() => import('../views/devops/environments/EnvironmentsPage'));
 const DevOpsServiceEnvironmentsPage = lazy(() => import('../views/devops/service-environments/ServiceEnvironmentsPage'));
-const DevOpsDeploymentsPage = lazy(() => import('../views/devops/deployments/DeploymentsPage'));
 const DevOpsMetricsPage = lazy(() => import('../views/devops/metrics/MetricsPage'));
 const DevOpsBackupsPage = lazy(() => import('../views/devops/backups/BackupPage'));
 const DevOpsK8sPage = lazy(() => import('../views/devops/k8s/K8sPage'));
@@ -181,7 +179,6 @@ const AppRoutes = () => {
                         <Route path="/admin/devops/services" element={<AdminAccessRoute canAccess={canAccessServices}><DevOpsServicesPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/environments" element={<AdminAccessRoute canAccess={canAccessEnvironments}><DevOpsEnvironmentsPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/service-environments" element={<AdminAccessRoute canAccess={canAccessServiceEnvironments}><DevOpsServiceEnvironmentsPage /></AdminAccessRoute>} />
-                        <Route path="/admin/devops/deployments" element={<AdminAccessRoute canAccess={canAccessDeployments}><DevOpsDeploymentsPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/metrics" element={<AdminAccessRoute canAccess={canAccessMetrics}><DevOpsMetricsPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/vms" element={<AdminAccessRoute canAccess={canAccessVMs}><DevOpsVmsPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/backups" element={<AdminAccessRoute canAccess={canAccessBackups}><DevOpsBackupsPage /></AdminAccessRoute>} />

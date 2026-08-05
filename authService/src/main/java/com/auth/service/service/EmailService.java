@@ -1,5 +1,7 @@
 package com.auth.service.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -7,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
 
@@ -160,20 +164,19 @@ public class EmailService {
             message.setText(body);
             
             mailSender.send(message);
+            log.info("Email sent successfully to {} (subject='{}', from='{}')", toEmail, subject, fromEmail);
         } catch (Exception e) {
             String message = e.getMessage() == null ? "unknown error" : e.getMessage();
             String lowerMessage = message.toLowerCase();
             if (lowerMessage.contains("no password specified")) {
-                System.err.println("Failed to send email to " + toEmail
-                        + ": SMTP password is missing. Configure MAIL_PASSWORD or BREVO_SMTP_KEY.");
+                log.error("Failed to send email to {}: SMTP password is missing. Configure MAIL_PASSWORD or BREVO_SMTP_KEY.", toEmail, e);
                 return;
             }
             if (lowerMessage.contains("authentication failed")) {
-                System.err.println("Failed to send email to " + toEmail
-                        + ": SMTP authentication failed. Check BREVO_SMTP_KEY/MAIL_PASSWORD and SMTP username (MAIL_USERNAME or BREVO_SMTP_USER). For Brevo, use your SMTP login or apikey depending on account settings.");
+                log.error("Failed to send email to {}: SMTP authentication failed. Check BREVO_SMTP_KEY/MAIL_PASSWORD and SMTP username (MAIL_USERNAME or BREVO_SMTP_USER). For Brevo, use your SMTP login or apikey depending on account settings.", toEmail, e);
                 return;
             }
-            System.err.println("Failed to send email to " + toEmail + ": " + message);
+            log.error("Failed to send email to {} (subject='{}', from='{}'): {}", toEmail, subject, fromEmail, message, e);
         }
     }
 }

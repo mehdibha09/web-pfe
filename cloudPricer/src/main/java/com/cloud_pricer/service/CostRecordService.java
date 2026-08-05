@@ -52,16 +52,14 @@ public class CostRecordService {
         return costRecordRepository.findByServiceEnvironmentId(serviceEnvironmentId);
     }
 
-    public List<CostBreakdown> getBreakdowns(UUID costRecordId) {
-        return costBreakdownRepository.findByCostRecordId(costRecordId);
+    public CostRecord findLatestByServiceEnvironmentId(UUID serviceEnvironmentId) {
+        return costRecordRepository
+            .findFirstByServiceEnvironmentIdOrderByPeriodEndDesc(serviceEnvironmentId)
+            .orElse(null);
     }
 
-    public void delete(UUID id) {
-        CostRecord record = getById(id);
-        List<CostBreakdown> breakdowns = costBreakdownRepository.findByCostRecordId(id);
-        costBreakdownRepository.deleteAll(breakdowns);
-        costRecordRepository.delete(record);
-        log.info("Deleted cost record {}", id);
+    public List<CostBreakdown> getBreakdowns(UUID costRecordId) {
+        return costBreakdownRepository.findByCostRecordId(costRecordId);
     }
 
     public List<Object[]> aggregateByTenant(UUID tenantId) {

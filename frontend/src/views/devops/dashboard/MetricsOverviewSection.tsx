@@ -3,10 +3,13 @@ import { Box, Card, CardContent, Chip, Divider, LinearProgress, Typography } fro
 import { useTranslation } from 'react-i18next';
 import type { MetricResponse } from '../../../services/devopsService';
 import { C} from '../../../theme/tokens';
+import { isMetricStale } from '../metrics/constants';
 
 interface MetricsOverviewSectionProps {
     metrics: MetricResponse[];
 }
+
+const N_A = 'n/a';
 
 const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
     const { t } = useTranslation();
@@ -16,6 +19,7 @@ const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
     const latest = metrics.reduce((a, b) =>
         new Date(a.createdAt || 0).getTime() > new Date(b.createdAt || 0).getTime() ? a : b
     );
+    const stale = isMetricStale(latest);
     const avgCpu = metrics.reduce((s, m) => s + m.cpuUsage, 0) / metrics.length;
     const avgRam = metrics.reduce((s, m) => s + m.ramUsage, 0) / metrics.length;
     const totalPods = metrics[metrics.length - 1]?.pods || 0;
@@ -34,9 +38,9 @@ const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
                     </Box>
                     <Chip
                         icon={<MemoryIcon sx={{ fontSize: 14 }} />}
-                        label={t('dashboard.devopsDashboard.metricsChip', { count: metrics.length })}
+                        label={stale ? N_A : t('dashboard.devopsDashboard.metricsChip', { count: metrics.length })}
                         size="small"
-                        sx={{ backgroundColor: C.brandLight, color: C.brand, fontWeight: 700 }}
+                        sx={stale ? { backgroundColor: '#F7DEE3', color: '#C95B6E', fontWeight: 700 } : { backgroundColor: C.brandLight, color: C.brand, fontWeight: 700 }}
                     />
                 </Box>
                 <Divider sx={{ mb: 2, borderColor: '#F5D8E4' }} />
@@ -46,11 +50,11 @@ const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
                             {t('dashboard.devopsDashboard.metricsCpu')}
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, color: C.text, mt: 0.5 }}>
-                            {avgCpu.toFixed(1)}%
+                            {stale ? N_A : `${avgCpu.toFixed(1)}%`}
                         </Typography>
                         <LinearProgress
                             variant="determinate"
-                            value={Math.min(avgCpu, 100)}
+                            value={stale ? 0 : Math.min(avgCpu, 100)}
                             sx={{ mt: 1, height: 6, borderRadius: 3, backgroundColor: '#F5D8E4', '& .MuiLinearProgress-bar': { backgroundColor: avgCpu > 80 ? '#C95B6E' : '#2E7A4F', borderRadius: 3 } }}
                         />
                     </Box>
@@ -59,11 +63,11 @@ const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
                             {t('dashboard.devopsDashboard.metricsRam')}
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, color: C.text, mt: 0.5 }}>
-                            {avgRam.toFixed(1)}%
+                            {stale ? N_A : `${avgRam.toFixed(1)}%`}
                         </Typography>
                         <LinearProgress
                             variant="determinate"
-                            value={Math.min(avgRam, 100)}
+                            value={stale ? 0 : Math.min(avgRam, 100)}
                             sx={{ mt: 1, height: 6, borderRadius: 3, backgroundColor: '#F5D8E4', '& .MuiLinearProgress-bar': { backgroundColor: avgRam > 80 ? '#C95B6E' : '#2E5C8A', borderRadius: 3 } }}
                         />
                     </Box>
@@ -72,10 +76,10 @@ const MetricsOverviewSection = ({ metrics }: MetricsOverviewSectionProps) => {
                             {t('dashboard.devopsDashboard.metricsPods')}
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, color: C.text, mt: 0.5 }}>
-                            {totalPods}
+                            {stale ? N_A : totalPods}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 11, mt: 1 }}>
-                            {t('dashboard.devopsDashboard.metricsLatest')} {latest.createdAt ? new Date(latest.createdAt).toLocaleTimeString() : ''}
+                            {t('dashboard.devopsDashboard.metricsLatest')} {stale ? N_A : latest.createdAt ? new Date(latest.createdAt).toLocaleTimeString() : ''}
                         </Typography>
                     </Box>
                 </Box>

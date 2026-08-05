@@ -1,0 +1,15 @@
+{
+    "validation": {
+        "emailRequired": "Email is required",
+        "invalidEmail": "Invalid Email",
+        "passwordRequired": "Password is required",
+        "minLength": "At least 8 characters",
+        "passwordComplexity": "Must contain uppercase, lowercase, digit, and special character",
+        "confirmPasswordRequired": "Please confirm your password",
+        "passwordsDoNotMatch": "Passwords do not match",
+        "newEmailRequired": "New email is required",
+        "currentPasswordRequired": "Current password is required",
+        "newPasswordRequired": "New password is required",
+        "invalidCode": "Enter a valid 6-digit code"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "errors": {
+        "forbidden": {
+            "title": "Access denied",
+            "message": "You do not have permission to access this page.",
+            "backToProfile": "Back to profile"
+        },
+        "notFound": {
+            "title": "Page Not Found",
+            "message": "The page you're looking for doesn't exist or has been moved.",
+            "backToHome": "Back to Home"
+        }
+    }
+}

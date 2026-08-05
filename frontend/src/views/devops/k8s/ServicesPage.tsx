@@ -31,6 +31,7 @@ import { k8sService } from '../../../services/k8sService';
 import type { K8sServiceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import { getStoredUser } from '../../../services/authStorage';
 import { canManageK8s } from '../../../services/authorization';
 import { SERVICE_TYPES } from './constants';
@@ -357,7 +358,7 @@ const ServicesPage = () => {
                         <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                         <TextField fullWidth label={t('common.name')} value={svcName} onChange={(e) => { setSvcName(e.target.value); clearFieldError('name'); }} disabled={!!editing} error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField select fullWidth label={t('common.type')} value={svcType} onChange={(e) => setSvcType(e.target.value)}>
@@ -366,8 +367,8 @@ const ServicesPage = () => {
                             ))}
                         </TextField>
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                            <TextField fullWidth type="number" label="Port" value={svcPort} onChange={(e) => setSvcPort(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
-                            <TextField fullWidth type="number" label="Target Port" value={svcTargetPort} onChange={(e) => setSvcTargetPort(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
+                            <TextField fullWidth type="number" label="Port" value={svcPort} onChange={(e) => setSvcPort(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
+                            <TextField fullWidth type="number" label="Target Port" value={svcTargetPort} onChange={(e) => setSvcTargetPort(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                         </Box>
                         <TextField select fullWidth label={t('k8s.protocol')} value={svcProtocol} onChange={(e) => setSvcProtocol(e.target.value)}>
                             <MenuItem value="TCP">TCP</MenuItem>

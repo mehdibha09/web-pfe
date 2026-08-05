@@ -46,7 +46,7 @@ const statusColors: Record<TenantItem['status'], { bg: string; color: string }> 
 const toTenantItem = (tenant: any): TenantItem => ({
     id: String(tenant.id),
     name: tenant.name || '-',
-    code: tenant.code || String(tenant.name || '-').replace(/\s+/g, '').slice(0, 8).toUpperCase(),
+    code: tenant.code || '—',
     contactEmail: tenant.contactEmail || '',
     phone: tenant.phone || '',
     usersCount: Number(tenant.usersCount || 0),
@@ -134,7 +134,6 @@ const TenantsPage = () => {
         try {
             await createTenant({
                 name: tenantName.trim(),
-                code: tenantCode.trim() || undefined,
                 contactEmail: contactEmail.trim() || undefined,
                 phone: phone.trim() || undefined,
                 adminEmail: adminEmail.trim() || undefined,
@@ -269,12 +268,6 @@ const TenantsPage = () => {
                                 label={t('admin.tenants.tenantName')}
                                 value={tenantName}
                                 onChange={(event) => setTenantName(event.target.value)}
-                                size="small"
-                            />
-                            <TextField
-                                label={t('admin.tenants.tenantCode')}
-                                value={tenantCode}
-                                onChange={(event) => setTenantCode(event.target.value)}
                                 size="small"
                             />
                             <TextField

@@ -26,6 +26,7 @@ import com.auth.service.web.dto.auth.AuthResetPasswordRequest;
 import com.auth.service.web.dto.auth.AuthSsoCallbackRequest;
 import com.auth.service.web.dto.auth.AuthSsoRedirectResponse;
 import com.auth.service.web.dto.auth.AuthTokensResponse;
+import com.auth.service.web.dto.auth.AuthTwoFaEmailResendRequest;
 import com.auth.service.web.dto.auth.AuthTwoFaEmailVerifyRequest;
 import com.auth.service.web.dto.auth.AuthTwoFaSetupResponse;
 import com.auth.service.web.dto.auth.AuthTwoFaVerifyRequest;
@@ -68,6 +69,11 @@ public class AuthController {
             normalizeHeader(httpRequest.getHeader("Accept-Language")),
             normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
         ));
+    }
+
+    @PostMapping(ApiRoutes.Auth.TWO_FA_EMAIL_RESEND)
+    public ResponseEntity<AuthActionResponse> resendLoginTwoFaEmail(@Valid @RequestBody AuthTwoFaEmailResendRequest request) {
+        return ResponseEntity.ok(authService.resendLoginTwoFaEmail(request.email()));
     }
 
     @PostMapping(ApiRoutes.Auth.REFRESH)

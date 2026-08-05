@@ -100,8 +100,16 @@ const ForgetPassword = () => {
                         </Typography>
                         <Button
                             onClick={() => setSentEmail(null)}
-                            sx={{ my: 2, padding: '0.5rem 2rem' }}
-                            variant="text"
+                            sx={{
+                                my: 2,
+                                padding: '0.6rem 2.5rem',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                color: '#fff',
+                                background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`,
+                                boxShadow: '0 6px 18px rgba(124, 58, 237, 0.35)',
+                                '&:hover': { opacity: 0.92 }
+                            }}
                         >
                             {t('auth.sendResetLink')}
                         </Button>
@@ -148,8 +156,11 @@ const ForgetPassword = () => {
                             disabled={loading}
                             sx={{
                                 my: 2,
-                                padding: '0.5rem 2rem',
-                                alignSelf: 'flex-end'
+                                width: '100%',
+                                padding: '0.7rem',
+                                fontSize: 15,
+                                fontWeight: 700,
+                                borderRadius: '10px'
                             }}
                         >
                             {loading ? (

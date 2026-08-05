@@ -28,6 +28,7 @@ public class NotificationService {
         n.setRead(false);
         n.setTenantId(UserContext.getTenantId());
         n.setLink(dto.link());
+        n.setAlertId(dto.alertId());
         return map(notificationRepository.save(n));
     }
 
@@ -78,6 +79,7 @@ public class NotificationService {
                 n.isRead(),
                 n.getTenantId(),
                 n.getLink(),
+                n.getAlertId(),
                 n.getCreatedAt(),
                 n.getUpdatedAt()
         );

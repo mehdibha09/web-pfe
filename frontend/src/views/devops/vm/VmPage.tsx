@@ -116,8 +116,6 @@ const formatTimestamp = (timestamp: string, short = false) => {
     return short ? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : date.toLocaleString();
 };
 
-const getPods = (metric: VmMetrics): number | undefined => (metric as unknown as { pods?: number }).pods;
-
 const Transition = forwardRef(function Transition(
     props: TransitionProps & { children: React.ReactElement },
     ref: React.Ref<unknown>
@@ -236,6 +234,8 @@ const VmsPage = () => {
     const [liveMonitoring, setLiveMonitoring] = useState(false);
     const [tab, setTab] = useState<'overview' | 'history'>('overview');
     const [historyPage, setHistoryPage] = useState(1);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
     const metricsPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [sshTarget, setSshTarget] = useState<Vm | null>(null);
@@ -418,10 +418,18 @@ const VmsPage = () => {
 
     const chartData = useMemo(() => {
         if (!metrics) return [];
+        const fromTime = dateFrom ? new Date(dateFrom).getTime() : null;
+        const toTime = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1 : null;
         return [...metrics]
+            .filter((m) => {
+                const t = new Date(m.timestamp || '').getTime();
+                if (fromTime !== null && t < fromTime) return false;
+                if (toTime !== null && t > toTime) return false;
+                return true;
+            })
             .sort((a, b) => new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime())
             .map((m) => ({ ...m, timeLabel: formatTimestamp(m.timestamp || '', true) }));
-    }, [metrics]);
+    }, [metrics, dateFrom, dateTo]);
 
     const sortedMetrics = useMemo(() => [...chartData].reverse(), [chartData]);
     const latestMetric = sortedMetrics[0];
@@ -694,13 +702,38 @@ const VmsPage = () => {
                         <Tab value="overview" label={t('vms.overview')} />
                         <Tab value="history" label={t('vms.history', { count: sortedMetrics.length })} />
                     </Tabs>
-                </AppBar>
-                <Box sx={{
-                    p: 3, maxWidth: 1100, mx: 'auto', width: '100%',
-                    background: 'linear-gradient(180deg, #FAFAFF 0%, #F5F0FA 100%)',
-                    minHeight: '100%'
-                }}>
-                    {metricsLoading && (
+                    </AppBar>
+                    <Box sx={{
+                        p: { xs: 2, md: 3 }, maxWidth: 1100, mx: 'auto', width: '100%',
+                        background: 'linear-gradient(180deg, #FAFAFF 0%, #F5F0FA 100%)', minHeight: '100%',
+                        position: 'relative', overflow: 'hidden'
+                    }}>
+                    <Box sx={{ position: 'relative', zIndex: 1 }}>
+                        {dateFrom !== '' || dateTo !== '' ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                                <TextField size="small" type="date" label={t('common.from')} value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    slotProps={{ input: { sx: { borderRadius: 2, backgroundColor: '#fff' } } }} />
+                                <TextField size="small" type="date" label={t('common.to')} value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    slotProps={{ input: { sx: { borderRadius: 2, backgroundColor: '#fff' } } }} />
+                                <Button size="small" variant="outlined" onClick={() => { setDateFrom(''); setDateTo(''); }}
+                                    sx={{ borderRadius: 2, textTransform: 'none', color: C.brand, borderColor: C.brandLight }}>
+                                    {t('common.clear')}
+                                </Button>
+                            </Box>
+                        ) : (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                                <Tooltip title={t('vms.filterByDate')}>
+                                    <Button size="small" startIcon={<span style={{ fontSize: 14 }}>📅</span>}
+                                        onClick={() => setDateFrom(new Date().toISOString().slice(0, 10))}
+                                        sx={{ borderRadius: 2, textTransform: 'none', color: C.brand, borderColor: C.brandLight, border: '1px solid' }}>
+                                        {t('vms.filterByDate')}
+                                    </Button>
+                                </Tooltip>
+                            </Box>
+                        )}
+                        {metricsLoading && (
                         <LoadingSpinner variant="block" />
                     )}
                     {metricsError && (
@@ -799,15 +832,6 @@ const VmsPage = () => {
                                     </Box>
                                 </Paper>
                             )}
-
-                            {getPods(latestMetric) !== undefined && (
-                                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <DnsIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
-                                    <Typography sx={{ fontSize: 13, color: '#6B7280' }}>{t('vms.podsRunning')}:</Typography>
-                                    <Chip size="small" label={getPods(latestMetric)}
-                                        sx={{ fontWeight: 700, backgroundColor: '#EEF2FF', color: '#4F46E5', fontSize: 12 }} />
-                                </Box>
-                            )}
                         </>
                     )}
                     {!metricsLoading && sortedMetrics.length > 0 && tab === 'history' && (
@@ -816,7 +840,7 @@ const VmsPage = () => {
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            {[t('vms.timestamp'), t('vms.cpu'), t('vms.ram'), t('vms.network'), t('vms.disk'), t('vms.pods')].map((h) => (
+                                            {[t('vms.timestamp'), t('vms.cpu'), t('vms.ram'), t('vms.network'), t('vms.disk')].map((h) => (
                                                 <TableCell key={h} sx={{ fontWeight: 700, color: C.subtle, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5, backgroundColor: '#FAFAFF' }}>
                                                     {h}
                                                 </TableCell>
@@ -849,9 +873,6 @@ const VmsPage = () => {
                                                         </Box>
                                                     </TableCell>
                                                 ))}
-                                                <TableCell align="right">
-                                                    <Typography sx={{ fontSize: 12, color: '#6B7280' }}>{getPods(metric) ?? '—'}</Typography>
-                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -862,7 +883,8 @@ const VmsPage = () => {
                     {tab === 'history' && sortedMetrics.length > 0 && (
                         <PaginationBar page={historyPage} pageCount={historyPageCount} total={sortedMetrics.length} onPageChange={setHistoryPage} />
                     )}
-                </Box>
+                    </Box>
+                    </Box>
             </Dialog>
 
             <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>

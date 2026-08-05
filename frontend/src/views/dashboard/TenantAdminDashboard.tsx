@@ -29,7 +29,7 @@ import {
     type SessionResponse,
     type AuditLogResponse
 } from '../../services/adminService';
-import { listServices, listDeployments, type ServiceResponse, type DeploymentResponse } from '../../services/devopsService';
+import { listServices, listDeploymentHistory, type ServiceResponse, type HistoryEntry } from '../../services/devopsService';
 import { listAlerts, type AlertResponse } from '../../services/cloudPricerService';
 import { C } from '../../theme/tokens';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -55,7 +55,7 @@ const TenantAdminDashboard = () => {
     const [sessions, setSessions] = useState<SessionResponse[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
     const [services, setServices] = useState<ServiceResponse[]>([]);
-    const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
+    const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [alerts, setAlerts] = useState<AlertResponse[]>([]);
 
     const fetchAll = useCallback(async () => {
@@ -66,7 +66,7 @@ const TenantAdminDashboard = () => {
                 listSessions(),
                 listAuditLogs({}),
                 listServices(),
-                listDeployments(),
+                listDeploymentHistory(),
                 listAlerts()
             ]);
             if (u.status === 'fulfilled') setUsers(u.value);
@@ -74,7 +74,7 @@ const TenantAdminDashboard = () => {
             if (s.status === 'fulfilled') setSessions(s.value);
             if (a.status === 'fulfilled') setAuditLogs(a.value);
             if (svc.status === 'fulfilled') setServices(svc.value);
-            if (dep.status === 'fulfilled') setDeployments(dep.value);
+            if (dep.status === 'fulfilled') setHistory(dep.value);
             if (al.status === 'fulfilled') setAlerts(al.value);
         } catch (e: any) {
             setError(e?.message || 'Failed to load dashboard');
@@ -89,13 +89,12 @@ const TenantAdminDashboard = () => {
 
     const activeUsers = users.filter((u) => u.status?.toUpperCase() === 'ACTIVE').length;
     const activeSessions = sessions.filter((s) => !s.revokedAt).length;
-    const successDeployments = deployments.filter((d) => d.status?.toUpperCase() === 'SUCCESS').length;
     const openAlerts = alerts.filter((al) => al.status?.toUpperCase() === 'OPEN');
     const recentAudit = [...auditLogs]
         .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
         .slice(0, 6);
-    const recentDeployments = [...deployments]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    const recentDeployments = [...history]
+        .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
         .slice(0, 5);
 
     if (loading) {
@@ -151,12 +150,12 @@ const TenantAdminDashboard = () => {
                 />
                 <DashboardKpiCard
                     title={t('dashboard.tenantAdmin.kpiDeployments')}
-                    value={deployments.length}
-                    subtitle={t('dashboard.tenantAdmin.succeededCount', { count: successDeployments })}
+                    value={history.length}
+                    subtitle={t('dashboard.tenantAdmin.recordedActions', { count: history.length })}
                     icon={<TrendingUpIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                     bgColor="#FDF4FF"
                     color="#5E4B9E"
-                    onClick={() => navigate('/admin/devops/deployments')}
+                    onClick={() => navigate('/admin/audit-logs')}
                 />
             </Box>
 
@@ -289,14 +288,14 @@ const TenantAdminDashboard = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Box>
                                 <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
-                                    {t('dashboard.tenantAdmin.recentDeployments')}
+                                    {t('dashboard.tenantAdmin.deploymentActivity')}
                                 </Typography>
                                 <Typography sx={{ color: C.muted, fontSize: 13 }}>
-                                    {t('dashboard.tenantAdmin.latestDeploymentRuns')}
+                                    {t('dashboard.tenantAdmin.latestDeploymentActions')}
                                 </Typography>
                             </Box>
                             <Chip
-                                label={t('dashboard.tenantAdmin.totalCount', { count: deployments.length })}
+                                label={t('dashboard.tenantAdmin.totalCount', { count: history.length })}
                                 size="small"
                                 sx={{ backgroundColor: '#FDF4FF', color: '#5E4B9E', fontWeight: 700 }}
                             />
@@ -311,38 +310,40 @@ const TenantAdminDashboard = () => {
                             </Box>
                         ) : (
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                {recentDeployments.map((dep) => {
-                                    const isSuccess = dep.status?.toUpperCase() === 'SUCCESS';
+                                {recentDeployments.map((entry) => {
+                                    const ac = actionColor(entry.action);
                                     return (
                                         <Box
-                                            key={dep.id}
+                                            key={entry.id}
                                             sx={{
                                                 p: 1.5,
                                                 borderRadius: 2,
-                                                border: `1px solid ${isSuccess ? '#E0F1E6' : '#F7DEE3'}`,
+                                                border: '1px solid #F5D8E4',
                                                 backgroundColor: '#FFFFFF'
                                             }}
                                         >
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <TrendingUpIcon sx={{ fontSize: 16, color: isSuccess ? '#2E7A4F' : '#A23B4E' }} />
+                                                    <TrendingUpIcon sx={{ fontSize: 16, color: ac.fg }} />
                                                     <Typography sx={{ fontWeight: 700, color: C.text, fontSize: 13 }}>
-                                                        {dep.version || 'v0.0.0'}
+                                                        {entry.action}
                                                     </Typography>
                                                 </Box>
                                                 <Chip
-                                                    label={dep.status}
+                                                    label={entry.action.slice(0, 3).toUpperCase()}
                                                     size="small"
                                                     sx={{
-                                                        backgroundColor: isSuccess ? '#E0F1E6' : '#F7DEE3',
-                                                        color: isSuccess ? '#2E7A4F' : '#A23B4E',
+                                                        backgroundColor: ac.bg,
+                                                        color: ac.fg,
                                                         fontWeight: 700,
                                                         fontSize: 10
                                                     }}
                                                 />
                                             </Box>
                                             <Typography sx={{ color: C.muted, fontSize: 11, mt: 0.5 }}>
-                                                {dep.createdAt ? new Date(dep.createdAt).toLocaleString() : ''}
+                                                {entry.resource || '—'}
+                                                {entry.resourceId ? ` · ${entry.resourceId.slice(0, 8)}` : ''} ·{' '}
+                                                {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''}
                                             </Typography>
                                         </Box>
                                     );

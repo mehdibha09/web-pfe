@@ -44,6 +44,7 @@ import {
     C,
     computeSummaryFromHistory,
     formatPct,
+    isMetricStale,
     normalizeSummary,
     ROWS_PER_PAGE,
     serviceEnvironmentLabel
@@ -242,11 +243,24 @@ const MetricsPage = () => {
         [history]
     );
 
+    // ── Filtrage par date de la courbe (trend) ───────────────────────────────
+    const dateFilteredHistory = useMemo(() => {
+        if (!dateFrom && !dateTo) return selectedHistory;
+        const fromTime = dateFrom ? new Date(dateFrom).getTime() : null;
+        const toTime = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1 : null;
+        return selectedHistory.filter((metric) => {
+            const m = new Date(metric.createdAt ?? metric.updatedAt ?? 0).getTime();
+            if (fromTime !== null && m < fromTime) return false;
+            if (toTime !== null && m > toTime) return false;
+            return true;
+        });
+    }, [selectedHistory, dateFrom, dateTo]);
+
     const SPARKLINE_WINDOW = 50;
 
-    const cpuPoints = useMemo(() => selectedHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.cpuUsage ?? 0), [selectedHistory]);
-    const ramPoints = useMemo(() => selectedHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.ramUsage ?? 0), [selectedHistory]);
-    const netPoints = useMemo(() => selectedHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.networkUsage ?? 0), [selectedHistory]);
+    const cpuPoints = useMemo(() => dateFilteredHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.cpuUsage ?? 0), [dateFilteredHistory]);
+    const ramPoints = useMemo(() => dateFilteredHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.ramUsage ?? 0), [dateFilteredHistory]);
+    const netPoints = useMemo(() => dateFilteredHistory.slice(-SPARKLINE_WINDOW).map((metric) => metric.networkUsage ?? 0), [dateFilteredHistory]);
 
     // ── Filtrage (recherche texte + plage de dates) ────────────────────────────
     const filteredMetrics = useMemo(() => {
@@ -316,6 +330,8 @@ const MetricsPage = () => {
         () => allMetrics.filter((metric) => metric.serviceEnvironmentId === serviceEnvironmentId).length,
         [allMetrics, serviceEnvironmentId]
     );
+
+    const latestStale = isMetricStale(latest);
 
     const hasActiveFilters = Boolean(search || dateFrom || dateTo);
 
@@ -497,9 +513,9 @@ const MetricsPage = () => {
                             {t('metrics.latestCpu')}
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, color: C.brand, mt: 0.25 }}>
-                            {formatPct(latest?.cpuUsage)}
+                            {latestStale ? 'n/a' : formatPct(latest?.cpuUsage)}
                         </Typography>
-                        <Typography sx={{ color: C.muted }}>{t('metrics.ramLabel')} {formatPct(latest?.ramUsage)}</Typography>
+                        <Typography sx={{ color: C.muted }}>{t('metrics.ramLabel')} {latestStale ? 'n/a' : formatPct(latest?.ramUsage)}</Typography>
                     </CardContent>
                 </Card>
 
@@ -591,7 +607,7 @@ const MetricsPage = () => {
                 }}
             >
                 <MetricTrendCard
-                    selectedHistory={selectedHistory}
+                    selectedHistory={dateFilteredHistory}
                     cpuPoints={cpuPoints}
                     ramPoints={ramPoints}
                     netPoints={netPoints}

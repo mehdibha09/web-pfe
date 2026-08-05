@@ -1,0 +1,38 @@
+{
+    "deployments": {
+        "searchAndFilter": "Search & filter",
+        "searchPlaceholder": "Search by version, notes, ID…",
+        "statusFilter": "Status filter",
+        "allStatuses": "All statuses",
+        "resultCount": "{{count}} result(s)",
+        "version": "Version",
+        "notes": "Notes",
+        "status": "Status",
+        "serviceEnvironment": "Service environment",
+        "noNotes": "No notes",
+        "environmentLabel": "Environment:",
+        "hideDetails": "▲ Hide details",
+        "showDetails": "▼ Show details",
+        "deploymentId": "Deployment ID",
+        "serviceEnvId": "Service-environment ID",
+        "createdAt": "Created",
+        "updatedAt": "Updated",
+        "saving": "Saving…",
+        "editDeployment": "Edit deployment",
+        "redeployTooltip": "Redeploy",
+        "redeploy": "Redeploy",
+        "deleteDeployment": "Delete deployment",
+        "newDeployment": "New deployment",
+        "versionPlaceholder": "e.g. 1.0.0",
+        "notesPlaceholder": "Optional release notes",
+        "creating": "Creating…",
+        "helperText": "A deployment is a specific version of a service deployed to an environment. Available statuses: PENDING, SUCCESS, FAILED, ROLLED_BACK, CANCELED.",
+        "statusLabels": {
+            "QUEUED": "Queued",
+            "PENDING": "Pending",
+            "SUCCESS": "Success",
+            "FAILED": "Failed",
+            "ROLLED_BACK": "Rolled Back"
+        }
+    }
+}

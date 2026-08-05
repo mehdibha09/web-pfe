@@ -1,0 +1,28 @@
+{
+    "serviceEnvs": {
+        "title": "Service Environments",
+        "subtitle": "Manage service-environment relations",
+        "loading": "Loading relations...",
+        "noMatching": "No matching relations",
+        "noRelations": "No relations yet",
+        "adjustSearch": "Try a different search.",
+        "linkToStart": "Link a service to an environment to get started.",
+        "confirmDelete": "Delete this relation?",
+        "confirmDeleteTitle": "Delete relation",
+        "confirmDeleteBody": "Are you sure you want to delete this relation? This action cannot be undone.",
+        "relations": "Relations",
+        "linked": "Linked",
+        "searchPlaceholder": "Search service or env…",
+        "helperText": "Link a service to an environment (e.g. \"api\" + \"production\") to define its deployment context.",
+        "service": "Service",
+        "environment": "Environment",
+        "selectService": "Select a service",
+        "selectEnvironment": "Select an environment",
+        "createAssociation": "Create association",
+        "link": "Link",
+        "linkedSuccess": "Service linked to environment",
+        "relationId": "Relation ID",
+        "tenant": "Tenant",
+        "unknown": "Unknown"
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "layout": {
+        "footer": {
+            "copyright": "© 2026 Auth Console. All rights reserved.",
+            "backendInfo": "API · v1.0"
+        },
+        "sidebar": {
+            "appTitle": "Auth Console"
+        }
+    }
+}

@@ -1,17 +1,19 @@
 import { toast } from 'react-toastify';
+import type { TFunction } from 'i18next';
 
 import type { CostRecordResponse } from '../../../services/cloudPricerService';
 
-export const exportToCSV = (data: CostRecordResponse[]) => {
-    if (data.length === 0) return toast.info('No data to export');
+const currencySymbol = (currency?: string) => (currency === 'EUR' ? '€' : '$');
 
-    const headers = ['ID', 'ServiceEnv', 'Mode', 'PeriodStart', 'PeriodEnd', 'Compute', 'Storage', 'Network', 'Backup', 'OS', 'Total'];
+export const exportToCSV = (data: CostRecordResponse[], t: TFunction) => {
+    if (data.length === 0) return toast.info(t('costs.noDataToExport'));
+
+    const headers = ['ID', t('costs.period'), 'Mode', 'Compute', 'Storage', 'Network', 'Backup', 'OS', 'Total'];
     const rows = data.map(c => [
         c.id,
-        c.serviceEnvironmentId,
-        c.mode,
         c.periodStart,
         c.periodEnd,
+        c.mode,
         c.computeCost,
         c.storageCost,
         c.networkCost,
@@ -28,11 +30,11 @@ export const exportToCSV = (data: CostRecordResponse[]) => {
     link.download = `costs-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success('CSV exported');
+    toast.success(t('costs.csvExported'));
 };
 
-export const exportToPDF = (data: CostRecordResponse[]) => {
-    if (data.length === 0) return toast.info('No data to export');
+export const exportToPDF = (data: CostRecordResponse[], t: TFunction, currency?: string) => {
+    if (data.length === 0) return toast.info(t('costs.noDataToExport'));
 
     const totalAll = data.reduce((s, c) => s + c.totalCost, 0);
     const totalCompute = data.reduce((s, c) => s + c.computeCost, 0);
@@ -41,11 +43,17 @@ export const exportToPDF = (data: CostRecordResponse[]) => {
     const totalBackup = data.reduce((s, c) => s + c.backupCost, 0);
     const totalOS = data.reduce((s, c) => s + c.osCost, 0);
 
+    const sym = currencySymbol(currency);
+    const isFr = t('costs.reportTitle') === 'Rapport des coûts cloud';
+    const locale = isFr ? 'fr-FR' : 'en-GB';
+    const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale);
+    const fmtMoney = (v: number) => `${sym}${v.toFixed(2)}`;
+
     const win = window.open('', '_blank');
-    if (!win) return toast.error('Popup blocked');
+    if (!win) return toast.error(t('costs.pdfBlocked'));
 
     win.document.write(`
-        <html><head><title>Cost Report - ${new Date().toLocaleDateString()}</title>
+        <html><head><title>${t('costs.reportTitle')} - ${new Date().toLocaleDateString(locale)}</title>
         <style>
             body { font-family: Arial, sans-serif; padding: 40px; color: #27323F; }
             h1 { color: #E4477D; font-size: 24px; }
@@ -54,37 +62,37 @@ export const exportToPDF = (data: CostRecordResponse[]) => {
             th, td { border: 1px solid #E2E8F0; padding: 8px 12px; text-align: left; font-size: 13px; }
             th { background: #FCE7F3; color: #E4477D; font-weight: 700; }
             .total-row { font-weight: 700; background: #F8F5FA; }
-            .summary { display: flex; gap: 20px; margin-top: 20px; }
-            .summary-card { flex: 1; padding: 15px; border: 1px solid #E2E8F0; border-radius: 8px; }
+            .summary { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
+            .summary-card { flex: 1; min-width: 140px; padding: 15px; border: 1px solid #E2E8F0; border-radius: 8px; }
             .summary-card .label { color: #5E6E7E; font-size: 12px; }
             .summary-card .value { font-size: 20px; font-weight: 700; color: #E4477D; }
         </style></head><body>
-        <h1>Cloud Cost Report</h1>
-        <p style="color:#5E6E7E">Generated on ${new Date().toLocaleString()}</p>
+        <h1>${t('costs.reportTitle')}</h1>
+        <p style="color:#5E6E7E">${t('costs.generatedOn')} ${new Date().toLocaleString(locale)}</p>
 
         <div class="summary">
-            <div class="summary-card"><div class="label">Total Records</div><div class="value">${data.length}</div></div>
-            <div class="summary-card"><div class="label">Total Cost</div><div class="value">$${totalAll.toFixed(2)}</div></div>
-            <div class="summary-card"><div class="label">Compute</div><div class="value">$${totalCompute.toFixed(2)}</div></div>
-            <div class="summary-card"><div class="label">Storage</div><div class="value">$${totalStorage.toFixed(2)}</div></div>
-            <div class="summary-card"><div class="label">Network</div><div class="value">$${totalNetwork.toFixed(2)}</div></div>
+            <div class="summary-card"><div class="label">${t('costs.totalRecords')}</div><div class="value">${data.length}</div></div>
+            <div class="summary-card"><div class="label">${t('costs.totalCost')}</div><div class="value">${fmtMoney(totalAll)}</div></div>
+            <div class="summary-card"><div class="label">${t('costs.computeCost')}</div><div class="value">${fmtMoney(totalCompute)}</div></div>
+            <div class="summary-card"><div class="label">${t('costs.storageCost')}</div><div class="value">${fmtMoney(totalStorage)}</div></div>
+            <div class="summary-card"><div class="label">${t('costs.networkCost')}</div><div class="value">${fmtMoney(totalNetwork)}</div></div>
         </div>
 
-        <h2>Detailed Records</h2>
+        <h2>${t('costs.detailedRecords')}</h2>
         <table>
-            <tr><th>Mode</th><th>Period</th><th>Compute</th><th>Storage</th><th>Network</th><th>Backup</th><th>OS</th><th>Total</th></tr>
+            <tr><th>Mode</th><th>${t('costs.period')}</th><th>${t('costs.computeCost')}</th><th>${t('costs.storageCost')}</th><th>${t('costs.networkCost')}</th><th>${t('costs.backupCost')}</th><th>${t('costs.osCost')}</th><th>${t('costs.totalCost')}</th></tr>
             ${data.map(c => `<tr>
                 <td>${c.mode}</td>
-                <td>${new Date(c.periodStart).toLocaleDateString()} — ${new Date(c.periodEnd).toLocaleDateString()}</td>
-                <td>$${c.computeCost}</td><td>$${c.storageCost}</td><td>$${c.networkCost}</td>
-                <td>$${c.backupCost}</td><td>$${c.osCost}</td><td><strong>$${c.totalCost.toFixed(2)}</strong></td>
+                <td>${fmtDate(c.periodStart)} — ${fmtDate(c.periodEnd)}</td>
+                <td>${fmtMoney(c.computeCost)}</td><td>${fmtMoney(c.storageCost)}</td><td>${fmtMoney(c.networkCost)}</td>
+                <td>${fmtMoney(c.backupCost)}</td><td>${fmtMoney(c.osCost)}</td><td><strong>${fmtMoney(c.totalCost)}</strong></td>
             </tr>`).join('')}
-            <tr class="total-row"><td colspan="2">TOTAL</td><td>$${totalCompute.toFixed(2)}</td><td>$${totalStorage.toFixed(2)}</td><td>$${totalNetwork.toFixed(2)}</td><td>$${totalBackup.toFixed(2)}</td><td>$${totalOS.toFixed(2)}</td><td>$${totalAll.toFixed(2)}</td></tr>
+            <tr class="total-row"><td colspan="2">${t('costs.totalLabel')}</td><td>${fmtMoney(totalCompute)}</td><td>${fmtMoney(totalStorage)}</td><td>${fmtMoney(totalNetwork)}</td><td>${fmtMoney(totalBackup)}</td><td>${fmtMoney(totalOS)}</td><td>${fmtMoney(totalAll)}</td></tr>
         </table>
 
         <script>window.onload = function() { window.print(); }</script>
         </body></html>
     `);
     win.document.close();
-    toast.success('PDF report opened');
+    toast.success(t('costs.pdfReportOpened'));
 };

@@ -1,16 +1,15 @@
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box, Card, CardContent, Divider, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import type { DeploymentResponse, EnvironmentResponse, ServiceResponse } from '../../../services/devopsService';
+import type { EnvironmentResponse, ServiceResponse } from '../../../services/devopsService';
 import { C} from '../../../theme/tokens';
 
 interface EnvironmentsSectionProps {
     environments: EnvironmentResponse[];
-    deployments: DeploymentResponse[];
     services: ServiceResponse[];
 }
 
-const EnvironmentsSection = ({ environments, deployments, services }: EnvironmentsSectionProps) => {
+const EnvironmentsSection = ({ environments, services }: EnvironmentsSectionProps) => {
     const { t } = useTranslation();
     return (
     <Card sx={{ borderRadius: 3, border: '1px solid #F5D8E4' }}>
@@ -29,7 +28,6 @@ const EnvironmentsSection = ({ environments, deployments, services }: Environmen
             ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {environments.map((env) => {
-                        const envDeployments = deployments.filter((d) => d.serviceEnvironmentId);
                         const envServices = services.filter((s) => s.tenantId === env.tenantId);
                         return (
                             <Box
@@ -53,9 +51,6 @@ const EnvironmentsSection = ({ environments, deployments, services }: Environmen
                                 <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
                                     <Typography sx={{ fontSize: 11, color: C.muted }}>
                                         <strong>{envServices.length}</strong> {t('dashboard.devopsDashboard.services')}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: 11, color: C.muted }}>
-                                        <strong>{envDeployments.length}</strong> {t('dashboard.devopsDashboard.deployments')}
                                     </Typography>
                                 </Box>
                             </Box>

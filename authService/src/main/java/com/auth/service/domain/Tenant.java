@@ -27,6 +27,9 @@ public class Tenant {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(unique = true)
+    private String code;
+
     private String contactEmail;
 
     private String phone;

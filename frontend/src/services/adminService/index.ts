@@ -117,21 +117,11 @@ export const listPermissionsPaginated = async (page: number, size: number): Prom
   return { items: response.data || [], total: response.pagination?.totalElements ?? 0 };
 };
 
-export const createPermission = async (payload: { name: string; description?: string }) => {
-  const response = await axiosInstance.post('/permissions', payload);
-  return response.data;
-};
-
 export const updatePermission = async (
   permissionId: string,
-  payload: { name?: string; description?: string },
+  payload: { description?: string },
 ) => {
   const response = await axiosInstance.patch(`/permissions/${permissionId}`, payload);
-  return response.data;
-};
-
-export const deletePermission = async (permissionId: string) => {
-  const response = await axiosInstance.delete(`/permissions/${permissionId}`);
   return response.data;
 };
 

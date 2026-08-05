@@ -24,7 +24,6 @@ import {
     canAccessAuditLogs,
     canAccessBackups,
     canAccessCosts,
-    canAccessDeployments,
     canAccessEnvironments,
     canAccessK8s,
     canAccessMetrics,
@@ -38,7 +37,8 @@ import {
     canAccessSessions,
     canAccessTenants,
     canAccessUsers,
-    canAccessVMs
+    canAccessVMs,
+    isSuperAdmin
 } from '../../../services/authorization';
 import { C } from '../../../theme/tokens';
 import Module from './Module';
@@ -93,21 +93,20 @@ const Body = ({ isMenuClosed }: BodyProps) => {
         {
             label: t('nav.devops'),
             modules: [
-                { label: t('nav.dashboard'), link: 'admin/devops/dashboard', icon: DashboardIcon, visible: true },
-                { label: t('nav.services'), link: 'admin/devops/services', icon: DashboardIcon, visible: user ? canAccessServices(user) : false },
-                { label: t('nav.environments'), link: 'admin/devops/environments', icon: DomainAddIcon, visible: user ? canAccessEnvironments(user) : false },
-                { label: t('nav.serviceEnvs'), link: 'admin/devops/service-environments', icon: DevicesIcon, visible: user ? canAccessServiceEnvironments(user) : false },
-                { label: t('nav.deployments'), link: 'admin/devops/deployments', icon: DevicesIcon, visible: user ? canAccessDeployments(user) : false },
-                { label: t('nav.metrics'), link: 'admin/devops/metrics', icon: ChangeHistoryIcon, visible: user ? canAccessMetrics(user) : false },
-                { label: t('nav.monitoring'), link: 'admin/devops/monitoring', icon: ChangeHistoryIcon, visible: user ? canAccessMetrics(user) : false },
+                { label: t('nav.dashboard'), link: 'admin/devops/dashboard', icon: DashboardIcon, visible: user ? !isSuperAdmin(user) : false },
+                { label: t('nav.services'), link: 'admin/devops/services', icon: DashboardIcon, visible: user ? (canAccessServices(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.environments'), link: 'admin/devops/environments', icon: DomainAddIcon, visible: user ? (canAccessEnvironments(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.serviceEnvs'), link: 'admin/devops/service-environments', icon: DevicesIcon, visible: user ? (canAccessServiceEnvironments(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.metrics'), link: 'admin/devops/metrics', icon: ChangeHistoryIcon, visible: user ? (canAccessMetrics(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.monitoring'), link: 'admin/devops/monitoring', icon: ChangeHistoryIcon, visible: user ? (canAccessMetrics(user) && !isSuperAdmin(user)) : false },
             ]
         },
         {
             label: t('nav.infrastructure'),
             modules: [
-                { label: t('nav.vms'), link: 'admin/devops/vms', icon: DevicesIcon, visible: user ? canAccessVMs(user) : false },
-                { label: t('nav.kubernetes'), link: 'admin/devops/k8s', icon: AccountTreeIcon, visible: user ? canAccessK8s(user) : false },
-                { label: t('nav.backups'), link: 'admin/devops/backups', icon: DevicesIcon, visible: user ? canAccessBackups(user) : false },
+                { label: t('nav.vms'), link: 'admin/devops/vms', icon: DevicesIcon, visible: user ? (canAccessVMs(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.kubernetes'), link: 'admin/devops/k8s', icon: AccountTreeIcon, visible: user ? (canAccessK8s(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.backups'), link: 'admin/devops/backups', icon: DevicesIcon, visible: user ? (canAccessBackups(user) && !isSuperAdmin(user)) : false },
             ]
         },
         {
@@ -121,8 +120,8 @@ const Body = ({ isMenuClosed }: BodyProps) => {
         {
             label: t('nav.system'),
             modules: [
-                { label: t('nav.alerts'), link: 'admin/devops/alerts', icon: NotificationsActiveIcon, visible: user ? canAccessAlerts(user) : false },
-                { label: t('nav.notifications'), link: 'admin/devops/notifications', icon: NotificationsActiveIcon, visible: user ? canAccessNotifications(user) : false },
+                { label: t('nav.alerts'), link: 'admin/devops/alerts', icon: NotificationsActiveIcon, visible: user ? (canAccessAlerts(user) && !isSuperAdmin(user)) : false },
+                { label: t('nav.notifications'), link: 'admin/devops/notifications', icon: NotificationsActiveIcon, visible: user ? (canAccessNotifications(user) && !isSuperAdmin(user)) : false },
             ]
         }
     ];

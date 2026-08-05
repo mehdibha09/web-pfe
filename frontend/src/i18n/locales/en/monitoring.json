@@ -1,0 +1,30 @@
+{
+    "monitoring": {
+        "title": "Real-Time Monitoring",
+        "subtitle": "Live CPU, RAM, disk and network for your service environments",
+        "cpu": "CPU",
+        "ram": "RAM",
+        "disk": "Disk",
+        "network": "Network",
+        "dataSource": "Data Source",
+        "cpuUsage": "CPU Usage",
+        "ramUsage": "RAM Usage",
+        "serviceEnvironment": "Service Environment",
+        "selectServiceEnv": "Select an environment",
+        "noServiceEnvSelected": "No service environment selected",
+        "latestSamples": "Latest samples",
+        "sampleCount": "{{count}} sample(s)",
+        "noMetrics": "No metrics yet.",
+        "selectDeploymentHint": "Select an environment above.",
+        "autoRefresh": "auto-refresh 20s",
+        "pause": "Pause",
+        "resume": "Resume",
+        "paused": "Paused",
+        "pts": "pts",
+        "prometheus": "Prometheus",
+        "database": "Database",
+        "noPods": "No pods found.",
+        "podsSection": "Pods — {{name}}",
+        "podCount": "{{count}} pod(s)"
+    }
+}

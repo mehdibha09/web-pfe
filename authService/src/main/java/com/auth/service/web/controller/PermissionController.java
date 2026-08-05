@@ -9,19 +9,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.PermissionService;
-import com.auth.service.web.dto.auth.AuthActionResponse;
-import com.auth.service.web.dto.permission.PermissionCreateRequest;
 import com.auth.service.web.dto.permission.PermissionResponse;
 import com.auth.service.web.dto.permission.PermissionUpdateRequest;
 import com.auth.service.web.routes.ApiRoutes;
@@ -59,14 +55,6 @@ public class PermissionController {
         return ResponseEntity.ok(permissionService.getPermissionById(authorizationHeader, permissionId));
     }
 
-    @PostMapping
-    public ResponseEntity<PermissionResponse> createPermission(
-            @RequestHeader("Authorization") String authorizationHeader,
-            @Valid @RequestBody PermissionCreateRequest request
-    ) {
-        return ResponseEntity.ok(permissionService.createPermission(authorizationHeader, request));
-    }
-
     @PatchMapping(ApiRoutes.Permissions.BY_ID)
     public ResponseEntity<PermissionResponse> updatePermission(
             @RequestHeader("Authorization") String authorizationHeader,
@@ -74,13 +62,5 @@ public class PermissionController {
             @RequestBody @Valid PermissionUpdateRequest request
     ) {
         return ResponseEntity.ok(permissionService.updatePermission(authorizationHeader, permissionId, request));
-    }
-
-    @DeleteMapping(ApiRoutes.Permissions.BY_ID)
-    public ResponseEntity<AuthActionResponse> deletePermission(
-            @RequestHeader("Authorization") String authorizationHeader,
-            @PathVariable UUID permissionId
-    ) {
-        return ResponseEntity.ok(permissionService.deletePermission(authorizationHeader, permissionId));
     }
 }

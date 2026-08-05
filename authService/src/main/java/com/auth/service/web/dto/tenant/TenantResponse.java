@@ -6,6 +6,7 @@ import java.util.UUID;
 public record TenantResponse(
         UUID id,
         String name,
+        String code,
         String contactEmail,
         String phone,
         String modeDeployment,

@@ -22,12 +22,12 @@ import {
     type CostRecordResponse
 } from '../../../services/cloudPricerService';
 import {
-    listDeployments,
+    listDeploymentHistory,
     listEnvironments,
     listMetrics,
     listServices,
-    type DeploymentResponse,
     type EnvironmentResponse,
+    type HistoryEntry,
     type MetricResponse,
     type ServiceResponse
 } from '../../../services/devopsService';
@@ -55,7 +55,7 @@ const DevopsDashboardPage = () => {
     const [error, setError] = useState<string | null>(null);
 
     const [services, setServices] = useState<ServiceResponse[]>([]);
-    const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
+    const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
     const [backups, setBackups] = useState<Backup[]>([]);
     const [vms, setVms] = useState<Vm[]>([]);
@@ -68,7 +68,7 @@ const DevopsDashboardPage = () => {
         try {
             const [svc, dep, env, bak, vm, alrt, cst, k8, met] = await Promise.allSettled([
                 listServices(),
-                listDeployments(),
+                listDeploymentHistory(),
                 listEnvironments(),
                 backupService.getAll(),
                 vmService.getAll(),
@@ -78,7 +78,7 @@ const DevopsDashboardPage = () => {
                 listMetrics()
             ]);
             if (svc.status === 'fulfilled') setServices(svc.value);
-            if (dep.status === 'fulfilled') setDeployments(dep.value);
+            if (dep.status === 'fulfilled') setHistory(dep.value);
             if (env.status === 'fulfilled') setEnvironments(env.value);
             if (bak.status === 'fulfilled') setBackups(bak.value);
             if (vm.status === 'fulfilled') setVms(vm.value);
@@ -93,14 +93,28 @@ const DevopsDashboardPage = () => {
         }
     }, []);
 
+    const pollMetrics = useCallback(async () => {
+        try {
+            const met = await listMetrics();
+            if (Array.isArray(met)) setMetrics(met);
+        } catch {
+            // silent — polling shouldn't spam
+        }
+    }, []);
+
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
 
+    useEffect(() => {
+        const id = setInterval(() => {
+            pollMetrics();
+        }, 10_000);
+        return () => clearInterval(id);
+    }, [pollMetrics]);
+
     const activeServices = services.filter((s) => s.status?.toUpperCase() === 'ACTIVE').length;
     const failedServices = services.filter((s) => s.status?.toUpperCase() === 'FAILED').length;
-    const successDeployments = deployments.filter((d) => d.status?.toUpperCase() === 'SUCCESS').length;
-    const failedDeployments = deployments.filter((d) => d.status?.toUpperCase() === 'FAILED').length;
     const openAlerts = alerts.filter((a) => a.status === 'OPEN');
     const criticalAlerts = openAlerts.filter((a) => a.severity === 'CRITICAL');
     const totalCost = costs.reduce((sum, c) => sum + c.totalCost, 0);
@@ -144,12 +158,12 @@ const DevopsDashboardPage = () => {
                 />
                 <KpiCard
                     title={t('dashboard.devops.kpiDeployments')}
-                    value={deployments.length}
-                    subtitle={t('dashboard.devops.succeededFailed', { succeeded: successDeployments, failed: failedDeployments })}
+                    value={history.length}
+                    subtitle={t('dashboard.devops.recordedActions', { count: history.length })}
                     icon={<PlayArrowIcon sx={{ color: '#2E5C8A', fontSize: 26 }} />}
                     bgColor="#E4EEF7"
                     color="#2E5C8A"
-                    onClick={() => navigate('/admin/devops/deployments')}
+                    onClick={() => navigate('/admin/audit-logs')}
                 />
                 <KpiCard
                     title={t('dashboard.devops.kpiVirtualMachines')}
@@ -211,7 +225,7 @@ const DevopsDashboardPage = () => {
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 2.5, mb: 3 }}>
-                <EnvironmentsSection environments={environments} deployments={deployments} services={services} />
+                <EnvironmentsSection environments={environments} services={services} />
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3 }}>
@@ -221,7 +235,7 @@ const DevopsDashboardPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3 }}>
                 <K8sDeploymentsSection deployments={k8sDeployments} />
-                <RecentDeploymentsSection deployments={deployments} />
+                <RecentDeploymentsSection history={history} />
             </Box>
 
             <MetricsOverviewSection metrics={metrics} />

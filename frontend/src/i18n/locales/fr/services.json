@@ -1,0 +1,17 @@
+{
+    "services": {
+        "loadingServices": "Chargement des services...",
+        "noServices": "Aucun service trouvé.",
+        "search": "Recherche",
+        "searchPlaceholder": "Rechercher par nom, type, statut",
+        "results": "Résultats",
+        "tenantId": "ID Tenant",
+        "serviceId": "ID Service",
+        "confirmDelete": "Supprimer ce service ?",
+        "tryAdjustingFilter": "Essayez d'ajuster vos critères de recherche ou de filtre.",
+        "viewDeployments": "Voir les déploiements",
+        "updatedSuccess": "Service mis à jour",
+        "deletedSuccess": "Service supprimé",
+        "helperText": "Un service est un composant applicatif (API, worker, frontend) qui peut être déployé et exécuté. Les statuts indiquent son état actuel : ACTIF, EN ATTENTE, DÉSACTIVÉ ou ÉCHOUÉ."
+    }
+}

@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.K8sDeployment;
 import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.repository.K8sDeploymentRepository;
+import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sDeploymentRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sDeploymentResponse;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sHpaRequest;
@@ -36,24 +38,31 @@ public class K8sDeploymentService {
     private final K8sDeploymentRepository k8sDeploymentRepository;
     private final KubernetesClient kubernetesClient;
     private final ObjectMapper objectMapper;
+    private final ServiceEnvironmentRepository serviceEnvironmentRepository;
+    private final QuotaEnforcementService quotaEnforcementService;
 
-    public K8sDeploymentService(K8sDeploymentRepository k8sDeploymentRepository, KubernetesClient kubernetesClient, ObjectMapper objectMapper) {
+    public K8sDeploymentService(K8sDeploymentRepository k8sDeploymentRepository, KubernetesClient kubernetesClient, ObjectMapper objectMapper, ServiceEnvironmentRepository serviceEnvironmentRepository, QuotaEnforcementService quotaEnforcementService) {
         this.k8sDeploymentRepository = k8sDeploymentRepository;
         this.kubernetesClient = kubernetesClient;
         this.objectMapper = objectMapper;
+        this.serviceEnvironmentRepository = serviceEnvironmentRepository;
+        this.quotaEnforcementService = quotaEnforcementService;
     }
 
     public K8sDeploymentResponse create(K8sDeploymentRequest dto) {
         UUID tenantId = UserContext.getTenantId();
+        ServiceEnvironment se = verifyServiceEnvironmentOwnership(dto.serviceEnvironmentId());
+        quotaEnforcementService.enforceK8s(se.getId(), dto.replicas() > 0 ? dto.replicas() : 1,
+                dto.cpuRequest(), dto.memoryRequest());
         K8sDeployment deployment = new K8sDeployment();
         deployment.setName(dto.name());
         deployment.setDockerImage(dto.dockerImage());
         deployment.setReplicas(dto.replicas() > 0 ? dto.replicas() : 1);
         deployment.setPort(dto.port());
         deployment.setTenantId(tenantId);
-        deployment.setNamespace(dto.namespace() != null ? dto.namespace() : "tenant-" + tenantId);
+        deployment.setNamespace(buildNamespace(se));
         deployment.setStatus(K8sDeployment.Status.CREATED);
-        deployment.setServiceEnvironmentId(dto.serviceEnvironmentId());
+        deployment.setServiceEnvironmentId(se.getId());
         deployment.setTargetPort(dto.targetPort());
         deployment.setProtocol(dto.protocol());
         deployment.setCpuRequest(dto.cpuRequest());
@@ -102,6 +111,7 @@ public class K8sDeploymentService {
     }
 
     public List<K8sDeploymentResponse> getAllByServiceEnvironment(UUID serviceEnvironmentId) {
+        verifyServiceEnvironmentOwnership(serviceEnvironmentId);
         return k8sDeploymentRepository.findByServiceEnvironmentId(serviceEnvironmentId).stream()
                 .map(K8sDeploymentResponse::from)
                 .toList();
@@ -130,6 +140,10 @@ public class K8sDeploymentService {
 
     public K8sDeploymentResponse scale(UUID id, int replicas, UUID tenantId) {
         K8sDeployment deployment = findOwned(id, tenantId);
+        if (replicas < 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REPLICAS", "Replicas cannot be negative");
+        }
+        quotaEnforcementService.enforceK8sScale(deployment.getServiceEnvironmentId(), deployment.getReplicas(), replicas);
 
         kubernetesClient.scaleDeployment(deployment.getName(), replicas, deployment.getNamespace());
         deployment.setReplicas(replicas);
@@ -225,6 +239,21 @@ public class K8sDeploymentService {
             throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied to this deployment");
         }
         return deployment;
+    }
+
+    private ServiceEnvironment verifyServiceEnvironmentOwnership(UUID serviceEnvironmentId) {
+        ServiceEnvironment se = serviceEnvironmentRepository.findById(serviceEnvironmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND",
+                        "Service environment not found"));
+        if (!se.getTenantId().equals(UserContext.getTenantId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Access denied to this service environment");
+        }
+        return se;
+    }
+
+    private String buildNamespace(ServiceEnvironment se) {
+        return TenantNamespaceResolver.resolve(null);
     }
 
     private String toJson(Object value) {

@@ -41,7 +41,12 @@ export const canAccessRoles = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'ROLE');
 
 export const canAccessPermissions = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'PERMISSION');
+  isSuperAdmin(user) || isTenantAdmin(user) || hasPermission(user, 'PERMISSION');
+
+export const canManagePermissions = (user: AuthUser) =>
+  isSuperAdmin(user) ||
+  (isPlatformTenant(user) &&
+    (hasPermission(user, 'PERMISSION_MANAGE') || hasPermission(user, 'USER_MANAGE')));
 
 export const canAccessTenants = (user: AuthUser) =>
   isSuperAdmin(user) ||
@@ -56,10 +61,15 @@ export const canAccessAuditLogs = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'AUDIT');
 
 export const canDeleteUser = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'USER_DELETE');
+  isSuperAdmin(user) || hasPermission(user, 'USER_DELETE') || hasPermission(user, 'USER_MANAGE');
 
 export const canModifyUserStatus = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'USER_MODIFY_STATUS');
+  isSuperAdmin(user) || hasPermission(user, 'USER_MODIFY_STATUS') || hasPermission(user, 'USER_MANAGE');
+
+export const isAdminRoleName = (roleName?: string | null) =>
+  ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN', 'PLATFORM_ADMIN'].includes(
+    (roleName || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+  );
 
 export const canDeleteRole = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'ROLE_DELETE');
@@ -68,7 +78,7 @@ export const canModifyRoleStatus = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'ROLE_MODIFY_STATUS');
 
 export const canRevokeSession = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'SESSION_REVOKE');
+  isSuperAdmin(user) || hasPermission(user, 'SESSION_REVOKE') || hasPermission(user, 'SESSION_MANAGE');
 
 export const canAccessDeployments = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'DEPLOYMENT');
@@ -90,6 +100,8 @@ export const canManageBackups = (user: AuthUser) =>
 
 export const canAccessK8s = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'K8S');
+
+export const canAccessNamespaces = (user: AuthUser) => isSuperAdmin(user);
 
 export const canManageK8s = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'K8S_MANAGE');
@@ -139,10 +151,10 @@ export const canAccessServiceEnvironments = (user: AuthUser) =>
 export type DashboardRole = 'super-admin' | 'tenant-admin' | 'user';
 
 export const canAccessPricing = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'PRICE_CONFIG_MANAGE');
+  isSuperAdmin(user) || (isPlatformTenant(user) && hasPermission(user, 'PRICE_CONFIG_MANAGE'));
 
 export const canManagePricing = (user: AuthUser) =>
-  isSuperAdmin(user) || hasPermission(user, 'PRICE_CONFIG_MANAGE');
+  isSuperAdmin(user) || (isPlatformTenant(user) && hasPermission(user, 'PRICE_CONFIG_MANAGE'));
 
 export const getDashboardRole = (user: AuthUser): DashboardRole => {
   if (isSuperAdmin(user)) return 'super-admin';

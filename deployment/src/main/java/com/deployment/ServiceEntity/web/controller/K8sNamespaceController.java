@@ -59,9 +59,8 @@ public class K8sNamespaceController {
                 if (UserContext.isSuperAdmin()) {
                     return true;
                 }
-                String tenantId = UserContext.getTenantId() != null
-                    ? UserContext.getTenantId().toString() : null;
-                return tenantId != null && ns.name().equals("tenant-" + tenantId);
+                String prefix = TenantNamespaceResolver.tenantNamespacePrefix();
+                return prefix != null && ns.name().startsWith(prefix);
             })
             .collect(Collectors.toList());
 

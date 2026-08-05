@@ -27,6 +27,8 @@ import { useTranslation } from 'react-i18next';
 
 import { serviceEnvironmentService, type ServiceEnvironment } from '../../../services/ServiceEnvironmentService';
 import { vmService } from '../../../services/VmService';
+import { listQuotas } from '../../../services/cloudPricerService';
+import type { QuotaResponse } from '../../../services/cloudPricerService';
 import { VM_OS_OPTIONS, type CreateVmRequest, type VmOs } from '../../../services/interfaces/vm';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { C } from '../../../theme/tokens';
@@ -45,13 +47,9 @@ const RESOURCE_META = {
 
 const osColors: Record<VmOs, string> = {
     UBUNTU_22_04: '#E95420',
-    debian: '#A81D33',
-    centos: '#262577',
-    fedora: '#294172',
-    windows: '#0078D4',
-    alpine: '#0D597F',
-    arch: '#1793D1',
-    other: '#6B7280'
+    UBUNTU_20_04: '#C2410C',
+    DEBIAN_11: '#A81D33',
+    CENTOS_7: '#262577'
 };
 
 interface CreateVmDialogProps {
@@ -84,6 +82,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
 
     const [serviceEnvironments, setServiceEnvironments] = useState<ServiceEnvironment[]>([]);
     const [loadingEnvs, setLoadingEnvs] = useState(false);
+    const [quotas, setQuotas] = useState<QuotaResponse[]>([]);
 
     useEffect(() => {
         if (!open) return;
@@ -94,7 +93,13 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
             .then((data) => setServiceEnvironments(data))
             .catch((err) => setError(getErrorMessage(err, 'Failed to load environments')))
             .finally(() => setLoadingEnvs(false));
+        listQuotas()
+            .then(setQuotas)
+            .catch(() => setQuotas([]));
     }, [open]);
+
+    const activeQuotaFor = (seId: string): QuotaResponse | undefined =>
+        quotas.find((q) => q.serviceEnvironmentId === seId && q.isActive);
 
     const isValid =
         (form.displayName || '').trim().length > 0 &&
@@ -165,7 +170,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
             <DialogContent sx={{ pt: 3, pb: 1 }}>
                 <Stack spacing={3}>
                     {error && (
-                        <Alert severity="error" onClose={() => setError(null)} sx={{ borderRadius: 2 }}>
+                        <Alert severity="error" onClose={() => setError(null)} sx={{ borderRadius: 2, whiteSpace: 'pre-line' }}>
                             {error}
                         </Alert>
                     )}
@@ -233,6 +238,15 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
                                     </MenuItem>
                                 ))}
                             </TextField>
+                            {form.serviceEnvironmentId && !activeQuotaFor(form.serviceEnvironmentId) && (
+                                <Alert
+                                    severity="info"
+                                    sx={{ mt: 1, borderRadius: 2, '& .MuiAlert-message': { fontSize: 13 } }}
+                                    icon={<StorageIcon sx={{ fontSize: 18 }} />}
+                                >
+                                    {t('vms.unlimitedQuotaNote')}
+                                </Alert>
+                            )}
                         </Grid>
                     </Grid>
 

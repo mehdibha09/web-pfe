@@ -200,16 +200,36 @@ public class StartupDataSeeder implements CommandLineRunner {
                     existing.setContactEmail(contactEmail);
                     existing.setModeDeployment("VM");
                     existing.setStatus(TenantStatus.ACTIVE);
+                    if (existing.getCode() == null || existing.getCode().isBlank()) {
+                        existing.setCode(generateTenantCode(name));
+                    }
                     return tenantRepository.save(existing);
                 })
                 .orElseGet(() -> {
                     Tenant createdTenant = new Tenant();
                     createdTenant.setName(name);
+                    createdTenant.setCode(generateTenantCode(name));
                     createdTenant.setContactEmail(contactEmail);
                     createdTenant.setModeDeployment("VM");
                     createdTenant.setStatus(TenantStatus.ACTIVE);
                     return tenantRepository.save(createdTenant);
                 });
+    }
+
+    private String generateTenantCode(String name) {
+        String base = name.trim().toUpperCase().replaceAll("[^A-Z0-9]", "");
+        if (base.isEmpty()) {
+            base = "TENANT";
+        }
+        if (base.length() > 6) {
+            base = base.substring(0, 6);
+        }
+        String candidate = base;
+        int suffix = 1;
+        while (tenantRepository.findByCodeIgnoreCase(candidate).isPresent()) {
+            candidate = base + String.format("%02d", suffix++);
+        }
+        return candidate;
     }
 
     private Permission seedPermission(String name, String description) {

@@ -219,6 +219,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create HPA for {}", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String hpaName = name + "-hpa";
         String yaml = String.format("""
             apiVersion: autoscaling/v2
@@ -301,6 +304,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create NetworkPolicy {}", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String yaml = String.format("""
             apiVersion: networking.k8s.io/v1
             kind: NetworkPolicy
@@ -378,6 +384,9 @@ public class KubernetesClient {
         if (!kubectlAvailable()) {
             log.info("kubectl not available — simulating create/update ConfigMap {}", name);
             return;
+        }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
         }
         String yaml = String.format("""
             apiVersion: v1
@@ -458,6 +467,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create ServiceAccount {}", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String yaml = String.format("""
             apiVersion: v1
             kind: ServiceAccount
@@ -519,6 +531,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create {} {}", isClusterRole ? "ClusterRole" : "Role", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String kind = isClusterRole ? "ClusterRole" : "Role";
         String nsYaml = isClusterRole ? "" : "  namespace: " + namespace + "\n";
         String yaml = String.format("""
@@ -536,7 +551,8 @@ public class KubernetesClient {
     public List<K8sRoleResponse> listRoles(String namespace) {
         if (!kubectlAvailable()) return List.of();
         try {
-            String output = exec("kubectl", "get", "roles", "-n", namespace != null ? namespace : "default", "-o", "json");
+            String ns = namespace != null ? "-n=" + namespace : "--all-namespaces";
+            String output = exec("kubectl", "get", "roles", ns, "-o", "json");
             return K8sRoleResponse.fromK8sList(new ObjectMapper().readValue(output, Map.class), false);
         } catch (Exception e) {
             log.warn("Failed to list Roles: {}", e.getMessage());
@@ -597,6 +613,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create {} {}", isClusterBinding ? "ClusterRoleBinding" : "RoleBinding", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String kind = isClusterBinding ? "ClusterRoleBinding" : "RoleBinding";
         String nsYaml = isClusterBinding ? "" : "  namespace: " + namespace + "\n";
         String yaml = String.format("""
@@ -613,7 +632,8 @@ public class KubernetesClient {
     public List<K8sRoleBindingResponse> listRoleBindings(String namespace) {
         if (!kubectlAvailable()) return List.of();
         try {
-            String output = exec("kubectl", "get", "rolebindings", "-n", namespace != null ? namespace : "default", "-o", "json");
+            String ns = namespace != null ? "-n=" + namespace : "--all-namespaces";
+            String output = exec("kubectl", "get", "rolebindings", ns, "-o", "json");
             return K8sRoleBindingResponse.fromK8sList(new ObjectMapper().readValue(output, Map.class), false);
         } catch (Exception e) {
             log.warn("Failed to list RoleBindings: {}", e.getMessage());
@@ -671,6 +691,9 @@ public class KubernetesClient {
         if (!kubectlAvailable()) {
             log.info("kubectl not available — simulating create/update Secret {}", name);
             return;
+        }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
         }
         String yaml = String.format("""
             apiVersion: v1
@@ -815,6 +838,9 @@ public class KubernetesClient {
             log.info("kubectl not available — simulating create/update Service {}", name);
             return;
         }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
+        }
         String yaml = String.format("""
             apiVersion: v1
             kind: Service
@@ -892,6 +918,9 @@ public class KubernetesClient {
         if (!kubectlAvailable()) {
             log.info("kubectl not available — simulating create/update Ingress {}", name);
             return;
+        }
+        if (namespace != null && !namespace.isBlank()) {
+            createNamespace(namespace);
         }
         String yaml = String.format("""
             apiVersion: networking.k8s.io/v1

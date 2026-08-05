@@ -12,6 +12,7 @@ import ComputerIcon from '@mui/icons-material/Computer';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PriceChangeIcon from '@mui/icons-material/PriceChange';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { getStoredUser } from '../../../services/authStorage';
 import { canManagePricing } from '../../../services/authorization';
 import {
@@ -22,6 +23,7 @@ import {
     updatePricing
 } from '../../../services/pricingService';
 import MyCustomButton from '../../../components/MyCustomButton';
+import { numericFieldValue } from '../../../utils/numeric';
 import PaginationBar from '../../../components/PaginationBar';
 import { BTN, C } from '../../../theme/tokens';
 import type { CalculateCostResponse, PriceConfigResponse } from '../../../services/interfaces/cloudPricer';
@@ -46,6 +48,8 @@ const RESOURCE_COLORS: Record<string, { bg: string; color: string }> = {
     BACKUP: { bg: '#F3E8FF', color: '#7C3AED' },
     OS: { bg: '#FCE7F3', color: '#E4477D' }
 };
+
+const currencySymbol = (currency: string) => (currency === 'EUR' ? '€' : '$');
 
 const PricingPage = () => {
     const { t } = useTranslation();
@@ -79,6 +83,7 @@ const PricingPage = () => {
 
     /* ── Cost calculator ── */
     const [calcMode, setCalcMode] = useState('VM');
+    const [calcCurrency, setCalcCurrency] = useState('USD');
     const [calcCpu, setCalcCpu] = useState('2');
     const [calcRam, setCalcRam] = useState('4');
     const [calcDisk, setCalcDisk] = useState('20');
@@ -232,6 +237,7 @@ const PricingPage = () => {
                 network_usage: parseFloat(calcNetwork) || 0,
                 backup_size: parseFloat(calcBackup) || 0,
                 hours: parseFloat(calcHours) || 0,
+                currency: calcCurrency,
             });
             setCalcResult(result);
         } catch (error: any) {
@@ -363,12 +369,12 @@ const PricingPage = () => {
                                             <TableCell>
                                                 {editingId === item.id ? (
                                                     <TextField size="small" type="number" value={editPricePerUnit}
-                                                        onChange={(e) => setEditPricePerUnit(e.target.value)}
+                                                        onChange={(e) => setEditPricePerUnit(numericFieldValue(e.target.value))}
                                                         slotProps={{ htmlInput: { step: '0.0001', min: 0 } }}
                                                         sx={{ width: 110 }} />
                                                 ) : (
                                                     <Typography sx={{ fontWeight: 600, color: C.text }}>
-                                                        ${item.pricePerUnit.toFixed(4)}
+                                                        {currencySymbol(item.currency)}{item.pricePerUnit.toFixed(4)}
                                                     </Typography>
                                                 )}
                                             </TableCell>
@@ -619,7 +625,7 @@ const PricingPage = () => {
                                 )}
                                 <TextField
                                     label={t('admin.pricing.price')} type="number" value={pricePerUnit}
-                                    onChange={(e) => { setPricePerUnit(e.target.value); setPriceError(''); }}
+                                    onChange={(e) => { setPricePerUnit(numericFieldValue(e.target.value)); setPriceError(''); }}
                                     error={!!priceError}
                                     slotProps={{ htmlInput: { step: '0.0001', min: 0 } }}
                                     fullWidth
@@ -716,11 +722,14 @@ const PricingPage = () => {
                         <TextField select label={t('admin.pricing.mode')} value={calcMode} onChange={(e) => setCalcMode(e.target.value)}>
                             {MODES.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                         </TextField>
-                        <TextField label={t('admin.pricing.cpuCores')} type="number" value={calcCpu} onChange={(e) => setCalcCpu(e.target.value)}
+                        <TextField select label={t('admin.pricing.currency')} value={calcCurrency} onChange={(e) => setCalcCurrency(e.target.value)}>
+                            {CURRENCIES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                        </TextField>
+                        <TextField label={t('admin.pricing.cpuCores')} type="number" value={calcCpu} onChange={(e) => setCalcCpu(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 0 } }} />
-                        <TextField label={t('admin.pricing.ramGb')} type="number" value={calcRam} onChange={(e) => setCalcRam(e.target.value)}
+                        <TextField label={t('admin.pricing.ramGb')} type="number" value={calcRam} onChange={(e) => setCalcRam(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 0 } }} />
-                        <TextField label={t('admin.pricing.diskGb')} type="number" value={calcDisk} onChange={(e) => setCalcDisk(e.target.value)}
+                        <TextField label={t('admin.pricing.diskGb')} type="number" value={calcDisk} onChange={(e) => setCalcDisk(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 0 } }} />
                         <MyCustomButton
                             onClick={handleCalculate}
@@ -731,11 +740,11 @@ const PricingPage = () => {
                         </MyCustomButton>
                     </Box>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
-                        <TextField label={t('admin.pricing.networkGb')} type="number" value={calcNetwork} onChange={(e) => setCalcNetwork(e.target.value)}
+                        <TextField label={t('admin.pricing.networkGb')} type="number" value={calcNetwork} onChange={(e) => setCalcNetwork(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 0 } }} />
-                        <TextField label={t('admin.pricing.backupGb')} type="number" value={calcBackup} onChange={(e) => setCalcBackup(e.target.value)}
+                        <TextField label={t('admin.pricing.backupGb')} type="number" value={calcBackup} onChange={(e) => setCalcBackup(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 0 } }} />
-                        <TextField label={t('admin.pricing.hoursMonthly')} type="number" value={calcHours} onChange={(e) => setCalcHours(e.target.value)}
+                        <TextField label={t('admin.pricing.hoursMonthly')} type="number" value={calcHours} onChange={(e) => setCalcHours(numericFieldValue(e.target.value))}
                             slotProps={{ htmlInput: { min: 1, max: 744 } }} />
                         <Box />
                     </Box>
@@ -763,7 +772,7 @@ const PricingPage = () => {
                                             }}
                                         >
                                             <Typography sx={{ color: b.color, fontWeight: 600, fontSize: 14 }}>{b.label}</Typography>
-                                            <Typography sx={{ color: b.color, fontWeight: 800, fontSize: 16 }}>${b.value.toFixed(2)}</Typography>
+                                            <Typography sx={{ color: b.color, fontWeight: 800, fontSize: 16 }}>{currencySymbol(calcCurrency)}{b.value.toFixed(2)}</Typography>
                                         </Box>
                                     ))}
                                 </Box>
@@ -777,11 +786,11 @@ const PricingPage = () => {
                                         {t('admin.pricing.totalHours', { hours: parseFloat(calcHours) || 0 })}
                                     </Typography>
                                     <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: 26 }}>
-                                        ${calcResult.totalCost.toFixed(2)}
+                                        {currencySymbol(calcCurrency)}{calcResult.totalCost.toFixed(2)}
                                     </Typography>
                                 </Box>
                                 <Typography variant="caption" sx={{ color: C.muted, display: 'block', mt: 1.25, textAlign: 'right' }}>
-                                    ~${(calcResult.totalCost / (parseFloat(calcHours) || 1)).toFixed(4)}/h · ~${calcResult.totalCost.toFixed(2)}/mo
+                                    ~{currencySymbol(calcCurrency)}{(calcResult.totalCost / (parseFloat(calcHours) || 1)).toFixed(4)}/h · ~{currencySymbol(calcCurrency)}{calcResult.totalCost.toFixed(2)}/mo
                                 </Typography>
                             </Box>
                         </Box>
@@ -793,7 +802,7 @@ const PricingPage = () => {
             {/* Delete confirmation dialog */}
             <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
                 <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#F7DEE3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠</Box>
+                    <WarningAmberIcon sx={{ color: '#DC2626' }} />
                     {t('admin.pricing.deleteThisPrice')}
                 </DialogTitle>
                 <DialogContent>

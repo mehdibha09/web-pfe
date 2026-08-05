@@ -65,6 +65,13 @@ export const verifyEmailTwoFa = async (
   return response.data;
 };
 
+export const resendEmailTwoFa = async (
+  email: string,
+): Promise<TwoFaActionResponse> => {
+  const response = await axiosInstance.post('/auth/2fa/email/resend', { email });
+  return response.data;
+};
+
 export const disableTwoFa = async (): Promise<TwoFaActionResponse> => {
   const response = await axiosInstance.delete('/auth/2fa');
   return response.data;

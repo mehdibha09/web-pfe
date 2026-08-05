@@ -12,7 +12,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
-import { listAuditActions, listAuditLogsPaginated, listAuditResources } from '../../../services/adminService';
+import { listDeploymentHistoryPaginated } from '../../../services/devopsService';
 import { C } from '../../../theme/tokens';
 
 const fmtAuditDate = (iso?: string) => {
@@ -25,6 +25,20 @@ const fmtAuditDate = (iso?: string) => {
         hour: '2-digit',
         minute: '2-digit'
     });
+};
+
+const translateAction = (t: (key: string) => string, action: string): string => {
+    const upper = action.trim().toUpperCase();
+    return t(`admin.auditLogs.actions.${upper}`) !== `admin.auditLogs.actions.${upper}`
+        ? t(`admin.auditLogs.actions.${upper}`)
+        : action;
+};
+
+const translateResource = (t: (key: string) => string, resource: string): string => {
+    const upper = resource.trim().toUpperCase().replace(/-/g, '_');
+    return t(`admin.auditLogs.resources.${upper}`) !== `admin.auditLogs.resources.${upper}`
+        ? t(`admin.auditLogs.resources.${upper}`)
+        : resource;
 };
 
 type AuditLogItem = {
@@ -70,7 +84,7 @@ const AuditLogsPage = () => {
 
     const loadLogs = async () => {
         setLoading(true);
-        const response = await listAuditLogsPaginated(page - 1, PAGE_SIZE, {
+        const response = await listDeploymentHistoryPaginated(page - 1, PAGE_SIZE, {
             from: submittedFrom ? new Date(submittedFrom).toISOString() : undefined,
             to: submittedTo ? new Date(submittedTo).toISOString() : undefined,
             action: submittedAction || undefined,
@@ -84,7 +98,7 @@ const AuditLogsPage = () => {
             action: log.action || '-',
             resource: log.resource || '-',
             userId: String(log.userId || ''),
-            userEmail: log.userEmail || '-',
+            userEmail: log.userId ? String(log.userId) : '-',
             details: log.details || '-'
         }));
 
@@ -117,13 +131,11 @@ const AuditLogsPage = () => {
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                const [resourcesResponse, actionsResponse] = await Promise.all([
-                    listAuditResources(),
-                    listAuditActions()
-                ]);
-                setResources(resourcesResponse);
-                const actions = [...new Set(actionsResponse.map((a) => a.toUpperCase()).filter(Boolean))].sort();
+                const seed = await listDeploymentHistoryPaginated(0, 200);
+                const actions = [...new Set(seed.items.map((l) => l.action).filter(Boolean))].sort();
                 setAllActions(actions);
+                const res = [...new Set(seed.items.map((l) => l.resource).filter((r): r is string => !!r))].sort();
+                setResources(res);
             } catch {
                 // silently fail
             }
@@ -264,7 +276,7 @@ const AuditLogsPage = () => {
                             <MenuItem value="">{t('common.all')}</MenuItem>
                             {allActions.map((actionItem) => (
                                 <MenuItem key={actionItem} value={actionItem}>
-                                    {actionItem}
+                                    {translateAction(t, actionItem)}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -278,7 +290,7 @@ const AuditLogsPage = () => {
                             <MenuItem value="">{t('common.all')}</MenuItem>
                             {mergedResources.map((resourceItem) => (
                                 <MenuItem key={resourceItem} value={resourceItem}>
-                                    {resourceItem}
+                                    {translateResource(t, resourceItem)}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -345,9 +357,9 @@ const AuditLogsPage = () => {
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
                                         <Box>
                                             <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                                                {log.action}
+                                                {translateAction(t, log.action)}
                                             </Typography>
-                                            <Typography sx={{ color: C.muted }}>{log.resource}</Typography>
+                                            <Typography sx={{ color: C.muted }}>{translateResource(t, log.resource)}</Typography>
                                         </Box>
                                         {log.userEmail && log.userEmail !== '-' && (
                                             <Chip

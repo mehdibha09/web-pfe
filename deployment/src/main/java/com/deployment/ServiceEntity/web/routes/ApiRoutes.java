@@ -13,13 +13,6 @@ public final class ApiRoutes {
     public static final String BASE = API_V1 + "/test";
   }
 
-  public static final class Deployment {
-    private Deployment() {
-    }
-
-    public static final String BASE = API_V1 + "/deployments";
-  }
-
   public static final class Environment {
     private Environment() {
     }
@@ -32,6 +25,13 @@ public final class ApiRoutes {
     }
 
     public static final String BASE = API_V1 + "/metrics";
+  }
+
+  public static final class History {
+    private History() {
+    }
+
+    public static final String BASE = API_V1 + "/history";
   }
 
   public static final class ServiceApi {

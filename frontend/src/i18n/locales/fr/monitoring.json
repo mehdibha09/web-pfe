@@ -1,0 +1,30 @@
+{
+    "monitoring": {
+        "title": "Supervision en temps réel",
+        "subtitle": "CPU, RAM, disque et réseau en direct pour vos environnements de service",
+        "cpu": "CPU",
+        "ram": "RAM",
+        "disk": "Disque",
+        "network": "Réseau",
+        "dataSource": "Source de données",
+        "cpuUsage": "Utilisation CPU",
+        "ramUsage": "Utilisation RAM",
+        "serviceEnvironment": "Environnement de service",
+        "selectServiceEnv": "Sélectionner un environnement",
+        "noServiceEnvSelected": "Aucun environnement de service sélectionné",
+        "latestSamples": "Derniers échantillons",
+        "sampleCount": "{{count}} mesure(s)",
+        "noMetrics": "Aucune métrique.",
+        "selectDeploymentHint": "Sélectionnez un environnement ci-dessus.",
+        "autoRefresh": "auto-actualisation 20s",
+        "pause": "Pause",
+        "resume": "Reprendre",
+        "paused": "En pause",
+        "pts": "pts",
+        "prometheus": "Prometheus",
+        "database": "Base de données",
+        "noPods": "Aucun pod trouvé.",
+        "podsSection": "Pods — {{name}}",
+        "podCount": "{{count}} pod(s)"
+    }
+}

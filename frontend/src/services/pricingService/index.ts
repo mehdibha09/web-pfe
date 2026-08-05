@@ -40,6 +40,7 @@ export const calculateCost = async (params: {
   network_usage?: number;
   backup_size?: number;
   hours?: number;
+  currency?: string;
 }): Promise<CalculateCostResponse> => {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

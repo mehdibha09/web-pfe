@@ -32,6 +32,7 @@ import {
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStoredUser } from '../../../services/authStorage';
+import { canManageDeployments } from '../../../services/authorization';
 import { C } from '../../../theme/tokens';
 import PaginationBar from '../../../components/PaginationBar';
 import CreateEnvForm from './CreateEnvForm';
@@ -52,6 +53,7 @@ const EnvSkeleton = () => (
 const EnvironmentsPage = () => {
     const { t } = useTranslation();
     const [createOpen, setCreateOpen] = useState(false);
+    const allowManage = canManageDeployments(getStoredUser()!);
 
     const [search, setSearch] = useState('');
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
@@ -203,25 +205,27 @@ const EnvironmentsPage = () => {
                             </IconButton>
                         </span>
                     </Tooltip>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setCreateOpen(true)}
-                        sx={{
-                            background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`,
-                            borderRadius: 2,
-                            fontWeight: 700,
-                            px: 2.5,
-                            boxShadow: '0 4px 12px rgba(228,71,125,0.3)',
-                            '&:hover': { boxShadow: '0 6px 16px rgba(228,71,125,0.4)' }
-                        }}
-                    >
-                        {t('environments.newEnvironment')}
-                    </Button>
+                    {allowManage && (
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setCreateOpen(true)}
+                            sx={{
+                                background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`,
+                                borderRadius: 2,
+                                fontWeight: 700,
+                                px: 2.5,
+                                boxShadow: '0 4px 12px rgba(228,71,125,0.3)',
+                                '&:hover': { boxShadow: '0 6px 16px rgba(228,71,125,0.4)' }
+                            }}
+                        >
+                            {t('environments.newEnvironment')}
+                        </Button>
+                    )}
                 </Box>
             </Box>
 
-            <CreateEnvForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => load(true)} />
+            {allowManage && <CreateEnvForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => load(true)} />}
 
             <Card
                 sx={{
@@ -291,7 +295,7 @@ const EnvironmentsPage = () => {
                                 ? t('environments.noResultsMessage', { search })
                                 : t('environments.createFirstEnvironment')}
                         </Typography>
-                        {!search && (
+                        {!search && allowManage && (
                             <Button
                                 variant="contained"
                                 startIcon={<AddIcon />}
@@ -331,6 +335,7 @@ const EnvironmentsPage = () => {
                             cancelEdit={cancelEdit}
                             startEdit={startEdit}
                             onDelete={(e) => setDeleteTarget(e)}
+                            allowManage={allowManage}
                         />
                     ))}
                 </Box>

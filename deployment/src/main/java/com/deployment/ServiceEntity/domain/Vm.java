@@ -13,7 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "vm")
@@ -94,10 +93,10 @@ public class Vm {
     @Column(nullable = false)
     private boolean backupEnabled = false;
 
-    @Transient
+    @Column(name = "created_by")
     private UUID createdBy;
 
-    @Transient
+    @Column(name = "updated_by")
     private UUID updatedBy;
 
     @Column(nullable = false, updatable = false)

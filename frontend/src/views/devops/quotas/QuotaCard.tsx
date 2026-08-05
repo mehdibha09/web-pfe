@@ -30,6 +30,7 @@ import type {
     ServiceResponse
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import MyCustomButton from '../../../components/MyCustomButton';
 import { getBarBg, getBarColor, getUsagePercent, seLabel } from './helpers';
 import { PERIODS } from './types';
@@ -47,10 +48,10 @@ interface Props {
 const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments }: Props) => {
     const { t } = useTranslation();
     const q = quota;
-    const m = q.metrics;
-    const cpuPct = m ? getUsagePercent(m.cpuUsage, q.maxCpu) : 0;
-    const ramPct = m ? getUsagePercent(m.ramUsage, q.maxRam) : 0;
-    const storagePct = m ? getUsagePercent(m.diskUsage, q.maxStorage) : 0;
+    const m = q.usage || null;
+    const cpuPct = m ? getUsagePercent(m.cpu, q.maxCpu) : 0;
+    const ramPct = m ? getUsagePercent(m.ram, q.maxRam) : 0;
+    const storagePct = m ? getUsagePercent(m.storage, q.maxStorage) : 0;
     const podsPct = m ? getUsagePercent(m.pods, q.maxPods) : 0;
     const isNearLimit = cpuPct >= 90 || ramPct >= 90;
 
@@ -221,17 +222,17 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
 
                     {m ? (
                         <Box>
-                            {renderProgressBar('quotas.cpuLabel', m.cpuUsage, q.maxCpu, t('quotas.cores'))}
-                            {renderProgressBar('quotas.ramLabel', m.ramUsage, q.maxRam, t('quotas.mb'))}
-                            {renderProgressBar('quotas.storageLabel', m.diskUsage, q.maxStorage, t('quotas.gb'))}
-                            {renderProgressBar('quotas.podsLabel', m.pods, q.maxPods, '')}
+                            {renderProgressBar('quotas.cpuLabel', m.cpu, q.maxCpu, t('quotas.cores'))}
+                            {renderProgressBar('quotas.ramLabel', m.ram, q.maxRam, t('quotas.mb'))}
+                            {renderProgressBar('quotas.storageLabel', m.storage, q.maxStorage, t('quotas.gb'))}
+                            {q.maxPods > 0 && renderProgressBar('quotas.podsLabel', m.pods, q.maxPods, '')}
                         </Box>
                     ) : (
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
                             {renderStaticValue('quotas.cpuLabel', q.maxCpu, t('quotas.cores'))}
                             {renderStaticValue('quotas.ramLabel', q.maxRam, t('quotas.mb'))}
                             {renderStaticValue('quotas.storageLabel', q.maxStorage, t('quotas.gb'))}
-                            {renderStaticValue('quotas.podsLabel', q.maxPods, '')}
+                            {q.maxPods > 0 && renderStaticValue('quotas.podsLabel', q.maxPods, '')}
                             {renderStaticValue('quotas.budgetLabel', q.maxBudget, '$')}
                         </Box>
                     )}
@@ -278,13 +279,13 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
             <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth
                 slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
                 <Box sx={{
-                    background: `linear-gradient(135deg, ${C.brandLight} 0%, #FFFFFF 100%)`,
+                    background: 'linear-gradient(135deg, #E4EEF7 0%, #FFFFFF 100%)',
                     px: 3, py: 2.5,
                     display: 'flex', alignItems: 'center', gap: 1.5,
                     borderBottom: `1px solid ${C.border}`
                 }}>
-                    <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CloudIcon sx={{ color: C.brand, fontSize: 20 }} />
+                    <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: '#E4EEF7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CloudIcon sx={{ color: '#2E5C8A', fontSize: 20 }} />
                     </Box>
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, lineHeight: 1.2 }}>
@@ -310,11 +311,11 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             ))}
                         </TextField>
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                            <TextField size="small" type="number" label={t('quotas.maxCpu')} value={cpu} onChange={(e) => setCpu(Number(e.target.value))} />
-                            <TextField size="small" type="number" label={t('quotas.maxRam')} value={ram} onChange={(e) => setRam(Number(e.target.value))} />
-                            <TextField size="small" type="number" label={t('quotas.maxStorage')} value={storage} onChange={(e) => setStorage(Number(e.target.value))} />
-                            <TextField size="small" type="number" label={t('quotas.maxPods')} value={pods} onChange={(e) => setPods(Number(e.target.value))} />
-                            <TextField size="small" type="number" label={t('quotas.maxBudget')} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+                            <TextField size="small" type="number" label={t('quotas.maxCpu')} value={cpu} onChange={(e) => setCpu(Number(numericFieldValue(e.target.value)))} />
+                            <TextField size="small" type="number" label={t('quotas.maxRam')} value={ram} onChange={(e) => setRam(Number(numericFieldValue(e.target.value)))} />
+                            <TextField size="small" type="number" label={t('quotas.maxStorage')} value={storage} onChange={(e) => setStorage(Number(numericFieldValue(e.target.value)))} />
+                            <TextField size="small" type="number" label={t('quotas.maxPods')} value={pods} onChange={(e) => setPods(Number(numericFieldValue(e.target.value)))} />
+                            <TextField size="small" type="number" label={t('quotas.maxBudget')} value={budget} onChange={(e) => setBudget(Number(numericFieldValue(e.target.value)))} />
                             <TextField size="small" select label={t('quotas.period')} value={period} onChange={(e) => setPeriod(e.target.value)}>
                                 {PERIODS.map((p) => (
                                     <MenuItem key={p} value={p}>{p}</MenuItem>

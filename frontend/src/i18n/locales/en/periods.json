@@ -1,0 +1,7 @@
+{
+    "periods": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+    }
+}

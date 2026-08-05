@@ -16,6 +16,7 @@ import { canManageK8s } from '../../../services/authorization';
 import type { DeploymentTemplate, DeploymentTemplateRequest } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { C, fmtDate, PROTOCOLS, IMAGE_PULL_POLICIES, SERVICE_TYPES, RESTART_POLICIES } from './constants';
@@ -279,7 +280,7 @@ const TemplatesPage = () => {
                         <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 1.5, mt: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <TemplateIcon sx={{ fontSize: 16, color: '#BE185D' }} /> {t('k8s.templates.templateInfo')}
@@ -327,7 +328,7 @@ const TemplatesPage = () => {
 
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.templates.networking')}</Typography>
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" type="number" label={t('k8s.templates.port')} value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
+                            <TextField size="small" type="number" label={t('k8s.templates.port')} value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: Number(numericFieldValue(e.target.value)) }))} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                             <TextField size="small" select label={t('k8s.templates.protocol')} value={form.protocol} onChange={(e) => setForm((p) => ({ ...p, protocol: e.target.value }))}>
                                 {PROTOCOLS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                             </TextField>

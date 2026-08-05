@@ -9,7 +9,7 @@ import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStoredUser } from '../../../services/authStorage';
 import { listServiceEnvironments, listServices, listEnvironments } from '../../../services/devopsService';
 import type { ServiceEnvironmentResponse, ServiceResponse, EnvironmentResponse } from '../../../services/devopsService';
-import { seLabel } from '../deployments/helpers';
+import { seLabel } from '../common/seLabel';
 import MyCustomButton from '../../../components/MyCustomButton';
 import { C } from '../../../theme/tokens';
 
@@ -27,6 +27,11 @@ const ForecastCard = () => {
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
 
     useEffect(() => {
+        const nextMonth = new Date();
+        nextMonth.setDate(1);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        setForecastPeriod(nextMonth.toISOString().slice(0, 7));
+
         (async () => {
             try {
                 const [seRes, svcRes, envRes] = await Promise.all([
@@ -37,7 +42,9 @@ const ForecastCard = () => {
                 setSeList(seRes);
                 setServices(svcRes);
                 setEnvironments(envRes);
-            } catch { /* ignore */ }
+            } catch (e: unknown) {
+                toast.error(getErrorMessage(e, t('costs.failedToLoad')));
+            }
         })();
     }, []);
 

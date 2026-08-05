@@ -1,0 +1,38 @@
+{
+    "deployments": {
+        "searchAndFilter": "Recherche et filtre",
+        "searchPlaceholder": "Rechercher par version, notes, ID…",
+        "statusFilter": "Filtre statut",
+        "allStatuses": "Tous les statuts",
+        "resultCount": "{{count}} résultat(s)",
+        "version": "Version",
+        "notes": "Notes",
+        "status": "Statut",
+        "serviceEnvironment": "Environnement de service",
+        "noNotes": "Aucune note",
+        "environmentLabel": "Environnement :",
+        "hideDetails": "▲ Masquer les détails",
+        "showDetails": "▼ Afficher les détails",
+        "deploymentId": "ID Déploiement",
+        "serviceEnvId": "ID Environnement de service",
+        "createdAt": "Créé le",
+        "updatedAt": "Mis à jour le",
+        "saving": "Enregistrement…",
+        "editDeployment": "Modifier le déploiement",
+        "redeployTooltip": "Redéployer",
+        "redeploy": "Redéployer",
+        "deleteDeployment": "Supprimer le déploiement",
+        "newDeployment": "Nouveau déploiement",
+        "versionPlaceholder": "ex. 1.0.0",
+        "notesPlaceholder": "Notes de version optionnelles",
+        "creating": "Création…",
+        "helperText": "Un déploiement est une version spécifique d'un service déployée dans un environnement. Les statuts disponibles : PENDING (en attente), SUCCESS (réussi), FAILED (échoué), ROLLED_BACK (annulé), CANCELED (annulé).",
+        "statusLabels": {
+            "QUEUED": "En file",
+            "PENDING": "En attente",
+            "SUCCESS": "Réussi",
+            "FAILED": "Échoué",
+            "ROLLED_BACK": "Annulé"
+        }
+    }
+}

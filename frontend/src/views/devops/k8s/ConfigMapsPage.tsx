@@ -278,7 +278,7 @@ const ConfigMapsPage = () => {
                         <IconButton size="small" onClick={() => { setCreateOpen(false); setEditTarget(null); }}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent sx={{ px: 3, pt: 2.5 }}>
+                <DialogContent sx={{ px: 3, pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 2 }}>
                         <TextField size="small" label={t('k8s.configmaps.name')} value={form.name} onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} required disabled={!!editTarget} error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField size="small" label={t('k8s.configmaps.labels')} value={form.labels} onChange={(e) => setForm((p) => ({ ...p, labels: e.target.value }))} placeholder="env=prod,team=backend" helperText={t('k8s.configmaps.labelsHint')} />

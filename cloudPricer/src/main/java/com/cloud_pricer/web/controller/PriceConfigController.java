@@ -102,9 +102,25 @@ public class PriceConfigController {
             @RequestParam(name = "disk", defaultValue = "0") double disk,
             @RequestParam(name = "network_usage", defaultValue = "0") double networkUsage,
             @RequestParam(name = "backup_size", defaultValue = "0") double backupSize,
-            @RequestParam(name = "hours", defaultValue = "720") double hours) {
+            @RequestParam(name = "hours", defaultValue = "720") double hours,
+            @RequestParam(name = "currency", required = false) String currency) {
         UserContext.requirePermission("PRICE_CONFIG_READ");
         List<PriceConfig> configs = priceConfigService.getAllByModeForSystem(mode);
+
+        List<PriceConfig> matched;
+        if (currency != null && !currency.isBlank()) {
+            matched = configs.stream()
+                    .filter(c -> currency.equalsIgnoreCase(c.getCurrency()))
+                    .toList();
+            if (matched.isEmpty()) {
+                throw new com.cloud_pricer.exception.ApiException(
+                        org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                        "NO_PRICE_FOR_CURRENCY",
+                        "No active price configuration exists for currency " + currency + " and mode " + mode);
+            }
+        } else {
+            matched = configs;
+        }
 
         double computeCost = 0;
         double storageCost = 0;
@@ -112,7 +128,7 @@ public class PriceConfigController {
         double backupCost = 0;
         double osCost = 0;
 
-        for (PriceConfig cfg : configs) {
+        for (PriceConfig cfg : matched) {
             if (!cfg.isActive())
                 continue;
             switch (cfg.getResourceType()) {

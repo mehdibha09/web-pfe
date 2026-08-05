@@ -441,7 +441,7 @@ const RbacPage = () => {
                         <IconButton size="small" onClick={() => setSaCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
                         <TextField size="small" label={t('k8s.rbac.name')} value={saForm.name} onChange={(e) => { setSaForm((p) => ({ ...p, name: e.target.value })); clearFieldError('saName'); }} required error={Boolean(errors.saName)} helperText={errors.saName} />
                         <TextField size="small" label={t('k8s.rbac.labels')} value={saForm.labels} onChange={(e) => setSaForm((p) => ({ ...p, labels: e.target.value }))} placeholder="env=prod,team=backend" helperText={t('k8s.rbac.labelsHint')} />
@@ -482,7 +482,7 @@ const RbacPage = () => {
                         <IconButton size="small" onClick={() => setRoleCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
                         <TextField size="small" label={t('k8s.rbac.name')} value={roleForm.name} onChange={(e) => { setRoleForm((p) => ({ ...p, name: e.target.value })); clearFieldError('roleName'); }} required error={Boolean(errors.roleName)} helperText={errors.roleName} />
                         <Chip label={roleForm.isClusterRole ? t('k8s.rbac.clusterRole') : t('k8s.rbac.namespacedRoles')} color={roleForm.isClusterRole ? 'primary' : 'default'} size="small" onClick={() => setRoleForm((p) => ({ ...p, isClusterRole: !p.isClusterRole }))} sx={{ fontWeight: 700, cursor: 'pointer', width: 'fit-content' }} />
@@ -528,7 +528,7 @@ const RbacPage = () => {
                         <IconButton size="small" onClick={() => setBindingCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
                         <TextField size="small" label={t('k8s.rbac.name')} value={bindingForm.name} onChange={(e) => { setBindingForm((p) => ({ ...p, name: e.target.value })); clearFieldError('bindingName'); }} required error={Boolean(errors.bindingName)} helperText={errors.bindingName} />
                         <Chip label={bindingForm.isClusterBinding ? t('k8s.rbac.clusterRoleBindings') : t('k8s.rbac.bindings')} color={bindingForm.isClusterBinding ? 'primary' : 'default'} size="small" onClick={() => setBindingForm((p) => ({ ...p, isClusterBinding: !p.isClusterBinding }))} sx={{ fontWeight: 700, cursor: 'pointer', width: 'fit-content' }} />

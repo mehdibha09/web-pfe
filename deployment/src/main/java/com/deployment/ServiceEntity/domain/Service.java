@@ -17,9 +17,15 @@ public class Service {
 
   public enum Status {
     ACTIVE,
-    INACTIVE,
-    DEPLOYING,
+    DISABLED,
+    PENDING,
     FAILED
+  }
+
+  public enum Runtime {
+    DOCKER,
+    VAGRANT,
+    K8S
   }
 
   @Id private UUID id;
@@ -33,6 +39,10 @@ public class Service {
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
   private Status status;
+
+  @Column(nullable = false)
+  @Enumerated(EnumType.STRING)
+  private Runtime runtime;
 
   @Column(name = "tenant_id", nullable = false)
   private UUID tenantId;
@@ -75,6 +85,14 @@ public class Service {
 
   public void setStatus(Status status) {
     this.status = status;
+  }
+
+  public Runtime getRuntime() {
+    return runtime;
+  }
+
+  public void setRuntime(Runtime runtime) {
+    this.runtime = runtime;
   }
 
   public UUID getTenantId() {

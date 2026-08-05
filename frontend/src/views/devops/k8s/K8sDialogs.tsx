@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { K8sDeployment, K8sHpaResponse, K8sPod } from '../../../services/k8sService';
 import { BTN, C, MAX_REPLICAS, POD_STATUS_COLORS } from './constants';
+import { numericFieldValue } from '../../../utils/numeric';
 
 interface K8sDialogsProps {
     scaleTarget: K8sDeployment | null;
@@ -116,7 +117,7 @@ const K8sDialogs = ({
             slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
             {headerBox(t('k8s.scale'), scaleTarget?.name)}
             <DialogContent>
-                <TextField autoFocus fullWidth type="number" label={t('k8s.replicas')} value={scaleReplicas} onChange={(e) => onScaleReplicasChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 0, max: MAX_REPLICAS } }} helperText={t('k8s.maxReplicas', { max: MAX_REPLICAS })} sx={{ mt: 1 }} />
+                <TextField autoFocus fullWidth type="number" label={t('k8s.replicas')} value={scaleReplicas} onChange={(e) => onScaleReplicasChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 0, max: MAX_REPLICAS } }} helperText={t('k8s.maxReplicas', { max: MAX_REPLICAS })} sx={{ mt: 1 }} />
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
                 <Button variant="outlined" onClick={onScaleClose} sx={{ borderRadius: 2, fontWeight: 600, px: 3 }}>{t('common.cancel')}</Button>
@@ -281,10 +282,10 @@ const K8sDialogs = ({
                     </Box>
                 )}
                 <Box sx={{ display: 'grid', gap: 1.5, mt: 1 }}>
-                    <TextField fullWidth type="number" label="Min Replicas" value={hpaMinReplicas} onChange={(e) => onHpaMinChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 100 } }} />
-                    <TextField fullWidth type="number" label="Max Replicas" value={hpaMaxReplicas} onChange={(e) => onHpaMaxChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 100 } }} />
-                    <TextField fullWidth type="number" label="CPU Target (%)" value={hpaCpuTarget} onChange={(e) => onHpaCpuChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 1, max: 100 } }} helperText="Average CPU utilization target" />
-                    <TextField fullWidth type="number" label="Memory Target (%)" value={hpaMemoryTarget} onChange={(e) => onHpaMemoryChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 0, max: 100 } }} helperText="Average memory utilization target (0 = disabled)" />
+                    <TextField fullWidth type="number" label="Min Replicas" value={hpaMinReplicas} onChange={(e) => onHpaMinChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1, max: 100 } }} />
+                    <TextField fullWidth type="number" label="Max Replicas" value={hpaMaxReplicas} onChange={(e) => onHpaMaxChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1, max: 100 } }} />
+                    <TextField fullWidth type="number" label="CPU Target (%)" value={hpaCpuTarget} onChange={(e) => onHpaCpuChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1, max: 100 } }} helperText="Average CPU utilization target" />
+                    <TextField fullWidth type="number" label="Memory Target (%)" value={hpaMemoryTarget} onChange={(e) => onHpaMemoryChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 0, max: 100 } }} helperText="Average memory utilization target (0 = disabled)" />
                 </Box>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
@@ -304,7 +305,7 @@ const K8sDialogs = ({
             {headerBox('Rollback', rollbackTarget?.name)}
             <DialogContent>
                 <Typography sx={{ color: C.muted, mb: 2 }}>Rollback to a previous revision (leave empty for previous revision)</Typography>
-                <TextField fullWidth type="number" label="Revision" value={rollbackRevision} onChange={(e) => onRollbackRevisionChange(Number(e.target.value))} slotProps={{ htmlInput: { min: 1 } }} helperText="Leave 0 to undo to previous revision" />
+                <TextField fullWidth type="number" label="Revision" value={rollbackRevision} onChange={(e) => onRollbackRevisionChange(Number(numericFieldValue(e.target.value)))} slotProps={{ htmlInput: { min: 1 } }} helperText="Leave 0 to undo to previous revision" />
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
                 <Button variant="outlined" onClick={onRollbackClose} sx={{ borderRadius: 2, fontWeight: 600, px: 3 }}>Cancel</Button>

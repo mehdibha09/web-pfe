@@ -44,9 +44,9 @@ import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } fr
 import { C } from '../../theme/tokens';
 import {
     listServices,
-    listDeployments,
+    listDeploymentHistory,
     type ServiceResponse,
-    type DeploymentResponse
+    type HistoryEntry
 } from '../../services/devopsService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DashboardKpiCard from './DashboardKpiCard';
@@ -101,7 +101,7 @@ const SuperAdminDashboard = () => {
     const [sessions, setSessions] = useState<SessionResponse[]>([]);
     const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
     const [services, setServices] = useState<ServiceResponse[]>([]);
-    const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
+    const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [vms, setVms] = useState<Vm[]>([]);
     const [k8sDeployments, setK8sDeployments] = useState<K8sDeployment[]>([]);
     const [backups, setBackups] = useState<Backup[]>([]);
@@ -117,7 +117,7 @@ const SuperAdminDashboard = () => {
                 listSessions(),
                 listAuditLogs({}),
                 listServices(),
-                listDeployments(),
+                listDeploymentHistory(),
                 vmService.getAll(),
                 k8sService.getAll(),
                 backupService.getAll(),
@@ -130,7 +130,7 @@ const SuperAdminDashboard = () => {
             if (s.status === 'fulfilled') setSessions(s.value);
             if (a.status === 'fulfilled') setAuditLogs(a.value);
             if (svc.status === 'fulfilled') setServices(svc.value);
-            if (dep.status === 'fulfilled') setDeployments(dep.value);
+            if (dep.status === 'fulfilled') setHistory(dep.value);
             if (vm.status === 'fulfilled') setVms(vm.value);
             if (k8.status === 'fulfilled') setK8sDeployments(k8.value);
             if (bak.status === 'fulfilled') setBackups(bak.value);
@@ -150,7 +150,6 @@ const SuperAdminDashboard = () => {
     const activeUsers = users.filter((u) => u.status?.toUpperCase() === 'ACTIVE').length;
     const activeTenants = tenants.filter((ten) => ten.status?.toUpperCase() === 'ACTIVE').length;
     const activeSessions = sessions.filter((s) => !s.revokedAt).length;
-    const successDeployments = deployments.filter((d) => d.status?.toUpperCase() === 'SUCCESS').length;
     const recentAudit = [...auditLogs]
         .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
         .slice(0, 6);
@@ -259,12 +258,12 @@ const SuperAdminDashboard = () => {
                     />
                     <DashboardKpiCard
                         title={t('dashboard.superAdmin.kpiDeployments')}
-                        value={deployments.length}
-                        subtitle={t('dashboard.superAdmin.succeededCount', { count: successDeployments })}
+                        value={history.length}
+                        subtitle={t('dashboard.superAdmin.recordedActions', { count: history.length })}
                         icon={<TrendingUpIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                         bgColor="#FDF4FF"
                         color="#5E4B9E"
-                        onClick={() => navigate('/admin/devops/deployments')}
+                        onClick={() => navigate('/admin/audit-logs')}
                     />
                     <DashboardKpiCard
                         title={t('dashboard.superAdmin.kpiVms')}
@@ -533,7 +532,7 @@ const SuperAdminDashboard = () => {
                                     return (
                                     <Box
                                         key={ten.id}
-                                        onClick={() => navigate(`/admin/tenants/${ten.id}`)}
+                                        onClick={() => navigate('/admin/tenants')}
                                         sx={{
                                             display: 'flex',
                                             alignItems: 'center',

@@ -13,12 +13,14 @@ import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.domain.Metric;
 import com.deployment.ServiceEntity.domain.DirectSshVmClient;
+import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.domain.VmClient;
 import com.deployment.ServiceEntity.domain.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.BackupRepository;
 import com.deployment.ServiceEntity.repository.MetricRepository;
+import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
 import com.deployment.ServiceEntity.repository.VmRepository;
 import com.deployment.ServiceEntity.web.dto.vm.VmMetricsSnapshot;
 import com.deployment.ServiceEntity.web.dto.vm.VmRequest;
@@ -39,6 +41,8 @@ public class VmService {
     private final BackupRepository backupRepository;
     private final VmClient vagrantClient;
     private final VmProvisioningService provisioningService;
+    private final ServiceEnvironmentRepository serviceEnvironmentRepository;
+    private final QuotaEnforcementService quotaEnforcementService;
 
     // ── Client dispatch helpers ──────────────────────────────────────────────
     // Delegate to Vm-aware overloads when using DirectSshVmClient
@@ -93,6 +97,9 @@ public class VmService {
                     "INVALID_REQUEST",
                     "serviceEnvironmentId is required");
         }
+
+        verifyServiceEnvironmentOwnership(req.getServiceEnvironmentId());
+        quotaEnforcementService.enforceVm(req.getServiceEnvironmentId(), req.getCpu(), req.getRam(), req.getDisk());
 
         if (req.getName() == null || req.getName().isBlank()) {
             req.setName("vm-" + UUID.randomUUID().toString().substring(0, 8));
@@ -162,6 +169,7 @@ public class VmService {
 
     public Page<VmResponse> getAll(UUID serviceEnvironmentId, Pageable pageable) {
         if (serviceEnvironmentId != null) {
+            verifyServiceEnvironmentOwnership(serviceEnvironmentId);
             return vmRepository.findByServiceEnvironmentId(serviceEnvironmentId, pageable)
                     .map(VmResponse::from);
         }
@@ -169,13 +177,40 @@ public class VmService {
     }
 
     public List<VmResponse> getByServiceEnvironment(UUID serviceEnvironmentId) {
+        verifyServiceEnvironmentOwnership(serviceEnvironmentId);
         return vmRepository.findByServiceEnvironmentId(serviceEnvironmentId)
                 .stream().map(VmResponse::from).toList();
+    }
+
+    private ServiceEnvironment verifyServiceEnvironmentOwnership(UUID serviceEnvironmentId) {
+        ServiceEnvironment se = serviceEnvironmentRepository.findById(serviceEnvironmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND",
+                        "Service environment not found"));
+        if (!se.getTenantId().equals(UserContext.getTenantId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Access denied to this service environment");
+        }
+        return se;
+    }
+
+    private Vm requireOwnedVm(UUID id) {
+        Vm vm = vmRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        if (!vm.getTenantId().equals(UserContext.getTenantId())) {
+            throw new EntityNotFoundException("VM not found: " + id);
+        }
+        return vm;
     }
 
     public VmResponse update(UUID id, VmRequest req) {
         Vm vm = vmRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        if (!vm.getTenantId().equals(UserContext.getTenantId())) {
+            throw new EntityNotFoundException("VM not found: " + id);
+        }
+        if (req.getServiceEnvironmentId() != null) {
+            verifyServiceEnvironmentOwnership(req.getServiceEnvironmentId());
+        }
         vm.setName(req.getName());
         vm.setDisplayName(req.getDisplayName());
         vm.setCpu(req.getCpu());
@@ -187,8 +222,7 @@ public class VmService {
     }
 
     public void delete(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
         backupRepository.deleteByVmId(id);
         metricRepository.deleteByVmId(id);
         vagrantClient.destroy(vm.getVagrantPath());
@@ -207,8 +241,7 @@ public class VmService {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     public VmResponse start(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
 
         String currentStatus = clientStatus(vm);
 
@@ -230,8 +263,9 @@ public class VmService {
             }
             vm.setStatus(Vm.Status.FAILED);
             vmRepository.save(vm);
+            log.error("Failed to start VM {}: {}", vm.getName(), e.getMessage());
             throw new ApiException(HttpStatus.CONFLICT, "VAGRANT_ERROR",
-                    "Failed to start VM: " + e.getMessage());
+                    "Failed to start VM. Please check that the VM name is not already used and that VirtualBox is accessible. Details: " + sanitizeVagrantError(e.getMessage()));
         }
 
         vm.setStatus(Vm.Status.RUNNING);
@@ -250,7 +284,7 @@ public class VmService {
     }
 
     public VmResponse stop(UUID id) {
-        Vm vm = vmRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
         if (vm.getStatus() == Vm.Status.STOPPED) {
             throw new ApiException(HttpStatus.CONFLICT, "CONFLICT", "VM is already stopped");
         }
@@ -274,8 +308,7 @@ public class VmService {
     }
 
     public VmResponse restart(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
         vm.setStatus(Vm.Status.PENDING);
         vmRepository.save(vm);
 
@@ -288,8 +321,7 @@ public class VmService {
     // ── Monitoring ────────────────────────────────────────────────────────────
 
     public VmStatusResponse getStatus(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
 
         String rawStatus = clientStatus(vm);
         Vm.Status mapped = switch (rawStatus) {
@@ -307,8 +339,7 @@ public class VmService {
     }
 
     public List<Metric> getMetrics(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
 
         if (vm.getVboxName() != null && vm.getStatus() == Vm.Status.RUNNING) {
             try {
@@ -358,8 +389,7 @@ public class VmService {
     // -- SSH --
 
     public Map<String, Object> executeSshCommand(UUID id, String command) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
 
         if (vm.getStatus() != Vm.Status.RUNNING) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "VM_NOT_RUNNING",
@@ -394,5 +424,16 @@ public class VmService {
         }
 
         return clientGetSshConfig(vm);
+    }
+
+    private String sanitizeVagrantError(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "unknown error";
+        }
+        String trimmed = raw.trim().replaceAll("\\s+", " ");
+        if (trimmed.length() > 240) {
+            trimmed = trimmed.substring(0, 240) + "…";
+        }
+        return trimmed;
     }
 }

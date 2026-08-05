@@ -1,6 +1,8 @@
 package com.cloud_pricer.web.controller;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -8,18 +10,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
-import com.cloud_pricer.config.TenantValidator;
 import com.cloud_pricer.config.UserContext;
 import com.cloud_pricer.service.AuditService;
 
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,12 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.cloud_pricer.domain.CostBreakdown;
 import com.cloud_pricer.domain.CostForecast;
 import com.cloud_pricer.domain.CostRecord;
+import com.cloud_pricer.service.CostAutoGeneratorService;
 import com.cloud_pricer.service.CostRecordService;
 import com.cloud_pricer.service.ForecastService;
 import com.cloud_pricer.web.dto.cost.CostAggregateResponse;
-import com.cloud_pricer.web.dto.cost.CostBreakdownRequest;
 import com.cloud_pricer.web.dto.cost.CostBreakdownResponse;
-import com.cloud_pricer.web.dto.cost.CostRecordRequest;
 import com.cloud_pricer.web.dto.cost.CostRecordResponse;
 import com.cloud_pricer.web.dto.cost.ForecastResponse;
 import com.cloud_pricer.web.routes.ApiRoutes;
@@ -44,64 +40,38 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CostController {
 
-  private final CostRecordService costRecordService;
-  private final ForecastService forecastService;
-  private final TenantValidator tenantValidator;
-  private final AuditService auditService;
+    private final CostRecordService costRecordService;
+    private final ForecastService forecastService;
+    private final CostAutoGeneratorService costAutoGeneratorService;
+    private final AuditService auditService;
 
-  @GetMapping
-  public ResponseEntity<Page<CostRecordResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
-    UserContext.requirePermission("COST_READ");
-    List<CostRecordResponse> list = costRecordService.getByTenantId(UserContext.getTenantId()).stream().map(this::map).toList();
-    int start = (int) pageable.getOffset();
-    int end = Math.min(start + pageable.getPageSize(), list.size());
-    List<CostRecordResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-    return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
-  }
-
-  @GetMapping("/{id}")
-  public ResponseEntity<CostRecordResponse> getById(@PathVariable UUID id) {
-    UserContext.requirePermission("COST_READ");
-    CostRecord record = costRecordService.getById(id);
-    List<CostBreakdown> breakdowns = costRecordService.getBreakdowns(id);
-    return ResponseEntity.ok(mapWithBreakdowns(record, breakdowns));
-  }
-
-  @PostMapping
-  public ResponseEntity<CostRecordResponse> create(@Valid @RequestBody CostRecordRequest dto) {
-    UserContext.requirePermission("COST_MANAGE");
-    tenantValidator.validateServiceEnvironment(dto.serviceEnvironmentId());
-    CostRecord record = new CostRecord();
-    record.setTenantId(UserContext.getTenantId());
-    record.setServiceEnvironmentId(dto.serviceEnvironmentId());
-    record.setPeriodStart(dto.periodStart());
-    record.setPeriodEnd(dto.periodEnd());
-    record.setMode(dto.mode());
-    record.setComputeCost(dto.computeCost());
-    record.setStorageCost(dto.storageCost());
-    record.setNetworkCost(dto.networkCost());
-    record.setBackupCost(dto.backupCost());
-    record.setOsCost(dto.osCost());
-
-    List<CostBreakdown> breakdowns = List.of();
-    if (dto.breakdowns() != null) {
-      breakdowns = dto.breakdowns().stream().map(this::mapBreakdown).toList();
+    @PostMapping("/generate")
+    public ResponseEntity<Map<String, Object>> generateNow() {
+        UserContext.requirePermission("COST_MANAGE");
+        costAutoGeneratorService.autoGenerateCosts();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", "ok");
+        body.put("message", "Cost auto-generation triggered");
+        return ResponseEntity.ok(body);
     }
 
-    CostRecord created = costRecordService.create(record, breakdowns);
-    List<CostBreakdown> savedBreakdowns = costRecordService.getBreakdowns(created.getId());
-    auditService.record("COST_CREATE", "cost-record", created.getId().toString(),
-        "Cost record created (serviceEnvironmentId=" + created.getServiceEnvironmentId() + ", total=" + created.getTotalCost() + ")");
-    return ResponseEntity.status(HttpStatus.CREATED).body(mapWithBreakdowns(created, savedBreakdowns));
-  }
+    @GetMapping
+    public ResponseEntity<Page<CostRecordResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
+        UserContext.requirePermission("COST_READ");
+        List<CostRecordResponse> list = costRecordService.getByTenantId(UserContext.getTenantId()).stream().map(this::map).toList();
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), list.size());
+        List<CostRecordResponse> content = start < list.size() ? list.subList(start, end) : List.of();
+        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
+    }
 
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> delete(@PathVariable UUID id) {
-    UserContext.requirePermission("COST_MANAGE");
-    costRecordService.delete(id);
-    auditService.record("COST_DELETE", "cost-record", id.toString(), "Cost record deleted (id=" + id + ")");
-    return ResponseEntity.noContent().build();
-  }
+    @GetMapping("/{id}")
+    public ResponseEntity<CostRecordResponse> getById(@PathVariable UUID id) {
+        UserContext.requirePermission("COST_READ");
+        CostRecord record = costRecordService.getById(id);
+        List<CostBreakdown> breakdowns = costRecordService.getBreakdowns(id);
+        return ResponseEntity.ok(mapWithBreakdowns(record, breakdowns));
+    }
 
   @GetMapping("/forecast")
   public ResponseEntity<ForecastResponse> generateForecast(
@@ -187,14 +157,6 @@ public class CostController {
         bd.getQuantity(),
         bd.getTotal(),
         bd.getCreatedAt());
-  }
-
-  private CostBreakdown mapBreakdown(CostBreakdownRequest dto) {
-    CostBreakdown bd = new CostBreakdown();
-    bd.setType(dto.type());
-    bd.setUnitCost(dto.unitCost());
-    bd.setQuantity(dto.quantity());
-    return bd;
   }
 
   private ForecastResponse mapForecast(CostForecast forecast) {

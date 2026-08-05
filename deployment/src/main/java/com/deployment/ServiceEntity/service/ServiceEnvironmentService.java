@@ -2,12 +2,14 @@ package com.deployment.ServiceEntity.service;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
+import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,12 +18,23 @@ public class ServiceEnvironmentService {
 
   private final ServiceEnvironmentRepository serviceEnvironmentRepository;
   private final VmService vmService;
-  private final DeploymentService deploymentService;
   private final K8sDeploymentService k8sDeploymentService;
   private final MetricService metricService;
   private final BackupService backupService;
 
   public ServiceEnvironment create(ServiceEnvironment serviceEnvironment) {
+    UUID tenantId = serviceEnvironment.getTenantId() != null
+        ? serviceEnvironment.getTenantId()
+        : UserContext.getTenantId();
+    if (serviceEnvironment.getServiceId() != null && serviceEnvironment.getEnvironmentId() != null) {
+      boolean duplicate = serviceEnvironmentRepository.findByTenantId(tenantId).stream()
+          .anyMatch(existing -> existing.getServiceId().equals(serviceEnvironment.getServiceId())
+              && existing.getEnvironmentId().equals(serviceEnvironment.getEnvironmentId()));
+      if (duplicate) {
+        throw new ApiException(HttpStatus.CONFLICT, "SERVICE_ENVIRONMENT_ALREADY_LINKED",
+            "This service is already linked to this environment");
+      }
+    }
     return serviceEnvironmentRepository.save(serviceEnvironment);
   }
 
@@ -59,7 +72,6 @@ public class ServiceEnvironmentService {
     backupService.deleteByServiceEnvironment(id);
     k8sDeploymentService.deleteByServiceEnvironment(id);
     vmService.deleteByServiceEnvironment(id);
-    deploymentService.deleteByServiceEnvironment(id);
     serviceEnvironmentRepository.deleteById(id);
   }
 }

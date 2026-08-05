@@ -1,0 +1,17 @@
+{
+    "appBar": {
+        "profile": "Profil",
+        "changePassword": "Changer le mot de passe",
+        "twoFactorAuth": "Authentification à deux facteurs",
+        "usersManagement": "Gestion des utilisateurs",
+        "rolesManagement": "Gestion des rôles",
+        "permissionsManagement": "Gestion des permissions",
+        "tenantsManagement": "Gestion des tenants",
+        "sessionsManagement": "Gestion des sessions",
+        "auditLogs": "Journal d'audit",
+        "dashboard": "Tableau de bord",
+        "subtitle": "Gérez l'authentification et l'administration en un seul endroit",
+        "langEn": "EN",
+        "langFr": "FR"
+    }
+}

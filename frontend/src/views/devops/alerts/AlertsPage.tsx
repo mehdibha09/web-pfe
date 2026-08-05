@@ -8,13 +8,11 @@ import { toast } from 'react-toastify';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { STATUSES } from './constants';
 import AlertTable from './AlertTable';
-import CreateAlertForm from './CreateAlertForm';
 import PageHeader from '../../../components/PageHeader';
 import KpiCard from '../../../components/KpiCard';
 import SearchFilterBar from '../../../components/SearchFilterBar';
 import EmptyState from '../../../components/EmptyState';
 import LoadingState from '../../../components/LoadingState';
-import CollapsibleFormCard from '../../../components/CollapsibleFormCard';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 
 const AlertsPage = () => {
@@ -46,7 +44,6 @@ const AlertsPage = () => {
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [search, setSearch] = useState('');
     const [kpiFilter, setKpiFilter] = useState<string | null>(null);
-    const [showCreate, setShowCreate] = useState(false);
 
     const counts = useMemo(
         () => ({
@@ -83,7 +80,7 @@ const AlertsPage = () => {
 
     const handleAcknowledge = async (id: string) => {
         try {
-            await acknowledgeAlert(id, 'admin');
+            await acknowledgeAlert(id);
             toast.success(t('alerts.acknowledged'));
             await load();
         } catch (e: unknown) {
@@ -170,14 +167,6 @@ const AlertsPage = () => {
                     resultCount={filtered.length}
                     totalCount={totalElements}
                 />
-
-                <CollapsibleFormCard
-                    title={t('alerts.createAlert')}
-                    open={showCreate}
-                    onToggle={() => setShowCreate(!showCreate)}
-                >
-                    <CreateAlertForm onCreated={() => { setShowCreate(false); load(); }} />
-                </CollapsibleFormCard>
 
                 {loading ? (
                     <LoadingState />

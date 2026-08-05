@@ -1,0 +1,163 @@
+package com.deployment.ServiceEntity.domain;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "quota")
+public class Quota {
+
+    @Id
+    private UUID id;
+
+    @Column(name = "service_environment_id", nullable = false)
+    private UUID serviceEnvironmentId;
+
+    @Column(name = "max_cpu")
+    private double maxCpu;
+
+    @Column(name = "max_ram")
+    private double maxRam;
+
+    @Column(name = "max_storage")
+    private double maxStorage;
+
+    @Column(name = "max_pods")
+    private int maxPods;
+
+    @Column(name = "max_budget")
+    private double maxBudget;
+
+    @Column(nullable = false)
+    private String period;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active;
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    public Quota() {
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getServiceEnvironmentId() {
+        return serviceEnvironmentId;
+    }
+
+    public void setServiceEnvironmentId(UUID serviceEnvironmentId) {
+        this.serviceEnvironmentId = serviceEnvironmentId;
+    }
+
+    public double getMaxCpu() {
+        return maxCpu;
+    }
+
+    public void setMaxCpu(double maxCpu) {
+        this.maxCpu = maxCpu;
+    }
+
+    public double getMaxRam() {
+        return maxRam;
+    }
+
+    public void setMaxRam(double maxRam) {
+        this.maxRam = maxRam;
+    }
+
+    public double getMaxStorage() {
+        return maxStorage;
+    }
+
+    public void setMaxStorage(double maxStorage) {
+        this.maxStorage = maxStorage;
+    }
+
+    public int getMaxPods() {
+        return maxPods;
+    }
+
+    public void setMaxPods(int maxPods) {
+        this.maxPods = maxPods;
+    }
+
+    public double getMaxBudget() {
+        return maxBudget;
+    }
+
+    public void setMaxBudget(double maxBudget) {
+        this.maxBudget = maxBudget;
+    }
+
+    public String getPeriod() {
+        return period;
+    }
+
+    public void setPeriod(String period) {
+        this.period = period;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+}

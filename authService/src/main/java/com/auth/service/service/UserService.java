@@ -167,6 +167,10 @@ public class UserService {
         ensureCanManageUsers(currentUser);
         User user = requireUserInAllowedScope(userId, currentUser);
 
+        if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
+            throw new ForbiddenException("Only a super administrator can modify an administrator account");
+        }
+
         if (request.email() != null && !request.email().isBlank()) {
             String newEmail = normalizeEmail(request.email());
             if (!newEmail.equals(user.getEmail())) {
@@ -204,8 +208,8 @@ public class UserService {
             throw new BadRequestException("You cannot delete your own account");
         }
 
-        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
-            throw new ForbiddenException("Super-admin account cannot be deleted");
+        if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
+            throw new ForbiddenException("Only a super administrator can delete an administrator account");
         }
 
         userRoleRepository.findByUser_Id(user.getId()).forEach(userRole -> {
@@ -230,6 +234,12 @@ public class UserService {
         ensureCanManageUserRoles(currentUser);
 
         User user = requireUserInAllowedScope(userId, currentUser);
+        if (user.getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You cannot change your own role");
+        }
+        if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
+            throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
+        }
         var role = roleRepository.findById(request.roleId())
                 .orElseThrow(() -> new NotFoundException("Role not found"));
 
@@ -270,8 +280,11 @@ public class UserService {
         ensureCanManageUserRoles(currentUser);
 
         User user = requireUserInAllowedScope(userId, currentUser);
-        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
-            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        if (user.getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You cannot change your own role");
+        }
+        if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
+            throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
         }
 
         UserRoleId userRoleId = new UserRoleId(user.getId(), roleId);
@@ -294,8 +307,11 @@ public class UserService {
         ensureCanManageUserRoles(currentUser);
 
         User user = requireUserInAllowedScope(userId, currentUser);
-        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
-            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        if (user.getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You cannot change your own role");
+        }
+        if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
+            throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
         }
 
         List<UUID> roleIds = request.roleIds() == null ? List.of() : request.roleIds().stream().distinct().toList();
@@ -393,6 +409,19 @@ public class UserService {
                 .stream()
                 .map(UserRole::getRole)
                 .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
+    }
+
+    private boolean hasAdminRole(User user) {
+        return userRoleRepository.findByUser_Id(user.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && isAdminRoleName(role.getName()));
+    }
+
+    private boolean isAdminRoleName(String roleName) {
+        String normalized = roleName.trim().toUpperCase().replaceAll("[\\s-]+", "_");
+        return normalized.equals("ADMIN") || normalized.equals("SUPER_ADMIN")
+                || normalized.equals("TENANT_ADMIN") || normalized.equals("PLATFORM_ADMIN");
     }
 
     private void ensureCanManageUsers(User currentUser) {

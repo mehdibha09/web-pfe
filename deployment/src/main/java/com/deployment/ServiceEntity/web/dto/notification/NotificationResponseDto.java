@@ -12,6 +12,7 @@ public record NotificationResponseDto(
     boolean read,
     UUID tenantId,
     String link,
+    UUID alertId,
     Instant createdAt,
     Instant updatedAt
 ) {}

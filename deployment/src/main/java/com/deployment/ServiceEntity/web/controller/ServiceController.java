@@ -42,11 +42,12 @@ public class ServiceController {
     com.deployment.ServiceEntity.domain.Service svc = new com.deployment.ServiceEntity.domain.Service();
     svc.setName(dto.name());
     svc.setType(dto.type());
-    svc.setStatus(parseStatus(dto.status()));
+    svc.setStatus(com.deployment.ServiceEntity.domain.Service.Status.ACTIVE);
+    svc.setRuntime(parseRuntime(dto.runtime()));
     svc.setTenantId(UserContext.getTenantId());
 
     com.deployment.ServiceEntity.domain.Service created = serviceDomainService.create(svc);
-    auditService.record("SERVICE_CREATE", "service", created.getId().toString(), "Service '" + created.getName() + "' created");
+    auditService.record("SERVICE_CREATE", "service", created.getId().toString(), "Service '" + created.getName() + "' created (runtime=" + created.getRuntime() + ")");
     return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
   }
 
@@ -75,36 +76,12 @@ public class ServiceController {
     com.deployment.ServiceEntity.domain.Service svc = new com.deployment.ServiceEntity.domain.Service();
     svc.setName(dto.name());
     svc.setType(dto.type());
-    svc.setStatus(parseStatus(dto.status()));
+    svc.setRuntime(parseRuntime(dto.runtime()));
     svc.setTenantId(UserContext.getTenantId());
 
     com.deployment.ServiceEntity.domain.Service updated = serviceDomainService.update(id, svc);
     auditService.record("SERVICE_UPDATE", "service", updated.getId().toString(), "Service '" + updated.getName() + "' updated");
     return ResponseEntity.ok(map(updated));
-  }
-
-  @PostMapping("/{id}/start")
-  public ResponseEntity<ServiceResponseDto> start(@PathVariable UUID id) {
-    UserContext.requirePermission("DEPLOYMENT_MANAGE");
-    com.deployment.ServiceEntity.domain.Service started = serviceDomainService.start(id);
-    auditService.record("SERVICE_START", "service", started.getId().toString(), "Service '" + started.getName() + "' started");
-    return ResponseEntity.ok(map(started));
-  }
-
-  @PostMapping("/{id}/stop")
-  public ResponseEntity<ServiceResponseDto> stop(@PathVariable UUID id) {
-    UserContext.requirePermission("DEPLOYMENT_MANAGE");
-    com.deployment.ServiceEntity.domain.Service stopped = serviceDomainService.stop(id);
-    auditService.record("SERVICE_STOP", "service", stopped.getId().toString(), "Service '" + stopped.getName() + "' stopped");
-    return ResponseEntity.ok(map(stopped));
-  }
-
-  @PostMapping("/{id}/restart")
-  public ResponseEntity<ServiceResponseDto> restart(@PathVariable UUID id) {
-    UserContext.requirePermission("DEPLOYMENT_MANAGE");
-    com.deployment.ServiceEntity.domain.Service restarted = serviceDomainService.restart(id);
-    auditService.record("SERVICE_RESTART", "service", restarted.getId().toString(), "Service '" + restarted.getName() + "' restarted");
-    return ResponseEntity.ok(map(restarted));
   }
 
   @DeleteMapping("/{id}")
@@ -121,21 +98,21 @@ public class ServiceController {
         svc.getName(),
         svc.getType(),
         svc.getStatus().name(),
+        svc.getRuntime() != null ? svc.getRuntime().name() : null,
         svc.getTenantId(),
         svc.getCreatedAt(),
         svc.getUpdatedAt());
   }
 
-  private com.deployment.ServiceEntity.domain.Service.Status parseStatus(String status) {
-    if (status == null || status.isBlank()) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "status is required");
+  private com.deployment.ServiceEntity.domain.Service.Runtime parseRuntime(String runtime) {
+    if (runtime == null || runtime.isBlank()) {
+      return com.deployment.ServiceEntity.domain.Service.Runtime.VAGRANT;
     }
-
     try {
-      return com.deployment.ServiceEntity.domain.Service.Status.valueOf(
-          status.trim().toUpperCase());
+      return com.deployment.ServiceEntity.domain.Service.Runtime.valueOf(
+          runtime.trim().toUpperCase());
     } catch (IllegalArgumentException ex) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid status: " + status);
+      throw new ApiException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid runtime: " + runtime);
     }
   }
 }

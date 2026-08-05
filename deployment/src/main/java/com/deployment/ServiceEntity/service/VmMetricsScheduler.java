@@ -25,7 +25,7 @@ public class VmMetricsScheduler {
     private final MetricRepository metricRepository;
     private final VmClient vagrantClient;
 
-    @Scheduled(fixedDelay = 5000) // toutes les 5 secondes après la fin du précédent
+    @Scheduled(fixedDelay = 3000) // toutes les 3 secondes après la fin du précédent
     public void collectMetrics() {
         List<Vm> runningVms = vmRepository.findByStatus(Vm.Status.RUNNING);
 

@@ -1,4 +1,4 @@
-import { Add as AddIcon, Close as CloseIcon, ExpandMore as ExpandMoreIcon, Remove as RemoveIcon } from '@mui/icons-material';
+import { Add as AddIcon, Close as CloseIcon, ExpandMore as ExpandMoreIcon, RocketLaunch as RocketIcon, Remove as RemoveIcon } from '@mui/icons-material';
 import {
     Accordion,
     AccordionDetails,
@@ -35,6 +35,7 @@ import { k8sService } from '../../../services/k8sService';
 import { listQuotas } from '../../../services/cloudPricerService';
 import type { QuotaResponse } from '../../../services/cloudPricerService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import {
     C,
     CPU_REGEX,
@@ -159,12 +160,12 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
     const handleCreate = async () => {
         clearErrors();
         setServerError('');
-        if (!form.name.trim()) return setFieldError('name', 'Name is required');
-        if (!form.dockerImage.trim()) return setFieldError('dockerImage', 'Docker image is required');
+        if (!form.name.trim()) return setFieldError('name', t('k8s.nameRequired'));
+        if (!form.dockerImage.trim()) return setFieldError('dockerImage', t('k8s.dockerRequired'));
         if (!IMAGE_REGEX.test(form.dockerImage.trim()))
-            return setFieldError('dockerImage', 'Invalid image format. Use name:tag (e.g. nginx:1.25)');
-        if (!form.serviceEnvironmentId) return setFieldError('serviceEnvironmentId', 'Select a Service Environment');
-        if (form.replicas < 0 || form.replicas > MAX_REPLICAS) return setFieldError('replicas', `Replicas must be 0-${MAX_REPLICAS}`);
+            return setFieldError('dockerImage', t('k8s.invalidImageFormat'));
+        if (!form.serviceEnvironmentId) return setFieldError('serviceEnvironmentId', t('k8s.selectServiceEnv'));
+        if (form.replicas < 0 || form.replicas > MAX_REPLICAS) return setFieldError('replicas', t('k8s.replicasRange', { max: MAX_REPLICAS }));
         if (form.cpuLimit && !CPU_REGEX.test(form.cpuLimit))
             return setFieldError('cpuLimit', 'CPU limit must be in format like 500m or 0.5');
         if (form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit))
@@ -189,7 +190,7 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                 readinessProbe: form.readinessProbe?.enabled ? form.readinessProbe : undefined,
                 startupProbe: form.startupProbe?.enabled ? form.startupProbe : undefined
             });
-            toast.success('Deployment created');
+            toast.success(t('k8s.deploymentCreated'));
             setForm({
                 name: '',
                 dockerImage: '',
@@ -218,7 +219,7 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
             onClose();
             onCreated();
         } catch (e: unknown) {
-            setServerError(getErrorMessage(e, 'Failed to create deployment'));
+            setServerError(getErrorMessage(e, t('k8s.createDeploymentError')));
         } finally {
             setCreating(false);
         }
@@ -246,22 +247,22 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                         </Grid>
                         <Grid size={{ xs: 6, md: 3 }}>
                             <TextField size="small" fullWidth type="number" label={t('k8s.probePort')} value={probe.port}
-                                onChange={(e) => setProbe(type, { port: Number(e.target.value) })}
+                                onChange={(e) => setProbe(type, { port: Number(numericFieldValue(e.target.value)) })}
                                 slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                         </Grid>
                         <Grid size={{ xs: 4, md: 2 }}>
                             <TextField size="small" fullWidth type="number" label={t('k8s.probeDelay')} value={probe.initialDelaySeconds}
-                                onChange={(e) => setProbe(type, { initialDelaySeconds: Number(e.target.value) })}
+                                onChange={(e) => setProbe(type, { initialDelaySeconds: Number(numericFieldValue(e.target.value)) })}
                                 slotProps={{ htmlInput: { min: 0 } }} />
                         </Grid>
                         <Grid size={{ xs: 4, md: 2 }}>
                             <TextField size="small" fullWidth type="number" label={t('k8s.probePeriod')} value={probe.periodSeconds}
-                                onChange={(e) => setProbe(type, { periodSeconds: Number(e.target.value) })}
+                                onChange={(e) => setProbe(type, { periodSeconds: Number(numericFieldValue(e.target.value)) })}
                                 slotProps={{ htmlInput: { min: 1 } }} />
                         </Grid>
                         <Grid size={{ xs: 4, md: 2 }}>
                             <TextField size="small" fullWidth type="number" label={t('k8s.probeThreshold')} value={probe.failureThreshold}
-                                onChange={(e) => setProbe(type, { failureThreshold: Number(e.target.value) })}
+                                onChange={(e) => setProbe(type, { failureThreshold: Number(numericFieldValue(e.target.value)) })}
                                 slotProps={{ htmlInput: { min: 1 } }} />
                         </Grid>
                     </Grid>
@@ -299,8 +300,24 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
         <Collapse in={open}>
             <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                 <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.createNewDeployment')}</Typography>
+                    <Box sx={{
+                        background: `linear-gradient(135deg, ${C.brandLight} 0%, #FFFFFF 100%)`,
+                        px: 2.5, py: 2, mb: 2.5,
+                        borderRadius: 2,
+                        display: 'flex', alignItems: 'center', gap: 1.5,
+                        border: `1px solid ${C.border}`
+                    }}>
+                        <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <RocketIcon sx={{ color: C.brand, fontSize: 20 }} />
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, lineHeight: 1.2 }}>
+                                {t('k8s.createNewDeployment')}
+                            </Typography>
+                            <Typography sx={{ fontSize: 13, color: C.muted }}>
+                                {t('k8s.createDeploymentSubtitle')}
+                            </Typography>
+                        </Box>
                         <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                     {serverError && (
@@ -311,22 +328,27 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
 
                     {templates.length > 0 && (
                         <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#065F46', mb: 1 }}>Load from Template</Typography>
+                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#065F46', mb: 1 }}>{t('k8s.loadFromTemplate')}</Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <TextField size="small" select value={selectedTemplate} onChange={(e) => { setSelectedTemplate(e.target.value); loadTemplate(e.target.value); }} sx={{ flex: 1 }}
                                     slotProps={{ select: { displayEmpty: true } }}>
-                                    <MenuItem value=""><em>Select a template...</em></MenuItem>
+                                    <MenuItem value=""><em>{t('k8s.selectTemplate')}</em></MenuItem>
                                     {templates.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.dockerImage})</MenuItem>)}
                                 </TextField>
                                 {selectedTemplate && (
                                     <Button size="small" variant="outlined" onClick={() => { setSelectedTemplate(''); setForm({ name: '', dockerImage: '', replicas: 1, port: 80, targetPort: 80, protocol: 'TCP', tenantId: '', serviceEnvironmentId: '', envVars: '', secrets: '', cpuLimit: '', memoryLimit: '', cpuRequest: '', memoryRequest: '', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always', labels: '', livenessProbe: defaultProbe({ path: '/health', initialDelaySeconds: 30 }), readinessProbe: defaultProbe({ path: '/ready', initialDelaySeconds: 5, periodSeconds: 5 }), startupProbe: defaultProbe({ enabled: false, path: '/health', failureThreshold: 30, periodSeconds: 10 }) }); }}
-                                        sx={{ whiteSpace: 'nowrap', color: C.muted, borderColor: C.border }}>Clear</Button>
+                                        sx={{ whiteSpace: 'nowrap', color: C.muted, borderColor: C.border }}>{t('k8s.clear')}</Button>
                                 )}
                             </Box>
                         </Box>
                     )}
 
                     <Grid container spacing={2}>
+                        <Grid size={{ xs: 12 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.brand, textTransform: 'uppercase', letterSpacing: 0.5, mb: 1 }}>
+                                {t('k8s.sectionGeneral')}
+                            </Typography>
+                        </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth required label={t('common.name')} value={form.name}
                                 onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} placeholder={t('k8s.namePlaceholder')} {...fieldProps('name')} />
@@ -341,10 +363,15 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth type="number" label={t('k8s.replicas')} value={form.replicas}
-                                onChange={(e) => { setForm((p) => ({ ...p, replicas: Math.min(Number(e.target.value), MAX_REPLICAS) })); clearFieldError('replicas'); }}
+                                onChange={(e) => { setForm((p) => ({ ...p, replicas: Math.min(Number(numericFieldValue(e.target.value)), MAX_REPLICAS) })); clearFieldError('replicas'); }}
                                 slotProps={{ htmlInput: { min: 0, max: MAX_REPLICAS } }}
                                 helperText={errors.replicas || t('k8s.maxReplicas', { max: MAX_REPLICAS })}
                                 error={Boolean(errors.replicas)} />
+                        </Grid>
+                        <Grid size={{ xs: 12 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.brand, textTransform: 'uppercase', letterSpacing: 0.5, mb: 1 }}>
+                                {t('k8s.sectionNetworking')}
+                            </Typography>
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <FormControl fullWidth>
@@ -357,13 +384,13 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth type="number" label={t('k8s.containerPort')} value={form.port || ''}
-                                onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))}
+                                onChange={(e) => setForm((p) => ({ ...p, port: Number(numericFieldValue(e.target.value)) }))}
                                 slotProps={{ htmlInput: { min: 1, max: 65535 } }} placeholder="e.g. 80"
                                 helperText={t('k8s.containerPortHint')} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth type="number" label={t('k8s.targetPort')} value={form.targetPort || ''}
-                                onChange={(e) => setForm((p) => ({ ...p, targetPort: Number(e.target.value) }))}
+                                onChange={(e) => setForm((p) => ({ ...p, targetPort: Number(numericFieldValue(e.target.value)) }))}
                                 slotProps={{ htmlInput: { min: 1, max: 65535 } }} placeholder="e.g. 80"
                                 helperText={t('k8s.targetPortHint')} />
                         </Grid>
@@ -393,6 +420,11 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                                     {RESTART_POLICIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                                 </Select>
                             </FormControl>
+                        </Grid>
+                        <Grid size={{ xs: 12 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.brand, textTransform: 'uppercase', letterSpacing: 0.5, mb: 1 }}>
+                                {t('k8s.sectionResources')}
+                            </Typography>
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.cpuRequest')} value={form.cpuRequest}

@@ -22,9 +22,9 @@ const QuotasSummary = ({ quotas }: Props) => {
 
     const nearLimitCount = useMemo(() => {
         return quotas.filter((q) => {
-            if (!q.metrics) return false;
-            const cpuPct = getUsagePercent(q.metrics.cpuUsage, q.maxCpu);
-            const ramPct = getUsagePercent(q.metrics.ramUsage, q.maxRam);
+            if (!q.usage) return false;
+            const cpuPct = getUsagePercent(q.usage.cpu, q.maxCpu);
+            const ramPct = getUsagePercent(q.usage.ram, q.maxRam);
             return cpuPct >= 90 || ramPct >= 90;
         }).length;
     }, [quotas]);

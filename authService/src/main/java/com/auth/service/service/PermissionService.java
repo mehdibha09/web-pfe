@@ -15,7 +15,6 @@ import com.auth.service.domain.RolePermission;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.User;
 import com.auth.service.domain.UserRole;
-import com.auth.service.exception.ConflictException;
 import com.auth.service.exception.ForbiddenException;
 import com.auth.service.exception.NotFoundException;
 import com.auth.service.exception.UnauthorizedException;
@@ -24,8 +23,6 @@ import com.auth.service.repository.PermissionRepository;
 import com.auth.service.repository.RolePermissionRepository;
 import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRoleRepository;
-import com.auth.service.web.dto.auth.AuthActionResponse;
-import com.auth.service.web.dto.permission.PermissionCreateRequest;
 import com.auth.service.web.dto.permission.PermissionResponse;
 import com.auth.service.web.dto.permission.PermissionUpdateRequest;
 
@@ -64,32 +61,12 @@ public class PermissionService {
 
     @Transactional(readOnly = true)
     public List<PermissionResponse> listPermissions(String authorizationHeader) {
-        requireCurrentUser(authorizationHeader);
+        User currentUser = requireCurrentUser(authorizationHeader);
         return permissionRepository.findAll()
                 .stream()
                 .map(this::toResponse)
                 .sorted((first, second) -> first.name().compareToIgnoreCase(second.name()))
                 .toList();
-    }
-
-    @Transactional
-    public PermissionResponse createPermission(String authorizationHeader, PermissionCreateRequest request) {
-        User currentUser = requireCurrentUser(authorizationHeader);
-        ensureCanManagePermissions(currentUser);
-        String permissionName = request.name().trim();
-
-        permissionRepository.findByName(permissionName)
-                .ifPresent(existing -> {
-                    throw new ConflictException("Permission already exists");
-                });
-
-        Permission permission = new Permission();
-        permission.setName(permissionName);
-        permission.setDescription(normalizeNullable(request.description()));
-
-        Permission savedPermission = permissionRepository.save(permission);
-        writeAudit(currentUser, "PERMISSION_CREATE", "Permission created", savedPermission.getId().toString());
-        return toResponse(savedPermission);
     }
 
     @Transactional
@@ -100,17 +77,6 @@ public class PermissionService {
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new NotFoundException("Permission not found"));
 
-        if (request.name() != null) {
-            String newName = request.name().trim();
-            if (!newName.isEmpty() && !newName.equals(permission.getName())) {
-                permissionRepository.findByName(newName)
-                        .ifPresent(existing -> {
-                            throw new ConflictException("Permission name already exists");
-                        });
-                permission.setName(newName);
-            }
-        }
-
         if (request.description() != null) {
             permission.setDescription(normalizeNullable(request.description()));
         }
@@ -118,23 +84,6 @@ public class PermissionService {
         Permission updatedPermission = permissionRepository.save(permission);
         writeAudit(currentUser, "PERMISSION_UPDATE", "Permission updated", updatedPermission.getId().toString());
         return toResponse(updatedPermission);
-    }
-
-    @Transactional
-    public AuthActionResponse deletePermission(String authorizationHeader, UUID permissionId) {
-        User currentUser = requireCurrentUser(authorizationHeader);
-        ensureCanManagePermissions(currentUser);
-        Permission permission = permissionRepository.findById(permissionId)
-                .orElseThrow(() -> new NotFoundException("Permission not found"));
-
-        List<RolePermission> rolePermissions = rolePermissionRepository.findByPermission_Id(permissionId);
-        if (!rolePermissions.isEmpty()) {
-            rolePermissionRepository.deleteAll(rolePermissions);
-        }
-
-        permissionRepository.delete(permission);
-        writeAudit(currentUser, "PERMISSION_DELETE", "Permission deleted", permission.getId().toString());
-        return new AuthActionResponse("Permission deleted successfully");
     }
 
     private PermissionResponse toResponse(Permission permission) {
@@ -192,22 +141,31 @@ public class PermissionService {
     }
 
     private void ensureCanManagePermissions(User currentUser) {
-        if (isSuperAdmin(currentUser)) {
+        if (isSuperAdmin(currentUser) || (isPlatformTenantUser(currentUser) && hasManagePermission(currentUser))) {
             return;
         }
+        throw new ForbiddenException("Only super-admins or platform-tenant admins can manage permissions");
+    }
 
-        boolean canManagePermissions = userRoleRepository.findByUser_Id(currentUser.getId())
+    private boolean hasManagePermission(User currentUser) {
+        return userRoleRepository.findByUser_Id(currentUser.getId())
                 .stream()
                 .map(UserRole::getRole)
                 .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
                 .flatMap(List::stream)
                 .map(RolePermission::getPermission)
                 .anyMatch(permission -> permission.getName() != null
-                        && permission.getName().trim().equalsIgnoreCase("PERMISSION_MANAGE"));
+                        && (permission.getName().trim().equalsIgnoreCase("PERMISSION_MANAGE")
+                                || permission.getName().trim().equalsIgnoreCase("USER_MANAGE")));
+    }
 
-        if (!canManagePermissions) {
-            throw new ForbiddenException("Permission management permission required");
-        }
+    private boolean isPlatformTenantUser(User currentUser) {
+        UUID platformTenantId = userRoleRepository.findByRole_NameIgnoreCase("super-admin")
+                .stream()
+                .findFirst()
+                .map(userRole -> userRole.getUser().getTenant().getId())
+                .orElse(null);
+        return platformTenantId != null && platformTenantId.equals(currentUser.getTenant().getId());
     }
 
     private boolean isSuperAdmin(User currentUser) {

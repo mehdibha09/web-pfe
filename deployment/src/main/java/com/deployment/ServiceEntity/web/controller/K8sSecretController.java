@@ -44,7 +44,7 @@ public class K8sSecretController {
             @RequestParam(required = false) String namespace,
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
-        List<K8sSecretResponse> all = kubernetesClient.listSecrets(namespace);
+        List<K8sSecretResponse> all = kubernetesClient.listSecrets(TenantNamespaceResolver.resolveList(namespace));
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sSecretResponse> content = start < all.size() ? all.subList(start, end) : List.of();

@@ -8,6 +8,7 @@ public record ServiceResponseDto(
     String name,
     String type,
     String status,
+    String runtime,
     UUID tenantId,
     Instant createdAt,
     Instant updatedAt) {}

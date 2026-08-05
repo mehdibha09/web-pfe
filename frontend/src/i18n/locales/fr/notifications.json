@@ -1,0 +1,15 @@
+{
+    "notifications": {
+        "title": "Notifications",
+        "markAllRead": "Tout marquer comme lu ({{count}})",
+        "noNotifications": "Aucune notification",
+        "viewAll": "Voir tout",
+        "subtitle": "Alertes en temps réel et événements système",
+        "total": "Total",
+        "unread": "Non lues",
+        "type": "Type",
+        "message": "Message",
+        "markAsRead": "Marquer comme lu",
+        "noUnread": "Aucune notification non lue"
+    }
+}

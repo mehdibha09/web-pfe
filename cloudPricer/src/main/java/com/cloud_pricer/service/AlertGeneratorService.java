@@ -8,9 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import com.cloud_pricer.domain.Alert;
+import com.cloud_pricer.domain.CostRecord;
 import com.cloud_pricer.domain.Quota;
 import com.cloud_pricer.domain.ServiceEnvironment;
 import com.cloud_pricer.repository.AlertRepository;
+import com.cloud_pricer.repository.CostRecordRepository;
 import com.cloud_pricer.repository.QuotaRepository;
 import com.cloud_pricer.repository.ServiceEnvironmentRepository;
 import com.cloud_pricer.web.dto.cost.MetricSnapshot;
@@ -26,6 +28,7 @@ public class AlertGeneratorService {
     private final QuotaRepository quotaRepository;
     private final AlertRepository alertRepository;
     private final ServiceEnvironmentRepository serviceEnvironmentRepository;
+    private final CostRecordRepository costRecordRepository;
 
     private final RestClient restClient = RestClient.builder()
             .baseUrl("http://localhost:8082")
@@ -50,6 +53,9 @@ public class AlertGeneratorService {
         for (Quota quota : activeQuotas) {
             try {
                 checkSingleQuota(quota);
+                ServiceEnvironment seForBudget = serviceEnvironmentRepository.findById(quota.getServiceEnvironmentId()).orElse(null);
+                UUID budgetTenant = seForBudget != null ? seForBudget.getTenantId() : UUID.randomUUID();
+                checkBudget(quota.getServiceEnvironmentId(), budgetTenant, quota.getMaxBudget());
             } catch (Exception e) {
                 log.warn("Failed to check quota {} for service-env {}: {}",
                         quota.getId(), quota.getServiceEnvironmentId(), e.getMessage());
@@ -113,6 +119,28 @@ public class AlertGeneratorService {
         } else if (ratio >= WARN_CPU && !hasOpenAlert(seId, "PODS", "WARNING")) {
             createAlert(seId, tenantId, "PODS", maxPods, actualPods, "WARNING",
                     "Pod count at " + actualPods + " — approaching limit of " + maxPods + " (warning)");
+        }
+    }
+
+    private void checkBudget(UUID seId, UUID tenantId, double maxBudget) {
+        if (maxBudget <= 0) return;
+
+        double usedCost = costRecordRepository.findByServiceEnvironmentId(seId).stream()
+                .mapToDouble(CostRecord::getTotalCost)
+                .sum();
+
+        double ratio = (usedCost / maxBudget) * 100.0;
+
+        if (ratio >= 100.0 && !hasOpenAlert(seId, "BUDGET", "CRITICAL")) {
+            createAlert(seId, tenantId, "BUDGET", maxBudget, usedCost, "CRITICAL",
+                    "Budget épuisé — " + String.format("%.2f", usedCost) + " / " + String.format("%.2f", maxBudget)
+                            + " (" + String.format("%.0f", ratio) + "%). Nouvelles ressources bloquées.");
+        } else if (ratio >= 90.0 && !hasOpenAlert(seId, "BUDGET", "WARNING")) {
+            createAlert(seId, tenantId, "BUDGET", maxBudget, usedCost, "WARNING",
+                    "Budget presque épuisé — " + String.format("%.0f", ratio) + "% utilisé (" + String.format("%.2f", usedCost) + " / " + String.format("%.2f", maxBudget) + ")");
+        } else if (ratio >= 80.0 && !hasOpenAlert(seId, "BUDGET", "INFO")) {
+            createAlert(seId, tenantId, "BUDGET", maxBudget, usedCost, "INFO",
+                    "Vous avez utilisé " + String.format("%.0f", ratio) + "% de votre budget (" + String.format("%.2f", usedCost) + " / " + String.format("%.2f", maxBudget) + ")");
         }
     }
 

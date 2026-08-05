@@ -1,16 +1,14 @@
-import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import ComputeIcon from '@mui/icons-material/Memory';
+import StorageIcon from '@mui/icons-material/Storage';
+import NetworkIcon from '@mui/icons-material/Hub';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import {
     Box,
     Button,
     Card,
     CardContent,
     Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
     Grid,
     IconButton,
     InputAdornment,
@@ -24,33 +22,80 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
 import type { CostRecordResponse } from '../../../services/cloudPricerService';
-import { deleteCost, listCostsPaginated } from '../../../services/cloudPricerService';
+import { generateCostsNow, listCosts, listCostsPaginated } from '../../../services/cloudPricerService';
+import { canManageCosts } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/authStorage';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { C, PAGE_BG } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { type PeriodFilter, getPeriodRange } from './constants';
-import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
+import BudgetUsageSection from './BudgetUsageSection';
 import CostCard from './CostCard';
 import CostCharts from './CostCharts';
-import CreateCostForm from './CreateCostForm';
 import ForecastCard from './ForecastCard';
+import ModeComparisonCard from './ModeComparisonCard';
 import MonthComparisonCard from './MonthComparisonCard';
+import { seLabel } from '../common/seLabel';
+import {
+    listServiceEnvironments,
+    listServices,
+    listEnvironments
+} from '../../../services/devopsService';
 
-const KPI_ICONS = ['💰', '⚙️', '💾', '🌐'];
+const KPI_ICONS = [
+    { Icon: ReceiptIcon, color: '#BE185D' },
+    { Icon: ComputeIcon, color: '#2E5C8A' },
+    { Icon: StorageIcon, color: '#8A6A2E' },
+    { Icon: NetworkIcon, color: '#065F46' }
+];
 
 const CostsPage = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const langCurrency = i18n.language?.startsWith('fr') ? 'EUR' : 'USD';
     const [costs, setCosts] = useState<CostRecordResponse[]>([]);
+    const [allCosts, setAllCosts] = useState<CostRecordResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
-    const [createOpen, setCreateOpen] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
+    const [generating, setGenerating] = useState(false);
+    const [seNames, setSeNames] = useState<Record<string, string>>({});
     const PAGE_SIZE = 10;
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const [seRes, svcRes, envRes] = await Promise.all([
+                    listServiceEnvironments(),
+                    listServices(),
+                    listEnvironments()
+                ]);
+                const labels: Record<string, string> = {};
+                for (const se of seRes) {
+                    labels[se.id] = seLabel(se, svcRes, envRes);
+                }
+                setSeNames(labels);
+            } catch {
+                // non-blocking
+            }
+        })();
+    }, []);
+
+    const handleCostGenerate = async () => {
+        setGenerating(true);
+        try {
+            await generateCostsNow();
+            toast.success(t('costs.generateTriggered'));
+            await load();
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e, t('costs.failedToLoad')));
+        } finally {
+            setGenerating(false);
+        }
+    };
 
     const load = async () => {
         setLoading(true);
@@ -58,6 +103,7 @@ const CostsPage = () => {
             const result = await listCostsPaginated(page, PAGE_SIZE);
             setCosts(result.items);
             setTotalElements(result.total);
+            setAllCosts(await listCosts());
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('costs.failedToLoad')));
         } finally {
@@ -80,20 +126,34 @@ const CostsPage = () => {
         }
         if (search) {
             const q = search.toLowerCase();
-            result = result.filter(c =>
-                c.serviceEnvironmentId.toLowerCase().includes(q) ||
-                c.mode.toLowerCase().includes(q) ||
-                new Date(c.periodStart).toLocaleDateString().includes(q)
-            );
+            result = result.filter(c => {
+                const seName = (seNames[c.serviceEnvironmentId] ?? '').toLowerCase();
+                return (
+                    c.serviceEnvironmentId.toLowerCase().includes(q) ||
+                    seName.includes(q) ||
+                    c.mode.toLowerCase().includes(q) ||
+                    new Date(c.periodStart).toLocaleDateString().includes(q)
+                );
+            });
         }
         return result;
-    }, [costs, periodFilter, search]);
+    }, [costs, periodFilter, search, seNames]);
+
+    // Full history filtered by period only (not paginated, not search) for KPIs/charts
+    const periodAllCosts = useMemo(() => {
+        if (periodFilter === 'all') return allCosts;
+        const { start, end } = getPeriodRange(periodFilter);
+        return allCosts.filter(c => {
+            const pStart = new Date(c.periodStart);
+            return pStart >= start && pStart <= end;
+        });
+    }, [allCosts, periodFilter]);
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const totals = useMemo(() => {
         let totalCost = 0, compute = 0, storage = 0, network = 0, backup = 0, os = 0;
-        for (const c of filteredCosts) {
+        for (const c of periodAllCosts) {
             totalCost += c.totalCost;
             compute += c.computeCost;
             storage += c.storageCost;
@@ -102,20 +162,7 @@ const CostsPage = () => {
             os += c.osCost;
         }
         return { totalCost, compute, storage, network, backup, os };
-    }, [filteredCosts]);
-
-    const handleDelete = async () => {
-        if (!deleteTarget) return;
-        try {
-            await deleteCost(deleteTarget);
-            toast.success(t('costs.deleted'));
-            if (expandedId === deleteTarget) setExpandedId(null);
-            setDeleteTarget(null);
-            await load();
-        } catch (e: unknown) {
-            toast.error(getErrorMessage(e, t('costs.failedToDelete')));
-        }
-    };
+    }, [periodAllCosts]);
 
     const kpiCards = [
         { label: t('costs.totalCost'), value: totals.totalCost, bg: '#FCE7F3', color: '#BE185D', icon: KPI_ICONS[0] },
@@ -134,10 +181,23 @@ const CostsPage = () => {
                     <Typography sx={{ color: C.muted }}>{t('costs.subtitle')}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
+                    {canManageCosts(getStoredUser()!) && (
+                        <Tooltip title={t('costs.generateTitle')!}>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={handleCostGenerate}
+                                disabled={generating}
+                                sx={{ borderRadius: 2, color: C.brand, borderColor: C.brandLight, fontWeight: 700 }}
+                            >
+                                {generating ? t('costs.generating') : t('costs.generateDev')}
+                            </Button>
+                        </Tooltip>
+                    )}
                     <Tooltip title={t('costs.exportCsv')!}>
                         <IconButton
                             size="small"
-                            onClick={() => exportToCSV(filteredCosts)}
+                            onClick={() => exportToCSV(filteredCosts, t)}
                             sx={{ borderRadius: 2, border: `1px solid ${C.border}`, color: C.muted }}
                         >
                             <Typography variant="caption" sx={{ fontWeight: 700 }}>CSV</Typography>
@@ -146,21 +206,16 @@ const CostsPage = () => {
                     <Tooltip title={t('costs.exportPdf')!}>
                         <IconButton
                             size="small"
-                            onClick={() => exportToPDF(filteredCosts)}
+                            onClick={() => exportToPDF(filteredCosts, t, langCurrency)}
                             sx={{ borderRadius: 2, border: `1px solid ${C.border}`, color: C.muted }}
                         >
                             <Typography variant="caption" sx={{ fontWeight: 700 }}>PDF</Typography>
                         </IconButton>
                     </Tooltip>
-                    <MyCustomButton
-                        startIcon={<AddIcon />}
-                        onClick={() => setCreateOpen(true)}
-                        sx={{ px: 3 }}
-                    >
-                        {t('costs.newCostRecord')}
-                    </MyCustomButton>
                 </Box>
             </Box>
+
+            <BudgetUsageSection />
 
             {!loading && filteredCosts.length > 0 && (
                 <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -175,19 +230,21 @@ const CostsPage = () => {
                                     '&:hover': { translate: '0 -2px' }
                                 }}
                             >
-                                <CardContent sx={{ py: 2, px: 2.5 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box>
-                                            <Typography variant="h4" sx={{ fontWeight: 900, color: kpi.color }}>
-                                                ${kpi.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </Typography>
-                                            <Typography sx={{ color: kpi.color, fontWeight: 600, fontSize: 13, mt: 0.5 }}>
-                                                {kpi.label}
-                                            </Typography>
+<CardContent sx={{ py: 2, px: 2.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 900, color: kpi.color }}>
+                                                    ${kpi.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </Typography>
+                                                <Typography sx={{ color: kpi.color, fontWeight: 600, fontSize: 13, mt: 0.5 }}>
+                                                    {kpi.label}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ width: 34, height: 34, borderRadius: 2, backgroundColor: kpi.bg, border: `1px solid ${kpi.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {(() => { const Icon = kpi.icon.Icon; return <Icon sx={{ fontSize: 20, color: kpi.icon.color }} />; })()}
+                                            </Box>
                                         </Box>
-                                        <Typography sx={{ fontSize: 28, lineHeight: 1 }}>{kpi.icon}</Typography>
-                                    </Box>
-                                </CardContent>
+                                    </CardContent>
                             </Card>
                         </Grid>
                     ))}
@@ -198,9 +255,13 @@ const CostsPage = () => {
                 <MonthComparisonCard costs={costs} />
             )}
 
+            {!loading && periodAllCosts.length > 0 && (
+                <ModeComparisonCard costs={periodAllCosts} />
+            )}
+
             {!loading && filteredCosts.length > 0 && (
                 <CostCharts
-                    costs={filteredCosts}
+                    costs={periodAllCosts}
                     totals={totals}
                     periodFilter={periodFilter}
                     onPeriodFilterChange={setPeriodFilter}
@@ -260,13 +321,8 @@ const CostsPage = () => {
                             {costs.length === 0 ? t('costs.noRecords') : t('costs.noResults')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
-                            {costs.length === 0 ? t('costs.createFirst') : t('costs.adjustSearch')}
+                            {costs.length === 0 ? t('costs.autoGeneratedHint') : t('costs.adjustSearch')}
                         </Typography>
-                        {costs.length === 0 && (
-                            <MyCustomButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-                                {t('costs.newCostRecord')}
-                            </MyCustomButton>
-                        )}
                     </CardContent>
                 </Card>
             ) : (
@@ -278,7 +334,6 @@ const CostsPage = () => {
                                 cost={c}
                                 isExpanded={expandedId === c.id}
                                 onToggleExpand={() => setExpandedId(expandedId === c.id ? null : c.id)}
-                                onDelete={(id) => setDeleteTarget(id)}
                             />
                         ))}
                     </Grid>
@@ -287,25 +342,6 @@ const CostsPage = () => {
             )}
 
             <ForecastCard />
-
-            <CreateCostForm
-                open={createOpen}
-                onClose={() => setCreateOpen(false)}
-                onCreated={load}
-                costs={filteredCosts}
-            />
-
-            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth
-                slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
-                <DialogTitle sx={{ fontWeight: 700 }}>{t('costs.confirmDelete')}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText sx={{ color: C.muted }}>{t('costs.confirmDelete')}</DialogContentText>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => setDeleteTarget(null)} sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
-                    <Button variant="contained" color="error" onClick={handleDelete} sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.delete')}</Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 };

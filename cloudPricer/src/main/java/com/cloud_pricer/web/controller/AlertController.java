@@ -8,18 +8,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
-import com.cloud_pricer.config.TenantValidator;
 import com.cloud_pricer.config.UserContext;
 
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.cloud_pricer.domain.Alert;
 import com.cloud_pricer.service.AlertService;
 import com.cloud_pricer.service.AuditService;
-import com.cloud_pricer.web.dto.alert.AlertRequest;
 import com.cloud_pricer.web.dto.alert.AlertResponse;
 import com.cloud_pricer.web.routes.ApiRoutes;
 
@@ -39,27 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class AlertController {
 
   private final AlertService alertService;
-  private final TenantValidator tenantValidator;
   private final AuditService auditService;
-
-  @PostMapping
-  public ResponseEntity<AlertResponse> create(@Valid @RequestBody AlertRequest dto) {
-    UserContext.requirePermission("ALERT_MANAGE");
-    tenantValidator.validateServiceEnvironment(dto.serviceEnvironmentId());
-    Alert alert = new Alert();
-    alert.setTenantId(UserContext.getTenantId());
-    alert.setServiceEnvironmentId(dto.serviceEnvironmentId());
-    alert.setType(dto.type());
-    alert.setMetric(dto.metric());
-    alert.setThreshold(dto.threshold());
-    alert.setActualValue(dto.actualValue());
-    alert.setSeverity(dto.severity());
-    alert.setMessage(dto.message());
-    Alert created = alertService.create(alert);
-    auditService.record("ALERT_CREATE", "alert", created.getId().toString(),
-        "Alert created (type='" + created.getType() + "', metric='" + created.getMetric() + "', severity='" + created.getSeverity() + "')");
-    return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
-  }
 
   @GetMapping
   public ResponseEntity<Page<AlertResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
@@ -88,7 +62,7 @@ public class AlertController {
   @PatchMapping("/{id}/acknowledge")
   public ResponseEntity<AlertResponse> acknowledge(@PathVariable UUID id) {
     UserContext.requirePermission("ALERT_MANAGE");
-    Alert acknowledged = alertService.acknowledge(id, UserContext.getUserId().toString());
+    Alert acknowledged = alertService.acknowledge(id, UserContext.getUserId());
     auditService.record("ALERT_ACKNOWLEDGE", "alert", acknowledged.getId().toString(), "Alert acknowledged (id=" + acknowledged.getId() + ")");
     return ResponseEntity.ok(map(acknowledged));
   }

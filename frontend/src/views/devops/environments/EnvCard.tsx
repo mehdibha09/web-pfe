@@ -18,6 +18,7 @@ type EnvCardProps = {
     startEdit: (env: EnvironmentResponse) => void;
     cancelEdit: () => void;
     onDelete: (env: EnvironmentResponse) => void;
+    allowManage?: boolean;
 };
 
 const envGradient = (name: string) => {
@@ -35,7 +36,7 @@ const envGradient = (name: string) => {
 
 const EnvCard = ({
     env, isEditing, editName, setEditName, editDescription, setEditDescription,
-    saving, onSave, startEdit, cancelEdit, onDelete
+    saving, onSave, startEdit, cancelEdit, onDelete, allowManage = false
 }: EnvCardProps) => {
     const { t } = useTranslation();
     const chip = envChipColor(env.name);
@@ -84,10 +85,12 @@ const EnvCard = ({
                             <MyCustomButton size="small" onClick={() => onSave(env.id)} disabled={saving}>{saving ? t('environments.saving') : t('environments.saveChanges')}</MyCustomButton>
                         </>
                     ) : (
-                        <>
-                            <Button size="small" startIcon={<EditIcon sx={{ fontSize: 14 }} />} onClick={() => startEdit(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
-                            <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
-                        </>
+                        allowManage && (
+                            <>
+                                <Button size="small" startIcon={<EditIcon sx={{ fontSize: 14 }} />} onClick={() => startEdit(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
+                                <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
+                            </>
+                        )
                     )}
                 </Box>
             </Card>

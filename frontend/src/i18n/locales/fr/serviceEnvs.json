@@ -1,0 +1,28 @@
+{
+    "serviceEnvs": {
+        "title": "Environnements de service",
+        "subtitle": "Gérez les relations service-environnement",
+        "loading": "Chargement des relations...",
+        "noMatching": "Aucune relation correspondante",
+        "noRelations": "Aucune relation",
+        "adjustSearch": "Essayez une autre recherche.",
+        "linkToStart": "Lie un service à un environnement pour commencer.",
+        "confirmDelete": "Supprimer cette relation ?",
+        "confirmDeleteTitle": "Supprimer la relation",
+        "confirmDeleteBody": "Êtes-vous sûr de vouloir supprimer cette relation ? Cette action est irréversible.",
+        "relations": "Relations",
+        "linked": "Lié",
+        "searchPlaceholder": "Rechercher service ou env…",
+        "helperText": "Associez un service à un environnement (ex: « api » + « production ») pour définir son contexte de déploiement.",
+        "service": "Service",
+        "environment": "Environnement",
+        "selectService": "Sélectionner un service",
+        "selectEnvironment": "Sélectionner un environnement",
+        "createAssociation": "Créer une association",
+        "link": "Lier",
+        "linkedSuccess": "Service lié à l'environnement",
+        "relationId": "ID Relation",
+        "tenant": "Tenant",
+        "unknown": "Inconnu"
+    }
+}

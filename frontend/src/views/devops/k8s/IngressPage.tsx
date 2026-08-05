@@ -32,6 +32,7 @@ import { k8sService } from '../../../services/k8sService';
 import type { K8sIngressResponse, K8sIngressRule, K8sIngressTLS } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import { getStoredUser } from '../../../services/authStorage';
 import { canManageK8s } from '../../../services/authorization';
 import PaginationBar from '../../../components/PaginationBar';
@@ -219,7 +220,7 @@ const IngressPage = () => {
     };
 
     const handleDelete = async (name: string, namespace: string) => {
-        if (!window.confirm(`Delete ingress "${name}" in namespace "${namespace}"?`)) return;
+        if (!window.confirm(t('k8s.ingresses.deleteConfirm', { name, namespace }))) return;
         try {
             await k8sService.deleteIngress(name, namespace);
             toast.success(t('common.success'));
@@ -351,7 +352,7 @@ const IngressPage = () => {
 
                                     {ing.ingressClassName && (
                                         <Typography variant="caption" sx={{ color: C.muted, fontFamily: 'monospace', fontSize: 11, mb: 0.5, display: 'block' }}>
-                                            Class: {ing.ingressClassName}
+                                            {t('k8s.ingresses.class')}: {ing.ingressClassName}
                                         </Typography>
                                     )}
 
@@ -359,7 +360,7 @@ const IngressPage = () => {
                                         {ing.rules.map((r, ri) => (
                                             <Box key={ri} sx={{ bgcolor: '#F8FAFC', borderRadius: 2, p: 1.5, border: `1px solid ${C.border}` }}>
                                                 <Typography variant="caption" sx={{ fontWeight: 700, color: C.text, fontFamily: 'monospace', fontSize: 12 }}>
-                                                    {r.host || '(any host)'}
+                                                    {r.host || t('k8s.ingresses.anyHost')}
                                                 </Typography>
                                                 {r.paths.map((p, pi) => (
                                                     <Box key={pi} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 1 }}>
@@ -375,9 +376,9 @@ const IngressPage = () => {
 
                                     {ing.tls.length > 0 && (
                                         <Box sx={{ mb: 1 }}>
-                                            {ing.tls.map((t, ti) => (
+                                            {ing.tls.map((tls, ti) => (
                                                 <Typography key={ti} variant="caption" sx={{ color: '#8A6A2E', fontFamily: 'monospace', fontSize: 11, display: 'block' }}>
-                                                    TLS: {t.hosts.join(', ')} {t.secretName ? `(secret: ${t.secretName})` : ''}
+                                                    TLS: {tls.hosts.join(', ')} {tls.secretName ? `(${t('k8s.ingresses.secret')}: ${tls.secretName})` : ''}
                                                 </Typography>
                                             ))}
                                         </Box>
@@ -385,7 +386,7 @@ const IngressPage = () => {
 
                                     {ing.addresses.length > 0 && (
                                         <Typography variant="caption" sx={{ color: '#065F46', fontFamily: 'monospace', fontSize: 11, display: 'block', mb: 0.5 }}>
-                                            LB: {ing.addresses.join(', ')}
+                                            {t('k8s.ingresses.lb')}: {ing.addresses.join(', ')}
                                         </Typography>
                                     )}
 
@@ -437,39 +438,39 @@ const IngressPage = () => {
                         <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
                             <TextField fullWidth label={t('common.name')} value={name} onChange={(e) => { setName(e.target.value); clearFieldError('name'); }} disabled={!!editing} error={Boolean(errors.name)} helperText={errors.name} />
-                            <TextField fullWidth label="Ingress Class" value={ingressClass} onChange={(e) => setIngressClass(e.target.value)} placeholder="e.g. nginx" />
+                            <TextField fullWidth label={t('k8s.ingresses.ingressClass')} value={ingressClass} onChange={(e) => setIngressClass(e.target.value)} placeholder={t('k8s.ingresses.ingressClassPlaceholder')} />
                         </Box>
 
                         <Box sx={{ borderTop: `1px solid ${C.border}`, pt: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                    <TrafficIcon sx={{ fontSize: 16, color: '#3E6E9E' }} /> Rules
+                                    <TrafficIcon sx={{ fontSize: 16, color: '#3E6E9E' }} /> {t('k8s.ingresses.rules')}
                                 </Typography>
-                                <Button size="small" onClick={addRule} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>+ Add Rule</Button>
+                                <Button size="small" onClick={addRule} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>{t('k8s.ingresses.addRule')}</Button>
                             </Box>
                             {rules.map((rule, ri) => (
                                 <Box key={ri} sx={{ mb: 2, p: 2, border: `1px solid ${C.border}`, borderRadius: 2, bgcolor: '#FAFAFA' }}>
                                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                        <TextField size="small" label="Host" value={rule.host} onChange={(e) => updateRule(ri, 'host', e.target.value)} placeholder="e.g. app.example.com" sx={{ flex: 1 }} />
+                                        <TextField size="small" label={t('k8s.ingresses.host')} value={rule.host} onChange={(e) => updateRule(ri, 'host', e.target.value)} placeholder={t('k8s.ingresses.hostPlaceholder')} sx={{ flex: 1 }} />
                                         <IconButton size="small" color="error" onClick={() => removeRule(ri)} disabled={rules.length === 1}><DeleteIcon fontSize="small" /></IconButton>
                                     </Box>
                                     <Box sx={{ pl: 2, borderLeft: `2px solid ${C.border}` }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                            <Typography variant="caption" sx={{ fontWeight: 600, color: C.muted }}>Paths</Typography>
-                                            <Button size="small" onClick={() => addPath(ri)} sx={{ textTransform: 'none', color: C.brand, fontSize: 12 }}>+ Add Path</Button>
+                                            <Typography variant="caption" sx={{ fontWeight: 600, color: C.muted }}>{t('k8s.ingresses.paths')}</Typography>
+                                            <Button size="small" onClick={() => addPath(ri)} sx={{ textTransform: 'none', color: C.brand, fontSize: 12 }}>{t('k8s.ingresses.addPath')}</Button>
                                         </Box>
                                         {rule.paths.map((path, pi) => (
                                             <Box key={pi} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                                <TextField size="small" label="Path" value={path.path} onChange={(e) => updatePath(ri, pi, 'path', e.target.value)} placeholder="/" sx={{ width: 120 }} />
+                                                <TextField size="small" label={t('k8s.ingresses.path')} value={path.path} onChange={(e) => updatePath(ri, pi, 'path', e.target.value)} placeholder="/" sx={{ width: 120 }} />
                                                 <TextField select size="small" label={t('common.type')} value={path.pathType} onChange={(e) => updatePath(ri, pi, 'pathType', e.target.value)} sx={{ width: 160 }}>
                                                     {PATH_TYPES.map((pt) => <MenuItem key={pt} value={pt}>{pt}</MenuItem>)}
                                                 </TextField>
-                                                <TextField size="small" label="Service" value={path.serviceName} onChange={(e) => updatePath(ri, pi, 'serviceName', e.target.value)} placeholder="svc-name" sx={{ width: 140 }} />
-                                                <TextField size="small" type="number" label="Port" value={path.servicePort} onChange={(e) => updatePath(ri, pi, 'servicePort', Number(e.target.value))} sx={{ width: 100 }} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
+                                                <TextField size="small" label={t('k8s.ingresses.service')} value={path.serviceName} onChange={(e) => updatePath(ri, pi, 'serviceName', e.target.value)} placeholder={t('k8s.ingresses.servicePlaceholder')} sx={{ width: 140 }} />
+                                                <TextField size="small" type="number" label={t('k8s.ingresses.port')} value={path.servicePort} onChange={(e) => updatePath(ri, pi, 'servicePort', Number(numericFieldValue(e.target.value)))} sx={{ width: 100 }} slotProps={{ htmlInput: { min: 1, max: 65535 } }} />
                                                 <IconButton size="small" color="error" onClick={() => removePath(ri, pi)} disabled={rule.paths.length === 1}><DeleteIcon fontSize="small" /></IconButton>
                                             </Box>
                                         ))}
@@ -483,12 +484,12 @@ const IngressPage = () => {
                                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 0.75 }}>
                                     <VpnKeyIcon sx={{ fontSize: 16, color: '#8A6A2E' }} /> TLS
                                 </Typography>
-                                <Button size="small" onClick={addTlsEntry} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>+ Add TLS</Button>
+                                <Button size="small" onClick={addTlsEntry} sx={{ textTransform: 'none', color: C.brand, fontWeight: 600 }}>{t('k8s.ingresses.addTls')}</Button>
                             </Box>
                             {tlsEntries.map((tls, ti) => (
                                 <Box key={ti} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                    <TextField size="small" label="Hosts (comma-separated)" value={tls.hosts} onChange={(e) => updateTlsEntry(ti, 'hosts', e.target.value)} placeholder="app.example.com" sx={{ flex: 1 }} />
-                                    <TextField size="small" label="Secret Name" value={tls.secretName} onChange={(e) => updateTlsEntry(ti, 'secretName', e.target.value)} placeholder="tls-secret" sx={{ width: 200 }} />
+                                    <TextField size="small" label={t('k8s.ingresses.tlsHosts')} value={tls.hosts} onChange={(e) => updateTlsEntry(ti, 'hosts', e.target.value)} placeholder="app.example.com" sx={{ flex: 1 }} />
+                                    <TextField size="small" label={t('k8s.ingresses.secretName')} value={tls.secretName} onChange={(e) => updateTlsEntry(ti, 'secretName', e.target.value)} placeholder={t('k8s.ingresses.secretNamePlaceholder')} sx={{ width: 200 }} />
                                     <IconButton size="small" color="error" onClick={() => removeTlsEntry(ti)}><DeleteIcon fontSize="small" /></IconButton>
                                 </Box>
                             ))}

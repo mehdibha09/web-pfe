@@ -26,24 +26,12 @@ export interface CostRecordResponse {
   updatedAt: string;
 }
 
-export interface CostBreakdownRequest {
-  type: string;
-  unitCost: number;
-  quantity: number;
-}
-
-export interface CostRecordRequest {
-  tenantId: string;
-  serviceEnvironmentId: string;
-  periodStart: string;
-  periodEnd: string;
-  mode: string;
-  computeCost: number;
-  storageCost: number;
-  networkCost: number;
-  backupCost: number;
-  osCost: number;
-  breakdowns: CostBreakdownRequest[];
+export interface QuotaUsage {
+  cpu: number;
+  ram: number;
+  storage: number;
+  pods: number;
+  measuredAt: string;
 }
 
 export interface QuotaResponse {
@@ -58,6 +46,7 @@ export interface QuotaResponse {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  usage?: QuotaUsage | null;
 }
 
 export interface QuotaRequest {

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../components/MyCustomButton';
-import { verifyEmailTwoFa } from '../../../services/authService';
+import { resendEmailTwoFa, verifyEmailTwoFa } from '../../../services/authService';
 import { clearPendingTwoFactorSession, getPendingTwoFactorSession, saveSession } from '../../../services/authStorage';
 
 const TwoFactor = () => {
@@ -12,6 +12,7 @@ const TwoFactor = () => {
     const navigate = useNavigate();
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resending, setResending] = useState(false);
     const [verificationSucceeded, setVerificationSucceeded] = useState(false);
     const [pendingSession] = useState(() => getPendingTwoFactorSession());
 
@@ -69,6 +70,20 @@ const TwoFactor = () => {
         navigate('/login', { replace: true });
     };
 
+    const handleResend = async () => {
+        if (!pendingSession || !pendingSession.email) return;
+        setResending(true);
+        try {
+            await resendEmailTwoFa(pendingSession.email.trim().toLowerCase());
+            toast.success(t('auth.resendCode'));
+        } catch (error: any) {
+            const message = error?.response?.data?.message || error?.message || t('auth.verificationFailed');
+            toast.error(message);
+        } finally {
+            setResending(false);
+        }
+    };
+
     return (
         <Box
             sx={{
@@ -106,6 +121,9 @@ const TwoFactor = () => {
                 <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                     <Button onClick={handleVerify} disabled={loading}>
                         {loading ? t('auth.verifying') : t('auth.verify')}
+                    </Button>
+                    <Button onClick={handleResend} disabled={resending}>
+                        {resending ? t('auth.resending') : t('auth.resendCode')}
                     </Button>
                     <Button onClick={handleCancel}>{t('common.cancel')}</Button>
                 </Box>

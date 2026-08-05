@@ -7,6 +7,8 @@ import { toast } from 'react-toastify';
 import type { ServiceResponse } from '../../../services/devopsService';
 import { listServicesPaginated } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canAccessAuditLogs, canManageDeployments } from '../../../services/authorization';
 import { cardSx, pageBg } from './constants';
 import CreateServiceCard from './CreateServiceCard';
 import HeaderCard from './HeaderCard';
@@ -24,6 +26,8 @@ const ServicesPage = () => {
     const [loading, setLoading] = useState(false);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
+    const allowManage = canManageDeployments(getStoredUser()!);
+    const canViewAudit = canAccessAuditLogs(getStoredUser()!);
 
     const load = async () => {
         setLoading(true);
@@ -45,7 +49,7 @@ const ServicesPage = () => {
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return services;
-        return services.filter((s) => [s.name, s.type, s.status, s.tenantId].join(' ').toLowerCase().includes(q));
+        return services.filter((s) => [s.name, s.type, s.status, s.runtime, s.tenantId].join(' ').toLowerCase().includes(q));
     }, [search, services]);
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
@@ -57,7 +61,7 @@ const ServicesPage = () => {
                 {t('services.helperText')}
             </Alert>
             <HeaderCard services={services} />
-            <CreateServiceCard onCreated={load} />
+            {allowManage && <CreateServiceCard onCreated={load} />}
             <SearchCard search={search} onSearchChange={setSearch} resultCount={filtered.length} />
 
             {loading ? (
@@ -86,7 +90,7 @@ const ServicesPage = () => {
                     }}
                 >
                     {filtered.map((s) => (
-                        <ServiceCard key={s.id} service={s} onRefresh={load} />
+                        <ServiceCard key={s.id} service={s} onRefresh={load} allowManage={allowManage} canViewAudit={canViewAudit} />
                     ))}
                 </Box>
                 <PaginationBar page={page + 1} pageCount={pageCount} total={totalElements} onPageChange={(p) => setPage(p - 1)} />

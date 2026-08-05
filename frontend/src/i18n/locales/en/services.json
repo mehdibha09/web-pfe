@@ -1,0 +1,17 @@
+{
+    "services": {
+        "loadingServices": "Loading services...",
+        "noServices": "No services found.",
+        "search": "Search",
+        "searchPlaceholder": "Search by name, type, status",
+        "results": "Results",
+        "tenantId": "Tenant ID",
+        "serviceId": "Service ID",
+        "confirmDelete": "Delete this service?",
+        "tryAdjustingFilter": "Try adjusting your search or filter criteria.",
+        "viewDeployments": "View deployments",
+        "updatedSuccess": "Service updated",
+        "deletedSuccess": "Service deleted",
+        "helperText": "A service is an application component (API, worker, frontend) that can be deployed and run. Statuses indicate its current state: ACTIVE, PENDING, DISABLED, or FAILED."
+    }
+}

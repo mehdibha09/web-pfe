@@ -24,7 +24,7 @@ import {
     removePermissionFromRole,
     updateRole
 } from '../../../services/adminService';
-import { canDeleteRole } from '../../../services/authorization';
+import { canDeleteRole, isSuperAdmin } from '../../../services/authorization';
 import { getStoredUser } from '../../../services/authStorage';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
@@ -64,6 +64,16 @@ const RolesPage = () => {
     const [page, setPage] = useState(0);
 
     const allowDeleteRole = currentUser ? canDeleteRole(currentUser) : false;
+
+    const currentUserIsSuperAdmin = currentUser ? isSuperAdmin(currentUser) : false;
+
+    const isSuperAdminRole = (role: RoleItem) =>
+        ['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes((role.name || '').trim().toUpperCase().replace(/[\s-]+/g, '_'));
+
+    const isAdminRole = (role: RoleItem) =>
+        (role.name || '').trim().toUpperCase().replace(/[\s-]+/g, '_') === 'ADMIN';
+
+    const isProtectedRole = (role: RoleItem) => isSuperAdminRole(role) || (isAdminRole(role) && !currentUserIsSuperAdmin);
 
     const permColor = (name: string) => {
         if (name.startsWith('USER')) return { bg: '#E0F1E6', fg: '#2E7A4F' };
@@ -169,13 +179,23 @@ const RolesPage = () => {
             toast.success(t('admin.roles.roleCreated'));
             await loadRoles();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.roles.failedToCreateRole');
+            const serverMsg = error?.response?.data?.message || '';
+            const enToFr: Record<string, string> = {
+                'Role already exists for this tenant': t('admin.roles.roleAlreadyExists'),
+            };
+            const message = enToFr[serverMsg] || serverMsg || error?.message || t('admin.roles.failedToCreateRole');
             toast.error(message);
         }
     };
 
     const handleRemoveRole = async () => {
         if (!confirmDeleteId) return;
+        const target = roles.find((r) => r.id === confirmDeleteId);
+        if (target && isProtectedRole(target)) {
+            toast.error(t('admin.roles.protectedRoleError'));
+            setConfirmDeleteId(null);
+            return;
+        }
         try {
             await deleteRole(confirmDeleteId);
             toast.success(t('admin.roles.roleDeleted'));
@@ -200,6 +220,12 @@ const RolesPage = () => {
     };
 
     const handleUpdateRole = async (id: string) => {
+        const target = roles.find((r) => r.id === id);
+        if (target && isProtectedRole(target)) {
+            toast.error(t('admin.roles.protectedRoleError'));
+            cancelEditRole();
+            return;
+        }
         if (!editingName.trim()) {
             toast.error(t('admin.roles.roleNameRequired'));
             return;
@@ -219,6 +245,11 @@ const RolesPage = () => {
     };
 
     const handleAddPermission = async (roleId: string) => {
+        const target = roles.find((r) => r.id === roleId);
+        if (target && isProtectedRole(target)) {
+            toast.error(t('admin.roles.protectedRoleError'));
+            return;
+        }
         if (!selectedPermission) {
             toast.error(t('admin.roles.selectPermissionFirst'));
             return;
@@ -245,6 +276,11 @@ const RolesPage = () => {
     };
 
     const handleRemovePermission = async (roleId: string, permissionName: string) => {
+        const target = roles.find((r) => r.id === roleId);
+        if (target && isProtectedRole(target)) {
+            toast.error(t('admin.roles.protectedRoleError'));
+            return;
+        }
         const permission = permissions.find((item) => item.name === permissionName);
         if (!permission) {
             toast.error(t('admin.roles.permissionIdentifierNotFound'));
@@ -275,6 +311,11 @@ const RolesPage = () => {
                 <Alert severity="info" sx={{ mt: 2, borderRadius: 2, bgcolor: '#F0F4FF', '& .MuiAlert-icon': { color: '#3B82F6' }, ml: 4.5 }}>
                     {t('admin.roles.helperText')}
                 </Alert>
+                {roles.some(isProtectedRole) && (
+                    <Alert severity="warning" sx={{ mt: 1, borderRadius: 2, ml: 4.5, bgcolor: '#FFF8E1', '& .MuiAlert-icon': { color: '#B26A00' } }}>
+                        {t('admin.roles.superAdminRoleNote')}
+                    </Alert>
+                )}
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 3 }}>
@@ -468,7 +509,7 @@ const RolesPage = () => {
                                                 <Chip
                                                     key={permission}
                                                     label={permission}
-                                                    onDelete={() => handleRemovePermission(role.id, permission)}
+                                                    onDelete={isProtectedRole(role) ? undefined : () => handleRemovePermission(role.id, permission)}
                                                     size="small"
                                                     sx={{
                                                         backgroundColor: pc.bg, color: pc.fg,
@@ -480,7 +521,7 @@ const RolesPage = () => {
                                         })
                                     )}
                                 </Box>
-                                {selectedRoleForPermission === role.id && (
+                                {!isProtectedRole(role) && selectedRoleForPermission === role.id && (
                                     <Box sx={{ mt: 2 }}>
                                         <Typography variant="caption" sx={{ fontWeight: 700, color: C.muted, display: 'block', mb: 1 }}>
                                             {t('admin.roles.availablePermissions')}
@@ -519,7 +560,11 @@ const RolesPage = () => {
                                 )}
                             </CardContent>
                             <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', gap: 0.5, borderTop: `1px solid ${C.border}`, pt: 1.5 }}>
-                                {editingRoleId === role.id ? (
+                                {isProtectedRole(role) ? (
+                                    <Typography variant="caption" sx={{ color: C.muted, ml: 'auto' }}>
+                                        {t('admin.roles.protectedRoleHint')}
+                                    </Typography>
+                                ) : editingRoleId === role.id ? (
                                     <>
                                         <Button onClick={cancelEditRole} size="small">{t('common.cancel')}</Button>
                                         <Button onClick={() => handleUpdateRole(role.id)} size="small">{t('common.save')}</Button>
@@ -530,11 +575,13 @@ const RolesPage = () => {
                                 {selectedRoleForPermission === role.id ? (
                                     <Button onClick={() => setSelectedRoleForPermission(null)} size="small">{t('common.cancel')}</Button>
                                 ) : (
-                                    <Button onClick={() => setSelectedRoleForPermission(role.id)} size="small">
-                                        {t('admin.roles.addPermission')}
-                                    </Button>
+                                    !isProtectedRole(role) && (
+                                        <Button onClick={() => setSelectedRoleForPermission(role.id)} size="small">
+                                            {t('admin.roles.addPermission')}
+                                        </Button>
+                                    )
                                 )}
-                                {allowDeleteRole && editingRoleId !== role.id && selectedRoleForPermission !== role.id && (
+                                {allowDeleteRole && !isProtectedRole(role) && editingRoleId !== role.id && selectedRoleForPermission !== role.id && (
                                     <Button onClick={() => setConfirmDeleteId(role.id)} size="small" startIcon={<DeleteOutlinedIcon />} variant="text" sx={{ color: '#DC2626', background: 'transparent', '&:hover': { background: 'rgba(220,38,38,0.08)' } }}>{t('common.delete')}</Button>
                                 )}
                             </CardActions>

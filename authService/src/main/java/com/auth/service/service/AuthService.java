@@ -145,7 +145,7 @@ public class AuthService {
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new InvalidCredentialsException("Invalid credentials");
+            throw new InvalidCredentialsException("User is inactive");
         }
 
         if (user.getTenant() != null && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
@@ -153,13 +153,18 @@ public class AuthService {
         }
 
         if (userTwoFactorRepository.existsByUser_IdAndEnabledTrue(user.getId())) {
-            writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_TOTP", "TOTP 2FA required");
+            writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_TOTP", "2FA required");
+
+            String code = generateEmailTwoFaCode();
+            pendingEmailTwoFaChallenges.put(normalizeEmail(user.getEmail()), new PendingEmailTwoFaContext(
+                    user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10))));
+            emailService.sendLoginTwoFaCodeEmail(user.getEmail(), user.getEmail(), code, 10);
 
             return new AuthLoginResponse(
                     null,
                     toMeResponse(user),
                     true,
-                    "Enter the 6-digit code from your authenticator app");
+                    "Enter the 6-digit code sent to your email");
         }
 
         Session session = createSession(user, ipAddress, userAgent, acceptLanguage, clientTimezone);
@@ -238,6 +243,31 @@ public class AuthService {
         writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL_VERIFY", "Email 2FA verified");
 
         return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, "Login successful");
+    }
+
+    public AuthActionResponse resendLoginTwoFaEmail(String rawEmail) {
+        String normalizedEmail = normalizeEmail(rawEmail);
+        PendingEmailTwoFaContext challenge = pendingEmailTwoFaChallenges.get(normalizedEmail);
+
+        if (challenge == null || challenge.userId() == null) {
+            throw new BadRequestException("No active email 2FA challenge. Please log in again.");
+        }
+
+        if (challenge.expiresAt().isBefore(Instant.now())) {
+            pendingEmailTwoFaChallenges.remove(normalizedEmail);
+            throw new BadRequestException("Verification code expired. Please log in again.");
+        }
+
+        User user = userRepository.findById(challenge.userId())
+                .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
+
+        String code = generateEmailTwoFaCode();
+        pendingEmailTwoFaChallenges.put(normalizedEmail, new PendingEmailTwoFaContext(
+                user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10))));
+        emailService.sendLoginTwoFaCodeEmail(user.getEmail(), user.getEmail(), code, 10);
+
+        writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL_RESEND", "Email 2FA code resent");
+        return new AuthActionResponse("A new verification code was sent to your email");
     }
 
     @Transactional
@@ -360,24 +390,26 @@ public class AuthService {
     @Transactional
     public AuthTwoFaSetupResponse setupTwoFa(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        String secret = totpService.generateSecret();
-        String qrCodeUri = totpService.generateQrCodeUri(secret, user.getEmail(), "AppPFE");
-        String qrCodePng = totpService.generateQrCodePngBase64(secret, user.getEmail(), "AppPFE");
 
         UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId()).orElseGet(UserTwoFactor::new);
-        userTwoFactor.setSecret(secret);
         userTwoFactor.setEnabled(false);
+        userTwoFactor.setSecret(totpService.generateSecret());
         userTwoFactor.setUser(user);
         userTwoFactorRepository.save(userTwoFactor);
 
-        writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "TOTP 2FA setup initiated");
+        String code = generateEmailTwoFaCode();
+        pendingTwoFaSetupChallenges.put(user.getId(), new PendingEmailTwoFaContext(
+                user.getId(), hashToken(code), Instant.now().plus(Duration.ofMinutes(10))));
+        emailService.sendTwoFaSetupCodeEmail(user.getEmail(), user.getEmail(), code, 10);
+
+        writeAudit(user, user.getTenant(), "AUTH_2FA_SETUP", "2FA setup initiated (email code)");
 
         return new AuthTwoFaSetupResponse(
                 6,
-                "Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)",
-                secret,
-                qrCodeUri,
-                totpService.generateQrCodePngBase64(secret, user.getEmail(), "AppPFE"));
+                "A verification code was sent to your email. Enter it below to confirm.",
+                null,
+                null,
+                null);
     }
 
     @Transactional
@@ -387,6 +419,30 @@ public class AuthService {
                 .orElseThrow(() -> new BadRequestException("2FA not set up. Generate a setup first."));
 
         String code = request.code().trim();
+        PendingEmailTwoFaContext challenge = pendingTwoFaSetupChallenges.get(user.getId());
+
+        if (challenge != null && challenge.userId() != null) {
+            if (challenge.expiresAt().isBefore(Instant.now())) {
+                pendingTwoFaSetupChallenges.remove(user.getId());
+                throw new UnauthorizedException("Invalid or expired verification challenge");
+            }
+
+            if (hashToken(code).equals(challenge.codeHash())) {
+                pendingTwoFaSetupChallenges.remove(user.getId());
+
+                List<String> backupCodes = generateBackupCodes();
+                userTwoFactor.setBackupCodesJson(toJson(backupCodes));
+                userTwoFactor.setEnabled(true);
+                userTwoFactorRepository.save(userTwoFactor);
+
+                writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified via email code");
+                emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
+
+                return new AuthActionResponse("2FA verification successful. Save your backup codes!");
+            }
+
+            throw new UnauthorizedException("Invalid 2FA code. Make sure the code from your email is correct.");
+        }
 
         if (userTwoFactor.getBackupCodesJson() != null) {
             List<String> backupCodes = parseBackupCodes(userTwoFactor.getBackupCodesJson());
@@ -404,24 +460,11 @@ public class AuthService {
             }
         }
 
-        if (!totpService.verifyCode(userTwoFactor.getSecret(), code)) {
-            throw new UnauthorizedException(
-                    "Invalid 2FA code. Make sure your authenticator app shows the correct code.");
-        }
-
         if (!userTwoFactor.isEnabled()) {
-            List<String> backupCodes = generateBackupCodes();
-            userTwoFactor.setBackupCodesJson(toJson(backupCodes));
-            userTwoFactor.setEnabled(true);
-            userTwoFactorRepository.save(userTwoFactor);
-
-            writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "TOTP 2FA verified");
-            emailService.send2FAVerificationNotification(user.getEmail(), user.getEmail());
-
-            return new AuthActionResponse("2FA verification successful. Save your backup codes!");
+            throw new UnauthorizedException("Invalid or expired verification challenge");
         }
 
-        writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "TOTP 2FA verified");
+        writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified");
         return new AuthActionResponse("2FA verification successful");
     }
 
@@ -457,6 +500,7 @@ public class AuthService {
         return new AuthActionResponse("Password changed successfully");
     }
 
+    @Transactional
     public AuthActionResponse updateEmail(String authorizationHeader, AuthUpdateEmailRequest request) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
 
@@ -916,6 +960,7 @@ public class AuthService {
         return String.format("%06d", code);
     }
 
+    @Transactional
     public AuthBackupCodesResponse getBackupCodes(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
         UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
@@ -932,6 +977,7 @@ public class AuthService {
         return new AuthBackupCodesResponse(existingCodes, "Existing backup codes");
     }
 
+    @Transactional
     public AuthBackupCodesResponse regenerateBackupCodes(String authorizationHeader) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
         UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())

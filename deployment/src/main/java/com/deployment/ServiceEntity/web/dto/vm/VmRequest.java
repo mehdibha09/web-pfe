@@ -6,12 +6,10 @@ import com.deployment.ServiceEntity.domain.Vm;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public class VmRequest {
 
-    @NotBlank(message = "Name is required")
     private String name;
 
     private String displayName;

@@ -1,6 +1,6 @@
 export type VmStatus = 'PENDING' | 'RUNNING' | 'STOPPED' | 'FAILED' | 'TERMINATED';
 
-export const VM_OS_OPTIONS = ['UBUNTU_22_04', 'debian', 'centos', 'fedora', 'windows', 'alpine', 'arch', 'other'] as const;
+export const VM_OS_OPTIONS = ['UBUNTU_22_04', 'UBUNTU_20_04', 'DEBIAN_11', 'CENTOS_7'] as const;
 export type VmOs = (typeof VM_OS_OPTIONS)[number];
 
 export interface Vm {

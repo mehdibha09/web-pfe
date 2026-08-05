@@ -8,5 +8,6 @@ public record NotificationCreateDto(
     String message,
     String type,
     UUID tenantId,
-    String link
+    String link,
+    UUID alertId
 ) {}

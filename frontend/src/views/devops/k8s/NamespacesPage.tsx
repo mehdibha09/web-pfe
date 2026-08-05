@@ -328,7 +328,7 @@ const NamespacesPage = () => {
                         <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ pt: 3.5 }}>
                     <TextField
                         autoFocus
                         fullWidth

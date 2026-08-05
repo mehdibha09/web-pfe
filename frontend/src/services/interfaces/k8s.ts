@@ -52,7 +52,7 @@ export interface K8sDeploymentRequest {
   port: number;
   targetPort?: number;
   protocol?: string;
-  namespace: string;
+  namespace?: string;
   tenantId: string;
   serviceEnvironmentId: string;
   envVars?: string;
@@ -130,7 +130,7 @@ export interface NetworkPolicyRule {
 
 export interface K8sNetworkPolicyRequest {
   name: string;
-  namespace: string;
+  namespace?: string;
   podSelectorLabels?: string;
   policyTypes: string[];
   ingressRules?: NetworkPolicyRule[];
@@ -150,7 +150,7 @@ export interface K8sNetworkPolicyResponse {
 
 export interface K8sConfigMapRequest {
   name: string;
-  namespace: string;
+  namespace?: string;
   data?: Record<string, string>;
   binaryData?: Record<string, string>;
   labels?: Record<string, string>;
@@ -169,7 +169,7 @@ export interface K8sConfigMapResponse {
 
 export interface K8sServiceAccountRequest {
   name: string;
-  namespace: string;
+  namespace?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
@@ -236,7 +236,7 @@ export interface K8sRoleBindingResponse {
 
 export interface K8sSecretRequest {
   name: string;
-  namespace: string;
+  namespace?: string;
   type?: string;
   data?: Record<string, string>;
   labels?: Record<string, string>;

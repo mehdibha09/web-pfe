@@ -138,6 +138,14 @@ public class RoleService {
         ensureCanManageRoles(currentUser);
         Role role = requireRoleInAllowedScope(roleId, currentUser);
 
+        if (isSuperAdminRole(role)) {
+            throw new ForbiddenException("The super-admin role is protected and cannot be modified");
+        }
+
+        if (!isSuperAdmin(currentUser) && isAdminRole(role)) {
+            throw new ForbiddenException("The admin role is protected and can only be modified by a super administrator");
+        }
+
         if (request.name() != null && !request.name().isBlank()) {
             String updatedName = normalizeRoleName(request.name());
             if (!updatedName.equals(role.getName())) {
@@ -163,6 +171,14 @@ public class RoleService {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanManageRoles(currentUser);
         Role role = requireRoleInAllowedScope(roleId, currentUser);
+
+        if (isSuperAdminRole(role)) {
+            throw new ForbiddenException("The super-admin role is protected and cannot be deleted");
+        }
+
+        if (!isSuperAdmin(currentUser) && isAdminRole(role)) {
+            throw new ForbiddenException("The admin role is protected and can only be deleted by a super administrator");
+        }
 
         List<RolePermission> rolePermissions = rolePermissionRepository.findByRole_Id(role.getId());
         if (!rolePermissions.isEmpty()) {
@@ -190,6 +206,14 @@ public class RoleService {
         Role role = requireRoleInAllowedScope(roleId, currentUser);
         Permission permission = resolvePermission(request);
 
+        if (isSuperAdminRole(role)) {
+            throw new ForbiddenException("The super-admin role is protected and cannot be modified");
+        }
+
+        if (!isSuperAdmin(currentUser) && isAdminRole(role)) {
+            throw new ForbiddenException("The admin role is protected and can only be modified by a super administrator");
+        }
+
         RolePermissionId rolePermissionId = new RolePermissionId(role.getId(), permission.getId());
         if (rolePermissionRepository.existsById(rolePermissionId)) {
             throw new ConflictException("Permission already assigned to this role");
@@ -210,6 +234,14 @@ public class RoleService {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanManageRoles(currentUser);
         Role role = requireRoleInAllowedScope(roleId, currentUser);
+
+        if (isSuperAdminRole(role)) {
+            throw new ForbiddenException("The super-admin role is protected and cannot be modified");
+        }
+
+        if (!isSuperAdmin(currentUser) && isAdminRole(role)) {
+            throw new ForbiddenException("The admin role is protected and can only be modified by a super administrator");
+        }
 
         RolePermissionId rolePermissionId = new RolePermissionId(role.getId(), permissionId);
         RolePermission rolePermission = rolePermissionRepository.findById(rolePermissionId)
@@ -233,8 +265,12 @@ public class RoleService {
             throw new ForbiddenException("User belongs to another tenant");
         }
 
-        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(user)) {
-            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        if (!isSuperAdmin(currentUser) && (hasSuperAdminRole(user) || hasAdminRole(user))) {
+            throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
+        }
+
+        if (user.getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You cannot change your own role");
         }
 
         List<UserRole> currentRoles = userRoleRepository.findByUser_Id(user.getId());
@@ -270,8 +306,12 @@ public class RoleService {
             throw new ForbiddenException("User belongs to another tenant");
         }
 
-        if (!isSuperAdmin(currentUser) && hasSuperAdminRole(userRole.getUser())) {
-            throw new ForbiddenException("Cannot modify roles for super-admin accounts");
+        if (!isSuperAdmin(currentUser) && (hasSuperAdminRole(userRole.getUser()) || hasAdminRole(userRole.getUser()))) {
+            throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
+        }
+
+        if (userRole.getUser().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You cannot change your own role");
         }
 
         userRoleRepository.delete(userRole);
@@ -301,6 +341,26 @@ public class RoleService {
                 .stream()
                 .map(UserRole::getRole)
                 .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
+    }
+
+    private boolean hasAdminRole(User user) {
+        return userRoleRepository.findByUser_Id(user.getId())
+                .stream()
+                .map(UserRole::getRole)
+                .anyMatch(role -> role.getName() != null && isAdminRole(role));
+    }
+
+    private boolean isSuperAdminRole(Role role) {
+        return role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin");
+    }
+
+    private boolean isAdminRole(Role role) {
+        if (role.getName() == null) {
+            return false;
+        }
+        String normalized = role.getName().trim().toUpperCase().replaceAll("[\\s-]+", "_");
+        return normalized.equals("ADMIN") || normalized.equals("SUPER_ADMIN")
+                || normalized.equals("TENANT_ADMIN") || normalized.equals("PLATFORM_ADMIN");
     }
 
     private void ensureCanManageRoles(User currentUser) {

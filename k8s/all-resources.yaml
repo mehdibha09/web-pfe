@@ -84,9 +84,21 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]
-    verbs: ["get", "list", "watch", "create", "delete"]
+    verbs: ["get", "list", "watch", "create"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "events", "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
 ---
@@ -118,8 +130,8 @@ data:
   DEPLOYMENT_SERVER_PORT: '8082'
   MAIL_HOST: smtp-relay.brevo.com
   MAIL_PORT: '587'
-  MAIL_FROM: noreply@auth-service.local
-  FRONTEND_BASE_URL: http://frontend
+  MAIL_FROM: mehdibelhajali9@gmail.com
+  FRONTEND_BASE_URL: http://192.168.56.10:30080
   MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
   ALERT_DISPATCH_ENABLED: 'false'
   VM_HOST_HOST: '192.168.56.1'

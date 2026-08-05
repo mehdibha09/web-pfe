@@ -15,8 +15,8 @@ data:
   DEPLOYMENT_SERVER_PORT: '8082'
   MAIL_HOST: smtp-relay.brevo.com
   MAIL_PORT: '587'
-  MAIL_FROM: noreply@auth-service.local
-  FRONTEND_BASE_URL: http://frontend
+  MAIL_FROM: mehdibelhajali9@gmail.com
+  FRONTEND_BASE_URL: http://192.168.56.10:30080
   MANAGEMENT_HEALTH_MAIL_ENABLED: 'false'
   ALERT_DISPATCH_ENABLED: 'false'
   AUTH_SERVICE_URL: http://auth-service:7070

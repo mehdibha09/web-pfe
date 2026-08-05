@@ -180,6 +180,7 @@ public class TenantService {
 
         Tenant tenant = new Tenant();
         tenant.setName(tenantName);
+        tenant.setCode(generateUniqueTenantCode(tenantName));
         tenant.setContactEmail(normalizeNullable(request.contactEmail()));
         tenant.setPhone(normalizeNullable(request.phone()));
         tenant.setModeDeployment(normalizeNullable(request.modeDeployment()));
@@ -255,7 +256,7 @@ public class TenantService {
 
     private void createNamespaceForTenant(Tenant tenant, String authorizationHeader) {
         try {
-            String namespaceName = "tenant-" + tenant.getId().toString();
+            String namespaceName = "tenant-" + tenant.getId().toString().substring(0, 8).toLowerCase();
             String body = "{\"name\":\"" + namespaceName + "\"}";
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -442,10 +443,32 @@ public class TenantService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private String generateUniqueTenantCode(String tenantName) {
+        String base = tenantName
+                .trim()
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]", "")
+                .replaceAll("(.)\\1{2,}", "$1$1");
+        if (base.isEmpty()) {
+            base = "TENANT";
+        }
+        if (base.length() > 6) {
+            base = base.substring(0, 6);
+        }
+
+        String candidate = base;
+        int suffix = 1;
+        while (tenantRepository.findByCodeIgnoreCase(candidate).isPresent()) {
+            candidate = base + String.format("%02d", suffix++);
+        }
+        return candidate;
+    }
+
     private TenantResponse toResponse(Tenant tenant) {
         return new TenantResponse(
                 tenant.getId(),
                 tenant.getName(),
+                tenant.getCode(),
                 tenant.getContactEmail(),
                 tenant.getPhone(),
                 tenant.getModeDeployment(),

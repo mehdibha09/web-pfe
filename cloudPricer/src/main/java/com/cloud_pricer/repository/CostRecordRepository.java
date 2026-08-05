@@ -2,6 +2,7 @@ package com.cloud_pricer.repository;
 
 import com.cloud_pricer.domain.CostRecord;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,8 @@ public interface CostRecordRepository extends JpaRepository<CostRecord, UUID> {
     List<CostRecord> findByTenantId(UUID tenantId);
     List<CostRecord> findByServiceEnvironmentId(UUID serviceEnvironmentId);
     List<CostRecord> findByTenantIdAndServiceEnvironmentId(UUID tenantId, UUID serviceEnvironmentId);
+
+    Optional<CostRecord> findFirstByServiceEnvironmentIdOrderByPeriodEndDesc(UUID serviceEnvironmentId);
 
     @Query("""
         SELECT c.tenantId, SUM(c.totalCost), SUM(c.computeCost), SUM(c.storageCost),

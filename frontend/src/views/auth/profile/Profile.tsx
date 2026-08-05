@@ -205,7 +205,12 @@ const Profile = () => {
             setTwoFaCode('');
             toast.success(response.message || t('profile.twoFaEnabledSuccess'));
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('profile.twoFaVerificationFailed');
+            const serverMsg = error?.response?.data?.message || '';
+            const enToFr: Record<string, string> = {
+                'Invalid or expired verification challenge': t('profile.verificationChallengeExpired'),
+                'Invalid 2FA code. Make sure the code from your email is correct.': t('profile.twoFaWrongEmailCode'),
+            };
+            const message = enToFr[serverMsg] || serverMsg || error?.message || t('profile.twoFaVerificationFailed');
             toast.error(message);
         } finally {
             setTwoFaLoading(false);
@@ -427,15 +432,15 @@ const Profile = () => {
                         slotProps={{ htmlInput: { maxLength: 6 } }}
                         sx={{ maxWidth: 200 }}
                     />
-                    {twoFaSetup && twoFaSetup.qrCodePngBase64 && (
-                        <Box sx={{ mt: 2, p: 2, bgcolor: '#FFFFFF', borderRadius: 2, border: `1px solid ${C.border}`, textAlign: 'center' }}>
-                            <Typography variant="body2" sx={{ color: C.muted, mb: 1.5, fontWeight: 600 }}>{t('profile.scanQr')}</Typography>
-                            <Box component="img" src={`data:image/png;base64,${twoFaSetup.qrCodePngBase64}`} alt={t('profile.qrCodeAlt')}
-                                sx={{ width: 160, height: 160, border: `1px solid ${C.border}`, borderRadius: 2 }} />
-                            <Typography variant="caption" sx={{ display: 'block', color: C.subtle, mt: 1, wordBreak: 'break-all', fontSize: 10 }}>
-                                {t('profile.secret', { secret: twoFaSetup.secret })}
+                    {twoFaSetup && (
+                        <Box sx={{ mt: 2, p: 2, bgcolor: '#F0F6FF', borderRadius: 2, border: '1px solid #BFDBFE' }}>
+                            <Typography variant="body2" sx={{ color: '#1E3A8A', mb: 1, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <EmailOutlinedIcon sx={{ fontSize: 16 }} />
+                                {t('profile.twoFaCodeSent')}
                             </Typography>
-                            <Typography variant="body2" sx={{ color: C.muted, mt: 1.5 }}>{t('profile.verifyInstructions')}</Typography>
+                            <Typography variant="caption" sx={{ color: '#475569', display: 'block', mb: 1 }}>
+                                {t('profile.twoFaEnterCode')}
+                            </Typography>
                         </Box>
                     )}
                     {showBackupCodes && backupCodes && (

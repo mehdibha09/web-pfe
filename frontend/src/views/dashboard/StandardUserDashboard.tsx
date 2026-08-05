@@ -17,7 +17,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { listServices, listDeployments, type ServiceResponse, type DeploymentResponse } from '../../services/devopsService';
+import { listServices, listDeploymentHistory, type ServiceResponse, type HistoryEntry } from '../../services/devopsService';
 import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } from '../../services/cloudPricerService';
 import { listNotifications, type NotificationResponse } from '../../services/notificationService';
 import { getStoredUser } from '../../services/authStorage';
@@ -35,7 +35,7 @@ const StandardUserDashboard = () => {
     const [error, setError] = useState<string | null>(null);
 
     const [services, setServices] = useState<ServiceResponse[]>([]);
-    const [deployments, setDeployments] = useState<DeploymentResponse[]>([]);
+    const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [alerts, setAlerts] = useState<AlertResponse[]>([]);
     const [costs, setCosts] = useState<CostRecordResponse[]>([]);
     const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
@@ -45,13 +45,13 @@ const StandardUserDashboard = () => {
         try {
             const [svc, dep, al, co, no] = await Promise.allSettled([
                 listServices(),
-                listDeployments(),
+                listDeploymentHistory(),
                 listAlerts(),
                 listCosts(),
                 user ? listNotifications(user.userId) : Promise.resolve([] as NotificationResponse[])
             ]);
             if (svc.status === 'fulfilled') setServices(svc.value);
-            if (dep.status === 'fulfilled') setDeployments(dep.value);
+            if (dep.status === 'fulfilled') setHistory(dep.value);
             if (al.status === 'fulfilled') setAlerts(al.value);
             if (co.status === 'fulfilled') setCosts(co.value);
             if (no.status === 'fulfilled') setNotifications(no.value);
@@ -66,7 +66,6 @@ const StandardUserDashboard = () => {
         fetchAll();
     }, [fetchAll]);
 
-    const successDeployments = deployments.filter((d) => d.status?.toUpperCase() === 'SUCCESS').length;
     const openAlerts = alerts.filter((al) => al.status?.toUpperCase() === 'OPEN');
     const unreadNotifications = notifications.filter((n) => !n.read);
     const totalCost = costs.reduce((sum, c) => sum + (c.totalCost || 0), 0);
@@ -112,12 +111,12 @@ const StandardUserDashboard = () => {
                 />
                 <DashboardKpiCard
                     title={t('dashboard.standardUser.kpiDeployments')}
-                    value={deployments.length}
-                    subtitle={t('dashboard.standardUser.succeededCount', { count: successDeployments })}
+                    value={history.length}
+                    subtitle={t('dashboard.standardUser.recordedActions', { count: history.length })}
                     icon={<DevicesIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                     bgColor="#FDF4FF"
                     color="#5E4B9E"
-                    onClick={() => navigate('/admin/devops/deployments')}
+                    onClick={() => navigate('/admin/audit-logs')}
                 />
                 <DashboardKpiCard
                     title={t('dashboard.standardUser.kpiOpenAlerts')}

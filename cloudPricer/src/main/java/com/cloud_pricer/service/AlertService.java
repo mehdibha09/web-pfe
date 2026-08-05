@@ -58,10 +58,10 @@ public class AlertService {
         return alertRepository.findByServiceEnvironmentId(serviceEnvironmentId);
     }
 
-    public Alert acknowledge(UUID id, String acknowledgedBy) {
+    public Alert acknowledge(UUID id, UUID acknowledgedBy) {
         Alert alert = getById(id);
         alert.setStatus("ACK");
-        alert.setAcknowledgedBy(acknowledgedBy);
+        alert.setAcknowledgedBy(acknowledgedBy.toString());
         Alert saved = alertRepository.save(alert);
         log.info("Alert {} acknowledged by {}", id, acknowledgedBy);
         return saved;

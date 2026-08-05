@@ -42,23 +42,28 @@ const MonthComparisonCard = ({ costs }: MonthComparisonCardProps) => {
     const isUp = monthDelta >= 0;
 
     return (
-        <Card sx={{ borderRadius: 3, mb: 3, transition: '0.2s', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.08)' } }}>
+        <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', mb: 3, transition: '0.2s', '&:hover': { translate: '0 -2px' } }}>
+            <Box sx={{
+                px: 3, py: 2,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'linear-gradient(135deg, #FFF0F6 0%, #FDF7FF 100%)',
+                borderBottom: `1px solid ${C.border}`
+            }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
+                    {t('costs.monthOverMonth')}
+                </Typography>
+                <Chip
+                    icon={isUp ? <TrendingUpIcon /> : <TrendingDownIcon />}
+                    label={t('costs.vsLastMonth', { delta: `${isUp ? '+' : ''}${monthDelta.toFixed(1)}` })}
+                    sx={{
+                        backgroundColor: isUp ? '#F7DEE3' : '#E0F1E6',
+                        color: isUp ? '#A23B4E' : '#2E7A4F',
+                        fontWeight: 700
+                    }}
+                />
+            </Box>
             <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {t('costs.monthOverMonth')}
-                    </Typography>
-                    <Chip
-                        icon={isUp ? <TrendingUpIcon /> : <TrendingDownIcon />}
-                        label={t('costs.vsLastMonth', { delta: `${isUp ? '+' : ''}${monthDelta.toFixed(1)}` })}
-                        sx={{
-                            backgroundColor: isUp ? '#F7DEE3' : '#E0F1E6',
-                            color: isUp ? '#A23B4E' : '#2E7A4F',
-                            fontWeight: 700
-                        }}
-                    />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 4, mt: 1 }}>
+                <Box sx={{ display: 'flex', gap: 4 }}>
                     <Box>
                         <Typography variant="caption" sx={{ color: C.muted }}>{t('costs.currentMonth')}</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 800, color: isUp ? '#C95B6E' : C.brand }}>

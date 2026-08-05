@@ -19,7 +19,6 @@ public class ServiceDomainService {
   private final ServiceRepository serviceRepository;
   private final ServiceEnvironmentRepository serviceEnvironmentRepository;
   private final VmService vmService;
-  private final DeploymentService deploymentService;
   private final K8sDeploymentService k8sDeploymentService;
   private final MetricService metricService;
   private final BackupService backupService;
@@ -53,6 +52,7 @@ public class ServiceDomainService {
     if (service.getName() != null) existing.setName(service.getName());
     if (service.getType() != null) existing.setType(service.getType());
     if (service.getStatus() != null) existing.setStatus(service.getStatus());
+    if (service.getRuntime() != null) existing.setRuntime(service.getRuntime());
     if (service.getTenantId() != null) existing.setTenantId(service.getTenantId());
     return serviceRepository.save(existing);
   }
@@ -71,30 +71,6 @@ public class ServiceDomainService {
     backupService.deleteByServiceEnvironment(serviceEnvironmentId);
     k8sDeploymentService.deleteByServiceEnvironment(serviceEnvironmentId);
     vmService.deleteByServiceEnvironment(serviceEnvironmentId);
-    deploymentService.deleteByServiceEnvironment(serviceEnvironmentId);
     serviceEnvironmentRepository.deleteById(serviceEnvironmentId);
-  }
-
-  public com.deployment.ServiceEntity.domain.Service start(UUID id) {
-    com.deployment.ServiceEntity.domain.Service svc = getById(id);
-    log.info("Starting service {}", id);
-    svc.setStatus(com.deployment.ServiceEntity.domain.Service.Status.ACTIVE);
-    return serviceRepository.save(svc);
-  }
-
-  public com.deployment.ServiceEntity.domain.Service stop(UUID id) {
-    com.deployment.ServiceEntity.domain.Service svc = getById(id);
-    log.info("Stopping service {}", id);
-    svc.setStatus(com.deployment.ServiceEntity.domain.Service.Status.INACTIVE);
-    return serviceRepository.save(svc);
-  }
-
-  public com.deployment.ServiceEntity.domain.Service restart(UUID id) {
-    com.deployment.ServiceEntity.domain.Service svc = getById(id);
-    log.info("Restarting service {}", id);
-    svc.setStatus(com.deployment.ServiceEntity.domain.Service.Status.DEPLOYING);
-    serviceRepository.save(svc);
-    svc.setStatus(com.deployment.ServiceEntity.domain.Service.Status.ACTIVE);
-    return serviceRepository.save(svc);
   }
 }

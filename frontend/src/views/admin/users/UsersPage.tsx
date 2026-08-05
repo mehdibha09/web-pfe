@@ -609,6 +609,7 @@ const UsersPage = () => {
                                                 onClick={() => handleUpdateUserStatus(user.id)}
                                                 disabled={!allowModifyUserStatus}
                                                 startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                                                sx={{ color: '#FFFFFF', fontWeight: 700 }}
                                             >
                                                 {t('common.save')}
                                             </Button>
@@ -646,7 +647,7 @@ const UsersPage = () => {
                                                     }}
                                                     startIcon={<EditOutlinedIcon sx={{ fontSize: 16 }} />}
                                                     variant="outlined"
-                                                    sx={{ borderRadius: 5, textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.brand, px: 1.5, '&:hover': { borderColor: C.brand, backgroundColor: C.brandLight } }}
+                                                    sx={{ borderRadius: 5, textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.muted, color: '#27323F', px: 1.5, '&:hover': { borderColor: C.text, backgroundColor: '#F3F4F6' } }}
                                                 >
                                                     {t('common.edit')}
                                                 </Button>

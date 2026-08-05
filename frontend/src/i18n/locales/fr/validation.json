@@ -1,0 +1,15 @@
+{
+    "validation": {
+        "emailRequired": "L'email est requis",
+        "invalidEmail": "Email invalide",
+        "passwordRequired": "Le mot de passe est requis",
+        "minLength": "Au moins 8 caractères",
+        "passwordComplexity": "Doit contenir majuscule, minuscule, chiffre et caractère spécial",
+        "confirmPasswordRequired": "Veuillez confirmer votre mot de passe",
+        "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+        "newEmailRequired": "Le nouvel email est requis",
+        "currentPasswordRequired": "Le mot de passe actuel est requis",
+        "newPasswordRequired": "Le nouveau mot de passe est requis",
+        "invalidCode": "Entrez un code à 6 chiffres valide"
+    }
+}

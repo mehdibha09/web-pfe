@@ -86,6 +86,25 @@ export const computeSummaryFromHistory = (metrics: MetricResponse[]): MetricSumm
 
 export const formatPct = (value?: number | null) => (typeof value === 'number' ? `${value.toFixed(1)}%` : '-');
 
+export const METRIC_STALE_MS = 60_000;
+
+export const metricTimestamp = (metric?: Pick<MetricResponse, 'timestamp' | 'createdAt' | 'updatedAt'> | null) => {
+    if (!metric) return null;
+    const raw = metric.timestamp ?? metric.createdAt ?? metric.updatedAt;
+    if (!raw) return null;
+    const ts = new Date(raw).getTime();
+    return Number.isFinite(ts) ? ts : null;
+};
+
+export const isMetricStale = (
+    metric?: Pick<MetricResponse, 'timestamp' | 'createdAt' | 'updatedAt'> | null,
+    now = Date.now()
+) => {
+    const ts = metricTimestamp(metric);
+    if (ts === null) return true;
+    return now - ts > METRIC_STALE_MS;
+};
+
 export const formatBps = (value?: number | null) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
     if (value >= 1_048_576) return `${(value / 1_048_576).toFixed(1)} MB/s`;

@@ -31,6 +31,9 @@ public class Notification {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "alert_id")
+    private UUID alertId;
+
     @Column(nullable = false)
     private String title;
 
@@ -63,6 +66,9 @@ public class Notification {
 
     public UUID getUserId() { return userId; }
     public void setUserId(UUID userId) { this.userId = userId; }
+
+    public UUID getAlertId() { return alertId; }
+    public void setAlertId(UUID alertId) { this.alertId = alertId; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }

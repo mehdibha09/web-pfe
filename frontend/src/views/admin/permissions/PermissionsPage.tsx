@@ -414,14 +414,6 @@ const PermissionsPage = () => {
                                             variant="outlined"
                                             sx={{ fontWeight: 600, borderColor: C.border, color: '#475569' }}
                                         />
-                                        {categoryOf(permission.resource) !== permission.resource && (
-                                        <Chip
-                                            label={categoryOf(permission.resource)}
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{ fontWeight: 600, borderColor: C.border, color: '#475569' }}
-                                        />
-                                        )}
                                     </Stack>
                                 )}
                             </CardContent>

@@ -115,6 +115,7 @@ public class QuotaController {
         quota.getPeriod(),
         quota.isActive(),
         quota.getCreatedAt(),
-        quota.getUpdatedAt());
+        quota.getUpdatedAt(),
+        quotaService.usageFor(quota.getServiceEnvironmentId()));
   }
 }

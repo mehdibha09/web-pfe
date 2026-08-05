@@ -12,6 +12,7 @@ export interface ServiceResponse {
   name: string;
   type?: string;
   status: string;
+  runtime?: string;
   tenantId: string;
   createdAt?: string;
   updatedAt?: string;
@@ -28,14 +29,15 @@ export interface ServiceEnvironmentResponse {
   updatedAt?: string;
 }
 
-export interface DeploymentResponse {
+export interface HistoryEntry {
   id: string;
-  version: string;
-  notes?: string;
-  status: string;
-  serviceEnvironmentId: string;
-  createdAt?: string;
-  updatedAt?: string;
+  userId?: string;
+  tenantId: string;
+  action: string;
+  resource?: string;
+  resourceId?: string;
+  details?: string;
+  timestamp: string;
 }
 
 export interface MetricResponse {
@@ -46,6 +48,7 @@ export interface MetricResponse {
   diskUsage: number;
   pods: number;
   serviceEnvironmentId: string;
+  timestamp?: string;
   createdAt?: string;
   updatedAt?: string;
 }

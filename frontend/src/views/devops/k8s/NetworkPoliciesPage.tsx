@@ -271,7 +271,7 @@ const NetworkPoliciesPage = () => {
                         <IconButton size="small" onClick={() => setCreateOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                 </DialogTitle>
-                <DialogContent sx={{ px: 3, pt: 1 }}>
+                <DialogContent sx={{ px: 3, pt: 3.5 }}>
                     <Box sx={{ display: 'grid', gap: 2 }}>
                         <TextField size="small" label={t('k8s.networkpolicies.name')} value={form.name} onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} required error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField size="small" label={t('k8s.networkpolicies.podSelector')} value={form.podSelector} onChange={(e) => setForm((p) => ({ ...p, podSelector: e.target.value }))} placeholder="app=web,version=v1" helperText={t('k8s.networkpolicies.podSelectorHint')} />

@@ -20,13 +20,13 @@ interface CostCardProps {
     cost: CostRecordResponse;
     isExpanded: boolean;
     onToggleExpand: () => void;
-    onDelete: (id: string) => void;
 }
 
-const CostCard = ({ cost, isExpanded, onToggleExpand, onDelete }: CostCardProps) => {
+const CostCard = ({ cost, isExpanded, onToggleExpand }: CostCardProps) => {
     const { t } = useTranslation();
     const mc = modeColors[cost.mode] || { bg: C.brandLight, color: C.brand };
     const breakdownTotal = cost.breakdowns.reduce((sum, b) => sum + b.total, 0);
+    const totalForShare = Math.max(cost.totalCost, 1e-9);
 
     const costItems = [
         { label: t('costs.computeLabel'), value: cost.computeCost, color: '#2E5C8A' },
@@ -35,6 +35,7 @@ const CostCard = ({ cost, isExpanded, onToggleExpand, onDelete }: CostCardProps)
         { label: t('costs.backupLabel'), value: cost.backupCost, color: '#5E4B9E' },
         { label: t('costs.osLabel'), value: cost.osCost, color: '#C95B6E' },
     ];
+    const shareItems = costItems.filter((i) => i.value > 0);
 
     return (
         <Grid size={{ xs: 12, md: 6 }}>
@@ -60,13 +61,24 @@ const CostCard = ({ cost, isExpanded, onToggleExpand, onDelete }: CostCardProps)
                         {costItems.map((item) => (
                             <Chip
                                 key={item.label}
-                                label={`${item.label}: $${item.value.toFixed(2)}`}
+                                label={`${item.label}: $${item.value.toFixed(2)} (${((item.value / totalForShare) * 100).toFixed(0)}%)`}
                                 size="small"
                                 variant="outlined"
                                 sx={{ borderColor: item.color, color: item.color, fontWeight: 600, fontSize: 11 }}
                             />
                         ))}
                     </Box>
+
+                    {shareItems.length > 0 && (
+                        <Box sx={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', mb: 1.5, backgroundColor: '#F1F5F9' }}>
+                            {shareItems.map((item) => (
+                                <Box
+                                    key={item.label}
+                                    sx={{ width: `${(item.value / totalForShare) * 100}%`, backgroundColor: item.color }}
+                                />
+                            ))}
+                        </Box>
+                    )}
 
                     <Button
                         size="small"
@@ -111,12 +123,6 @@ const CostCard = ({ cost, isExpanded, onToggleExpand, onDelete }: CostCardProps)
                         </Box>
                     </Collapse>
                 </CardContent>
-
-                <Box sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="text" color="error" size="small" onClick={() => onDelete(cost.id)} sx={{ fontWeight: 600 }}>
-                        {t('common.delete')}
-                    </Button>
-                </Box>
             </Card>
         </Grid>
     );

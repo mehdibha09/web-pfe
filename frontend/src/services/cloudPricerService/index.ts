@@ -1,12 +1,9 @@
 export type {
   CostBreakdownResponse,
   CostRecordResponse,
-  CostBreakdownRequest,
-  CostRecordRequest,
   QuotaResponse,
   QuotaRequest,
   AlertResponse,
-  AlertRequest,
   ForecastResponse,
   CostAggregateResponse,
 } from '../interfaces/cloudPricer';
@@ -29,13 +26,9 @@ export const getCostById = async (id: string): Promise<import('../interfaces/clo
   return data;
 };
 
-export const createCost = async (payload: import('../interfaces/cloudPricer').CostRecordRequest): Promise<import('../interfaces/cloudPricer').CostRecordResponse> => {
-  const { data } = await axiosInstance.post('/costs', payload);
+export const generateCostsNow = async (): Promise<{ status: string; message: string }> => {
+  const { data } = await axiosInstance.post('/costs/generate');
   return data;
-};
-
-export const deleteCost = async (id: string): Promise<void> => {
-  await axiosInstance.delete(`/costs/${id}`);
 };
 
 // ── Forecast ─────────────────────────────────────────────────────────────────
@@ -81,11 +74,6 @@ export const deleteQuota = async (id: string): Promise<void> => {
 };
 
 // ── Alerts ───────────────────────────────────────────────────────────────────
-export const createAlert = async (payload: import('../interfaces/cloudPricer').AlertRequest): Promise<import('../interfaces/cloudPricer').AlertResponse> => {
-  const { data } = await axiosInstance.post('/alerts', payload);
-  return data;
-};
-
 export const listAlerts = async (): Promise<import('../interfaces/cloudPricer').AlertResponse[]> => {
   const { data } = await axiosInstance.get('/alerts');
   return data;
@@ -106,10 +94,8 @@ export const listAlertsBySeverity = async (severity: string): Promise<import('..
   return data;
 };
 
-export const acknowledgeAlert = async (id: string, acknowledgedBy: string): Promise<import('../interfaces/cloudPricer').AlertResponse> => {
-  const { data } = await axiosInstance.patch(
-    `/alerts/${id}/acknowledge?acknowledgedBy=${encodeURIComponent(acknowledgedBy)}`
-  );
+export const acknowledgeAlert = async (id: string): Promise<import('../interfaces/cloudPricer').AlertResponse> => {
+  const { data } = await axiosInstance.patch(`/alerts/${id}/acknowledge`);
   return data;
 };
 

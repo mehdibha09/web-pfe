@@ -22,7 +22,6 @@ import type {
     ServiceResponse
 } from '../../../services/devopsService';
 import {
-    getLatestMetric,
     listEnvironments,
     listServiceEnvironments,
     listServices
@@ -55,16 +54,10 @@ const QuotasPage = () => {
         setLoading(true);
         try {
             const result = await listQuotasPaginated(page, PAGE_SIZE);
-            const withMetrics: QuotaWithMetrics[] = await Promise.all(
-                result.items.map(async (q) => {
-                    try {
-                        const m = await getLatestMetric(q.serviceEnvironmentId);
-                        return { ...q, metrics: m };
-                    } catch {
-                        return { ...q, metrics: null };
-                    }
-                })
-            );
+            const withMetrics: QuotaWithMetrics[] = result.items.map((q) => ({
+                ...q,
+                usage: q.usage ?? null
+            }));
             setQuotas(withMetrics);
             setTotalElements(result.total);
         } catch (e: unknown) {

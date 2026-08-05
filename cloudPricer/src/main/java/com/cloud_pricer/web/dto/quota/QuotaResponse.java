@@ -14,5 +14,6 @@ public record QuotaResponse(
     String period,
     boolean isActive,
     Instant createdAt,
-    Instant updatedAt
+    Instant updatedAt,
+    QuotaUsageResponse usage
 ) {}

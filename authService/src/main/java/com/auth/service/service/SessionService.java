@@ -48,9 +48,14 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<SessionResponse> listSessions(String authorizationHeader) {
         User currentUser = requireCurrentUser(authorizationHeader);
-        List<Session> allSessions = isSuperAdmin(currentUser)
-                ? sessionRepository.findByTenant_Id(currentUser.getTenant().getId())
-                : sessionRepository.findByUser_Id(currentUser.getId());
+        List<Session> allSessions;
+        if (isSuperAdmin(currentUser)) {
+            allSessions = sessionRepository.findAll();
+        } else if (canManageSessions(currentUser)) {
+            allSessions = sessionRepository.findByTenant_Id(currentUser.getTenant().getId());
+        } else {
+            allSessions = sessionRepository.findByUser_Id(currentUser.getId());
+        }
         List<Session> sorted = allSessions.stream()
                 .sorted((first, second) -> second.getCreatedAt().compareTo(first.getCreatedAt()))
                 .toList();
@@ -92,12 +97,12 @@ public class SessionService {
                 .anyMatch(role -> role.getName() != null && role.getName().trim().equalsIgnoreCase("super-admin"));
     }
 
-    private void ensureCanManageSessions(User currentUser) {
+    private boolean canManageSessions(User currentUser) {
         if (isSuperAdmin(currentUser)) {
-            return;
+            return true;
         }
 
-        boolean canManage = userRoleRepository.findByUser_Id(currentUser.getId())
+        return userRoleRepository.findByUser_Id(currentUser.getId())
                 .stream()
                 .map(UserRole::getRole)
                 .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
@@ -105,8 +110,10 @@ public class SessionService {
                 .map(RolePermission::getPermission)
                 .anyMatch(permission -> permission.getName() != null
                         && permission.getName().trim().equalsIgnoreCase("SESSION_MANAGE"));
+    }
 
-        if (!canManage) {
+    private void ensureCanManageSessions(User currentUser) {
+        if (!canManageSessions(currentUser)) {
             throw new ForbiddenException("Session management permission required");
         }
     }

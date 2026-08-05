@@ -1,6 +1,7 @@
 import { Box, Card, CardContent, Chip, Divider, Skeleton, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { MetricResponse } from '../../../services/devopsService';
-import { C, formatBps, formatDateTime, formatPct } from './constants';
+import { C, formatBps, formatDateTime, formatPct, isMetricStale } from './constants';
 import SparkLine from './SparkLine';
 
 type MetricTrendCardProps = {
@@ -20,6 +21,8 @@ const MetricTrendCard = ({
     latest,
     selectionLoading
 }: MetricTrendCardProps) => {
+    const { t } = useTranslation();
+    const stale = isMetricStale(latest);
     return (
         <Card
             sx={{
@@ -31,10 +34,10 @@ const MetricTrendCard = ({
         >
             <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 800, color: C.text }}>
-                    Trend overview
+                    {t('metrics.trendTitle')}
                 </Typography>
                 <Typography sx={{ color: C.muted, mt: 0.25 }}>
-                    History for the selected service environment.
+                    {t('metrics.trendSubtitle')}
                 </Typography>
 
                 <Divider sx={{ my: 2, borderColor: C.border }} />
@@ -49,9 +52,9 @@ const MetricTrendCard = ({
                     <Box sx={{ display: 'grid', gap: 2 }}>
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
-                                <Typography sx={{ fontWeight: 700, color: C.text }}>CPU usage</Typography>
+                                <Typography sx={{ fontWeight: 700, color: C.text }}>{t('metrics.cpuUsage')}</Typography>
                                 <Typography sx={{ fontWeight: 800, color: C.brand, fontSize: 14 }}>
-                                    {latest?.cpuUsage != null ? `${latest.cpuUsage.toFixed(1)}%` : '—'}
+                                    {stale ? 'n/a' : latest?.cpuUsage != null ? `${latest.cpuUsage.toFixed(1)}%` : '—'}
                                 </Typography>
                             </Box>
                             <SparkLine points={cpuPoints} color={C.brand} />
@@ -59,9 +62,9 @@ const MetricTrendCard = ({
 
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
-                                <Typography sx={{ fontWeight: 700, color: C.text }}>RAM usage</Typography>
+                                <Typography sx={{ fontWeight: 700, color: C.text }}>{t('metrics.ramUsage')}</Typography>
                                 <Typography sx={{ fontWeight: 800, color: '#2E5C8A', fontSize: 14 }}>
-                                    {latest?.ramUsage != null ? `${latest.ramUsage.toFixed(1)}%` : '—'}
+                                    {stale ? 'n/a' : latest?.ramUsage != null ? `${latest.ramUsage.toFixed(1)}%` : '—'}
                                 </Typography>
                             </Box>
                             <SparkLine points={ramPoints} color="#2E5C8A" />
@@ -70,10 +73,10 @@ const MetricTrendCard = ({
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
                                 <Typography sx={{ fontWeight: 700, color: C.text }}>
-                                    Network usage
+                                    {t('metrics.networkUsage')}
                                 </Typography>
                                 <Typography sx={{ fontWeight: 800, color: '#2E6B63', fontSize: 14 }}>
-                                    {latest?.networkUsage != null ? `${latest.networkUsage.toFixed(1)} B/s` : '—'}
+                                    {stale ? 'n/a' : latest?.networkUsage != null ? `${latest.networkUsage.toFixed(1)} B/s` : '—'}
                                 </Typography>
                             </Box>
                             <SparkLine points={netPoints} color="#2E6B63" />
@@ -83,9 +86,9 @@ const MetricTrendCard = ({
 
                 <Divider sx={{ my: 2, borderColor: C.border }} />
 
-                <Typography sx={{ fontWeight: 700, color: C.text, mb: 1 }}>Recent history samples</Typography>
+                <Typography sx={{ fontWeight: 700, color: C.text, mb: 1 }}>{t('metrics.recentHistory')}</Typography>
                 {selectedHistory.length === 0 ? (
-                    <Typography sx={{ color: C.muted }}>No historical metrics yet.</Typography>
+                    <Typography sx={{ color: C.muted }}>{t('metrics.noHistoryYet')}</Typography>
                 ) : (
                     <Box sx={{ display: 'grid', gap: 1 }}>
                         {selectedHistory
@@ -113,10 +116,10 @@ const MetricTrendCard = ({
                                             {metric.id}
                                         </Typography>
                                     </Box>
-                                    <Chip size="small" label={`CPU ${formatPct(metric.cpuUsage)}`} />
-                                    <Chip size="small" label={`RAM ${formatPct(metric.ramUsage)}`} />
-                                    <Chip size="small" label={`Net ${formatBps(metric.networkUsage)}`} />
-                                    <Chip size="small" label={`Pods ${metric.pods}`} />
+                                    <Chip size="small" label={`${t('metrics.cpu')} ${formatPct(metric.cpuUsage)}`} />
+                                    <Chip size="small" label={`${t('metrics.ram')} ${formatPct(metric.ramUsage)}`} />
+                                    <Chip size="small" label={`${t('metrics.net')} ${formatBps(metric.networkUsage)}`} />
+                                    <Chip size="small" label={`${t('metrics.pods')} ${metric.pods}`} />
                                 </Box>
                             ))}
                     </Box>

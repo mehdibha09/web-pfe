@@ -24,6 +24,15 @@ export const statusColor = (status: string) => {
     }
 };
 
+export const actionColor = (action: string) => {
+    const a = action?.toUpperCase();
+    if (a?.includes('CREATE') || a?.includes('ADD')) return { bg: '#E0F1E6', fg: '#2E7A4F' };
+    if (a?.includes('DELETE') || a?.includes('REVOKE')) return { bg: '#F7DEE3', fg: '#A23B4E' };
+    if (a?.includes('UPDATE') || a?.includes('PATCH') || a?.includes('SCALE') || a?.includes('RESTART')) return { bg: '#F7ECD6', fg: '#8A6A2E' };
+    if (a?.includes('START') || a?.includes('STOP')) return { bg: '#E4EEF7', fg: '#2E5C8A' };
+    return { bg: '#F3F4F6', fg: '#6B7280' };
+};
+
 export const resourceColor = (pct: number) => {
     if (pct >= 90) return '#C95B6E';
     if (pct >= 75) return '#8A6A2E';

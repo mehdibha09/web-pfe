@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { Box, Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import AddIcon from '@mui/icons-material/Add';
@@ -7,6 +8,7 @@ import type { Vm } from '../../../services/interfaces/vm';
 import type { ServiceEnvironment } from '../../../services/interfaces/serviceEnvironment';
 import { backupService } from '../../../services/backupService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { numericFieldValue } from '../../../utils/numeric';
 import { C } from '../../../theme/tokens';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
@@ -167,7 +169,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
                     label={t('backups.retentionDays')}
                     type="number"
                     value={retentionDays}
-                    onChange={(e) => setRetentionDays(Number(e.target.value))}
+                    onChange={(e) => setRetentionDays(Number(numericFieldValue(e.target.value)))}
                     disabled={!frequency}
                     slotProps={{ htmlInput: { min: 1, max: 365 } }}
                 />

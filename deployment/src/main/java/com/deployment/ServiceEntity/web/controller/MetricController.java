@@ -10,25 +10,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
-import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.MetricService;
-import com.deployment.ServiceEntity.web.dto.metric.MetricCreateDto;
 import com.deployment.ServiceEntity.web.dto.metric.MetricSummaryDto;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -37,42 +30,6 @@ import lombok.RequiredArgsConstructor;
 public class MetricController {
 
     private final MetricService metricService;
-    private final AuditService auditService;
-
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody MetricCreateDto dto) {
-        UserContext.requirePermission("METRIC_MANAGE");
-        Metric metric = new Metric();
-        metric.setCpuUsage(dto.cpuUsage().floatValue());
-        metric.setRamUsage(dto.ramUsage().floatValue());
-        metric.setNetworkUsage(dto.networkUsage().floatValue());
-        metric.setDiskUsage(dto.diskUsage().floatValue());
-        metric.setPods(dto.pods());
-        metric.setServiceEnvironmentId(dto.serviceEnvironmentId());
-        metric.setTimestamp(dto.timestamp());
-
-        Metric created = metricService.create(metric);
-        auditService.record("METRIC_CREATE", "metric", created.getId().toString(), "Metric created (serviceEnvironmentId=" + created.getServiceEnvironmentId() + ")");
-        return ResponseEntity.status(HttpStatus.CREATED).body(map(created));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> update(
-            @PathVariable UUID id, @Valid @RequestBody MetricCreateDto dto) {
-        UserContext.requirePermission("METRIC_MANAGE");
-        Metric metric = new Metric();
-        metric.setCpuUsage(dto.cpuUsage().floatValue());
-        metric.setRamUsage(dto.ramUsage().floatValue());
-        metric.setNetworkUsage(dto.networkUsage().floatValue());
-        metric.setDiskUsage(dto.diskUsage().floatValue());
-        metric.setPods(dto.pods());
-        metric.setServiceEnvironmentId(dto.serviceEnvironmentId());
-        metric.setTimestamp(dto.timestamp());
-
-        Metric updated = metricService.update(id, metric);
-        auditService.record("METRIC_UPDATE", "metric", updated.getId().toString(), "Metric updated (id=" + updated.getId() + ")");
-        return ResponseEntity.ok(map(updated));
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getById(@PathVariable UUID id) {

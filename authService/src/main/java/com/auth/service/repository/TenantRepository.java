@@ -10,4 +10,5 @@ import com.auth.service.domain.Tenant;
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     Optional<Tenant> findByName(String name);
     Optional<Tenant> findByNameIgnoreCase(String name);
+    Optional<Tenant> findByCodeIgnoreCase(String code);
 }

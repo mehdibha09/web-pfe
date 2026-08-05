@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -48,6 +49,17 @@ public class GlobalExceptionHandler {
       MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
     String message = "Invalid value for parameter '%s'".formatted(ex.getName());
     return build(HttpStatus.BAD_REQUEST, message, request, "BAD_REQUEST", null);
+  }
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ApiError> handleMethodNotSupported(
+      HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+    return build(
+        HttpStatus.METHOD_NOT_ALLOWED,
+        "Method not allowed",
+        request,
+        "METHOD_NOT_ALLOWED",
+        null);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -2,7 +2,7 @@ export type {
   EnvironmentResponse,
   ServiceResponse,
   ServiceEnvironmentResponse,
-  DeploymentResponse,
+  HistoryEntry,
   MetricResponse,
 } from '../interfaces/devops';
 
@@ -50,14 +50,14 @@ export const listServicesPaginated = async (page: number, size: number): Promise
   return { items: response.data || [], total: response.pagination?.totalElements ?? 0 };
 };
 
-export const createService = async (payload: { name: string; type?: string; status: string; tenantId: string }) => {
+export const createService = async (payload: { name: string; type?: string; runtime?: string; tenantId: string }) => {
   const response = await axiosInstance.post('/services', payload);
   return response.data;
 };
 
 export const updateService = async (
   serviceId: string,
-  payload: { name?: string; type?: string; status?: string; tenantId?: string }
+  payload: { name?: string; type?: string; runtime?: string; tenantId?: string }
 ) => {
   const response = await axiosInstance.put(`/services/${serviceId}`, payload);
   return response.data;
@@ -104,59 +104,32 @@ export const deleteServiceEnvironment = async (serviceEnvironmentId: string) => 
   return response.data;
 };
 
-export const listDeployments = async (): Promise<import('../interfaces/devops').DeploymentResponse[]> => {
-  const response = await axiosInstance.get('/deployments');
+export const listDeploymentHistory = async (): Promise<import('../interfaces/devops').HistoryEntry[]> => {
+  const response = await axiosInstance.get('/history?page=0&size=100');
   return response.data || [];
 };
 
-export const listDeploymentsPaginated = async (page: number, size: number): Promise<{ items: import('../interfaces/devops').DeploymentResponse[]; total: number }> => {
-  const response = await axiosInstance.get<import('../interfaces/devops').DeploymentResponse[]>(`/deployments?page=${page}&size=${size}`);
+export const listDeploymentHistoryPaginated = async (
+  page: number,
+  size: number,
+  query: { from?: string; to?: string; action?: string; resource?: string; userId?: string } = {}
+): Promise<{ items: import('../interfaces/devops').HistoryEntry[]; total: number }> => {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('size', String(size));
+  if (query.from) params.set('from', query.from);
+  if (query.to) params.set('to', query.to);
+  if (query.action) params.set('action', query.action);
+  if (query.resource) params.set('resource', query.resource);
+  if (query.userId) params.set('userId', query.userId);
+
+  const response = await axiosInstance.get(`/history?${params}`);
   return { items: response.data || [], total: response.pagination?.totalElements ?? 0 };
-};
-
-export const createDeployment = async (payload: {
-  version: string;
-  notes?: string;
-  status: string;
-  serviceEnvironmentId: string;
-}) => {
-  const response = await axiosInstance.post('/deployments', payload);
-  return response.data;
-};
-
-export const updateDeployment = async (
-  deploymentId: string,
-  payload: {
-    version?: string;
-    notes?: string;
-    status?: string;
-    serviceEnvironmentId?: string;
-  }
-) => {
-  const response = await axiosInstance.put(`/deployments/${deploymentId}`, payload);
-  return response.data;
-};
-
-export const deleteDeployment = async (deploymentId: string) => {
-  const response = await axiosInstance.delete(`/deployments/${deploymentId}`);
-  return response.data;
 };
 
 export const listMetrics = async (tenantId?: string): Promise<import('../interfaces/devops').MetricResponse[]> => {
   const response = await axiosInstance.get(tenantId ? `/metrics?tenantId=${encodeURIComponent(tenantId)}` : '/metrics');
   return response.data || [];
-};
-
-export const createMetric = async (payload: {
-  cpuUsage: number;
-  ramUsage: number;
-  networkUsage: number;
-  diskUsage: number;
-  pods: number;
-  serviceEnvironmentId: string;
-}) => {
-  const response = await axiosInstance.post('/metrics', payload);
-  return response.data;
 };
 
 export const getLatestMetric = async (serviceEnvironmentId: string, tenantId?: string): Promise<import('../interfaces/devops').MetricResponse | null> => {
@@ -212,26 +185,6 @@ export const testGet = async (): Promise<any> => {
 
 export const testPostEcho = async (payload: { message: string }): Promise<any> => {
   const response = await axiosInstance.post('/test', payload);
-  return response.data;
-};
-
-export const redeployDeployment = async (deploymentId: string): Promise<import('../interfaces/devops').DeploymentResponse> => {
-  const response = await axiosInstance.post(`/deployments/${deploymentId}/redeploy`);
-  return response.data;
-};
-
-export const startService = async (serviceId: string): Promise<import('../interfaces/devops').ServiceResponse> => {
-  const response = await axiosInstance.post(`/services/${serviceId}/start`);
-  return response.data;
-};
-
-export const stopService = async (serviceId: string): Promise<import('../interfaces/devops').ServiceResponse> => {
-  const response = await axiosInstance.post(`/services/${serviceId}/stop`);
-  return response.data;
-};
-
-export const restartService = async (serviceId: string): Promise<import('../interfaces/devops').ServiceResponse> => {
-  const response = await axiosInstance.post(`/services/${serviceId}/restart`);
   return response.data;
 };
 

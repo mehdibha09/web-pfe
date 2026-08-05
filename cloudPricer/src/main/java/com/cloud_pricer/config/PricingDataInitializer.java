@@ -29,7 +29,10 @@ public class PricingDataInitializer {
     private static final Logger log = LoggerFactory.getLogger(PricingDataInitializer.class);
 
     private static final UUID SEED_TENANT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID SERVICE_ENV_USER_PROD = UUID.fromString("66666666-6666-6666-6666-666666666666");
+    private static final UUID SERVICE_ENV_API_PROD = UUID.fromString("66666666-6666-6666-6666-666666666666");
+    private static final UUID SERVICE_ENV_BILLING_PROD = UUID.fromString("66666666-6666-4666-8666-666666666661");
+    private static final UUID SERVICE_ENV_NOTIF_STAGING = UUID.fromString("66666666-6666-4666-8666-666666666662");
+    private static final UUID SERVICE_ENV_AUTH_PROD = UUID.fromString("66666666-6666-4666-8666-666666666663");
     private static final UUID SERVICE_ENV_AUTH_STAGING = UUID.fromString("77777777-7777-7777-7777-777777777777");
 
     @Bean
@@ -78,7 +81,10 @@ public class PricingDataInitializer {
         }
 
         List<Quota> quotas = List.of(
-            createQuota(SERVICE_ENV_USER_PROD, SEED_TENANT_ID, 8, 32, 500, 10, 5000, "MONTHLY"),
+            createQuota(SERVICE_ENV_API_PROD, SEED_TENANT_ID, 8, 32, 500, 10, 5000, "MONTHLY"),
+            createQuota(SERVICE_ENV_BILLING_PROD, SEED_TENANT_ID, 16, 64, 1000, 20, 8000, "MONTHLY"),
+            createQuota(SERVICE_ENV_AUTH_PROD, SEED_TENANT_ID, 4, 16, 250, 5, 2500, "MONTHLY"),
+            createQuota(SERVICE_ENV_NOTIF_STAGING, SEED_TENANT_ID, 2, 8, 100, 3, 500, "MONTHLY"),
             createQuota(SERVICE_ENV_AUTH_STAGING, SEED_TENANT_ID, 4, 16, 250, 5, 2500, "MONTHLY")
         );
 
@@ -98,9 +104,23 @@ public class PricingDataInitializer {
 
         List<CostRecord> records = new ArrayList<>();
 
-        records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_USER_PROD, monthStart, monthEnd, "VM", 145.20, 50.80, 12.30, 5.00, 0.03));
-        records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_AUTH_STAGING, monthStart, monthEnd, "VM", 72.60, 25.40, 6.15, 2.50, 0.03));
-        records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_USER_PROD, monthStart.minus(30, ChronoUnit.DAYS), monthStart, "VM", 138.40, 48.20, 11.80, 4.80, 0.03));
+        // 6 mois d'historique réaliste par environnement de service (mode VM / K8s)
+        Instant p = monthStart.minus(150, ChronoUnit.DAYS);
+        for (int m = 0; m < 6; m++) {
+            Instant start = p;
+            Instant end = start.plus(30, ChronoUnit.DAYS);
+            records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_API_PROD, start, end, "VM",
+                    132.40 + m * 4.2, 55.90, 18.40, 6.20, 0.03));
+            records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_BILLING_PROD, start, end, "VM",
+                    220.10 + m * 6.8, 95.30, 21.60, 8.40, 0.03));
+            records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_AUTH_PROD, start, end, "VM",
+                    74.80 + m * 2.1, 28.60, 7.50, 2.90, 0.03));
+            records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_NOTIF_STAGING, start, end, "KUBERNETES",
+                    41.30 + m * 1.5, 12.80, 4.60, 1.90, 0.00));
+            records.add(createCostRecord(SEED_TENANT_ID, SERVICE_ENV_AUTH_STAGING, start, end, "KUBERNETES",
+                    62.10 + m * 1.8, 18.40, 5.90, 2.30, 0.00));
+            p = end;
+        }
 
         List<CostRecord> saved = costRepo.saveAll(records);
         log.info("Seeded {} cost records", saved.size());
@@ -174,10 +194,12 @@ public class PricingDataInitializer {
         }
 
         List<Alert> alerts = List.of(
-            createAlert(SERVICE_ENV_USER_PROD, "COST", "compute", 200.0, 145.20, "WARNING", "Utilisation calcul proche du quota (145.20/200)"),
+            createAlert(SERVICE_ENV_API_PROD, "COST", "compute", 200.0, 187.40, "WARNING", "Utilisation calcul proche du quota (187.40/200)"),
+            createAlert(SERVICE_ENV_BILLING_PROD, "COST", "compute", 300.0, 298.10, "CRITICAL", "Coût de calcul proche du seuil critique"),
             createAlert(SERVICE_ENV_AUTH_STAGING, "COST", "compute", 100.0, 72.60, "INFO", "Coût de calcul à 72.60"),
-            createAlert(SERVICE_ENV_USER_PROD, "PERFORMANCE", "cpu", 80.0, 68.9, "WARNING", "Utilisation CPU à 68.9% (seuil: 80%)"),
-            createAlert(SERVICE_ENV_USER_PROD, "PERFORMANCE", "memory", 90.0, 76.2, "INFO", "Utilisation mémoire à 76.2%")
+            createAlert(SERVICE_ENV_API_PROD, "PERFORMANCE", "cpu", 80.0, 68.9, "WARNING", "Utilisation CPU à 68.9% (seuil: 80%)"),
+            createAlert(SERVICE_ENV_AUTH_STAGING, "PERFORMANCE", "memory", 90.0, 76.2, "INFO", "Utilisation mémoire à 76.2%"),
+            createAlert(SERVICE_ENV_API_PROD, "BUDGET", "budget", 5000.0, 3835.90, "WARNING", "Budget consommé à 76.7% (3835.90/5000)")
         );
 
         repo.saveAll(alerts);
