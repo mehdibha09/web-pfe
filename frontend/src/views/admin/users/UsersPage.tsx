@@ -6,9 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import AddIcon from '@mui/icons-material/Add';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import Button from '../../../components/MyCustomButton';
@@ -24,10 +28,11 @@ import {
     removeRoleFromUser,
     updateUser
 } from '../../../services/adminService';
-import { canDeleteUser, canManageUsers, canModifyUserStatus, isSuperAdmin } from '../../../services/authorization';
+import { canDeleteUser, canManageUsers, canModifyUserStatus, isAdminRoleName, isSuperAdmin } from '../../../services/authorization';
 import { getStoredUser } from '../../../services/authStorage';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 type UserItem = {
     id: string;
@@ -65,6 +70,16 @@ const toUserItem = (user: any): UserItem => ({
     tenantName: user.tenantName || ''
 });
 
+const mapServerMessage = (message: string, t: (key: string, options?: any) => string): string => {
+    const map: Record<string, string> = {
+        'Email already exists': 'admin.users.emailAlreadyExists',
+        'User email already exists in this tenant': 'admin.users.emailAlreadyExistsInTenant',
+        'User already assigned to role': 'admin.users.userAlreadyAssignedToRole',
+        'Only a super administrator can modify an administrator account': 'admin.users.cannotModifyAdminUser'
+    };
+    return map[message] ? t(map[message]) : '';
+};
+
 const UsersPage = () => {
     const { t } = useTranslation();
     const [email, setEmail] = useState('');
@@ -76,16 +91,24 @@ const UsersPage = () => {
     const [users, setUsers] = useState<UserItem[]>([]);
     const [totalElements, setTotalElements] = useState(0);
     const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
+    const [defaultViewerRoleId, setDefaultViewerRoleId] = useState('');
     const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(getStoredUser());
     const [editStatusUserId, setEditStatusUserId] = useState<string | null>(null);
     const [newUserStatus, setNewUserStatus] = useState<'ACTIVE' | 'INVITED' | 'DISABLED'>('ACTIVE');
+    const [editEmailUserId, setEditEmailUserId] = useState<string | null>(null);
+    const [newUserEmail, setNewUserEmail] = useState('');
+    const [savingEmail, setSavingEmail] = useState(false);
+    const { errors, setServerError, setFieldError, clearFieldError } = useInlineErrors();
 
     const allowManageUsers = currentUser ? canManageUsers(currentUser) : false;
     const allowDeleteUser = currentUser ? canDeleteUser(currentUser) : false;
     const allowModifyUserStatus = currentUser ? canModifyUserStatus(currentUser) : false;
     const currentUserIsSuperAdmin = currentUser ? isSuperAdmin(currentUser) : false;
+
+    const canActOnTarget = (user: UserItem) =>
+        user.id !== currentUser?.userId && (currentUserIsSuperAdmin || !isAdminRoleName(user.roleName));
 
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
@@ -125,12 +148,13 @@ const UsersPage = () => {
     const loadRoles = async () => {
         try {
             const response = await listRoles();
-            setAvailableRoles(
-                response.map((role) => ({
-                    id: String(role.id),
-                    name: role.name || '-'
-                }))
-            );
+            const roles = response.map((role) => ({
+                id: String(role.id),
+                name: role.name || '-'
+            }));
+            setAvailableRoles(roles);
+            const viewer = roles.find((role) => role.name.trim().toLowerCase() === 'viewer');
+            setDefaultViewerRoleId(viewer ? viewer.id : '');
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('admin.users.failedToLoadRoles');
             toast.error(message);
@@ -204,6 +228,12 @@ const UsersPage = () => {
             return;
         }
 
+        const roleIdToAssign = selectedRole || defaultViewerRoleId;
+        if (!roleIdToAssign) {
+            toast.error(t('admin.users.roleRequired'));
+            return;
+        }
+
         try {
             const created = await createUser({
                 email: email.trim(),
@@ -211,9 +241,7 @@ const UsersPage = () => {
                 status
             });
 
-            if (selectedRole) {
-                await assignRoleToUser(created.id || created.userId || created.user?.id, selectedRole);
-            }
+            await assignRoleToUser(created.id || created.userId || created.user?.id, roleIdToAssign);
 
             setEmail('');
             setPassword('');
@@ -222,7 +250,7 @@ const UsersPage = () => {
             toast.success(t('admin.users.userCreated'));
             await loadUsers();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.users.failedToCreateUser');
+            const message = mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToCreateUser');
             toast.error(message);
         }
     };
@@ -233,8 +261,14 @@ const UsersPage = () => {
             return;
         }
 
-        if (!currentUserIsSuperAdmin && userId === currentUser?.userId) {
+        if (userId === currentUser?.userId) {
             toast.error(t('admin.users.cannotChangeOwnRole'));
+            return;
+        }
+
+        const target = users.find((u) => u.id === userId);
+        if (target && !canActOnTarget(target)) {
+            toast.error(t('admin.users.cannotModifyAdminUser'));
             return;
         }
 
@@ -249,7 +283,7 @@ const UsersPage = () => {
             toast.success(t('admin.users.roleAssigned'));
             await loadUsers();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.users.failedToAssignRole');
+            const message = mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToAssignRole');
             toast.error(message);
         }
     };
@@ -260,12 +294,23 @@ const UsersPage = () => {
             return;
         }
 
+        if (userId === currentUser?.userId) {
+            toast.error(t('admin.users.cannotChangeOwnRole'));
+            return;
+        }
+
+        const target = users.find((u) => u.id === userId);
+        if (target && !canActOnTarget(target)) {
+            toast.error(t('admin.users.cannotModifyAdminUser'));
+            return;
+        }
+
         try {
             await removeRoleFromUser(userId, roleId);
             toast.success(t('admin.users.roleRemoved'));
             await loadUsers();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.users.failedToRemoveRole');
+            const message = mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToRemoveRole');
             toast.error(message);
         }
     };
@@ -276,20 +321,60 @@ const UsersPage = () => {
             return;
         }
 
+        const target = users.find((u) => u.id === userId);
+        if (target && !canActOnTarget(target)) {
+            toast.error(t('admin.users.cannotModifyAdminUser'));
+            return;
+        }
+
         try {
             await updateUser(userId, { status: newUserStatus });
             toast.success(t('admin.users.userStatusUpdated'));
             setEditStatusUserId(null);
             await loadUsers();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.users.failedToUpdateUserStatus');
+            const message = mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToUpdateUserStatus');
             toast.error(message);
+        }
+    };
+
+    const handleUpdateUserEmail = async () => {
+        if (!allowManageUsers) {
+            toast.error(t('admin.users.noPermissionModifyEmail'));
+            return;
+        }
+        if (!editEmailUserId) return;
+        const target = users.find((u) => u.id === editEmailUserId);
+        if (target && !canActOnTarget(target)) {
+            toast.error(t('admin.users.cannotModifyAdminUser'));
+            return;
+        }
+        const email = newUserEmail.trim();
+        if (!email) {
+            setFieldError('email', t('admin.users.emailRequired'));
+            return;
+        }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+            setFieldError('email', t('admin.users.invalidEmail'));
+            return;
+        }
+        setSavingEmail(true);
+        try {
+            await updateUser(editEmailUserId, { email });
+            toast.success(t('admin.users.userEmailUpdated'));
+            setEditEmailUserId(null);
+            setNewUserEmail('');
+            clearFieldError('email');
+            await loadUsers();
+        } catch (error: any) {
+            setServerError(error, 'email', mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToUpdateUserEmail'));
+        } finally {
+            setSavingEmail(false);
         }
     };
 
     const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
-
     const handleDeleteUser = async () => {
         const id = deleteDialogId;
         if (!id) return;
@@ -304,6 +389,12 @@ const UsersPage = () => {
             return;
         }
 
+        const target = users.find((u) => u.id === id);
+        if (target && !canActOnTarget(target)) {
+            toast.error(t('admin.users.cannotModifyAdminUser'));
+            return;
+        }
+
         setDeleting(true);
         try {
             await deleteUser(id);
@@ -311,7 +402,7 @@ const UsersPage = () => {
             setDeleteDialogId(null);
             await loadUsers();
         } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.users.failedToDeleteUser');
+            const message = mapServerMessage(error?.response?.data?.message, t) || error?.response?.data?.message || error?.message || t('admin.users.failedToDeleteUser');
             toast.error(message);
         } finally {
             setDeleting(false);
@@ -391,11 +482,10 @@ const UsersPage = () => {
                                 <TextField
                                     select
                                     label={t('admin.users.role')}
-                                    value={selectedRole}
+                                    value={selectedRole || defaultViewerRoleId}
                                     onChange={(event) => setSelectedRole(event.target.value)}
                                     size="small"
                                 >
-                                    <MenuItem value="">{t('admin.users.noRole')}</MenuItem>
                                     {availableRoles.map((role) => (
                                         <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
                                     ))}
@@ -485,9 +575,23 @@ const UsersPage = () => {
                                             {user.fullName}
                                         </Typography>
                                         <Typography sx={{ color: C.muted }}>{user.email}</Typography>
+                                        {allowManageUsers && canActOnTarget(user) && (
+                                            <Button
+                                                onClick={() => {
+                                                    setEditEmailUserId(user.id);
+                                                    setNewUserEmail(user.email);
+                                                    clearFieldError('email');
+                                                }}
+                                                size="small"
+                                                startIcon={<EmailOutlinedIcon sx={{ fontSize: 15 }} />}
+                                                sx={{ mt: 0.5, p: 0, minHeight: 0, fontSize: 12, fontWeight: 700, color: C.brand, background: 'transparent', '&:hover': { background: 'transparent', textDecoration: 'underline' } }}
+                                            >
+                                                {t('admin.users.editEmail')}
+                                            </Button>
+                                        )}
                                     </Box>
                                     {editStatusUserId === user.id ? (
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                                             <TextField
                                                 select
                                                 size="small"
@@ -501,10 +605,21 @@ const UsersPage = () => {
                                                 <MenuItem value="INVITED">{t('admin.users.invited')}</MenuItem>
                                                 <MenuItem value="DISABLED">{t('admin.users.disabled')}</MenuItem>
                                             </TextField>
-                                            <Button onClick={() => handleUpdateUserStatus(user.id)} disabled={!allowModifyUserStatus}>
+                                            <Button
+                                                onClick={() => handleUpdateUserStatus(user.id)}
+                                                disabled={!allowModifyUserStatus}
+                                                startIcon={<SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                                            >
                                                 {t('common.save')}
                                             </Button>
-                                            <Button onClick={() => setEditStatusUserId(null)}>{t('common.cancel')}</Button>
+                                            <Button
+                                                onClick={() => setEditStatusUserId(null)}
+                                                startIcon={<CancelOutlinedIcon sx={{ fontSize: 16 }} />}
+                                                variant="outlined"
+                                                sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.muted, '&:hover': { borderColor: C.muted, backgroundColor: '#F9FAFB' } }}
+                                            >
+                                                {t('common.cancel')}
+                                            </Button>
                                         </Box>
                                     ) : (
                                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -523,12 +638,15 @@ const UsersPage = () => {
                                                                 : '#A23B4E'
                                                 }}
                                             />
-                                            {allowModifyUserStatus && (
+                                            {allowModifyUserStatus && canActOnTarget(user) && (
                                                 <Button
                                                     onClick={() => {
                                                         setEditStatusUserId(user.id);
                                                         setNewUserStatus(user.status);
                                                     }}
+                                                    startIcon={<EditOutlinedIcon sx={{ fontSize: 16 }} />}
+                                                    variant="outlined"
+                                                    sx={{ borderRadius: 5, textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.brand, px: 1.5, '&:hover': { borderColor: C.brand, backgroundColor: C.brandLight } }}
                                                 >
                                                     {t('common.edit')}
                                                 </Button>
@@ -551,7 +669,7 @@ const UsersPage = () => {
                                         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 0.5 }}>
                                             <Chip
                                                 label={user.roleName}
-                                                onDelete={allowManageUsers && user.roleId ? () => handleRemoveRole(user.id, user.roleId as string) : undefined}
+                                                onDelete={allowManageUsers && user.roleId && user.id !== currentUser?.userId && canActOnTarget(user) ? () => handleRemoveRole(user.id, user.roleId as string) : undefined}
                                                 size="small"
                                                 sx={{ backgroundColor: C.brandLight, color: C.brand, fontWeight: 700 }}
                                             />
@@ -569,7 +687,7 @@ const UsersPage = () => {
                                         </Typography>
                                     </Box>
                                 )}
-                                {allowManageUsers && (currentUserIsSuperAdmin || user.id !== currentUser?.userId) ? (
+                                {allowManageUsers && user.id !== currentUser?.userId && canActOnTarget(user) ? (
                                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1, mt: 2 }}>
                                         <TextField
                                             select
@@ -594,7 +712,7 @@ const UsersPage = () => {
                                     </Box>
                                 ) : null}
                             </CardContent>
-                            {allowDeleteUser ? (
+                            {allowDeleteUser && canActOnTarget(user) ? (
                                 <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}` }}>
                                     <Button
                                         onClick={() => setDeleteDialogId(user.id)}
@@ -612,6 +730,47 @@ const UsersPage = () => {
                 <PaginationBar page={page + 1} pageCount={pageCount} total={totalElements} onPageChange={(p) => setPage(p - 1)} />
                 </>
             )}
+
+            <Dialog open={editEmailUserId !== null} onClose={() => !savingEmail && setEditEmailUserId(null)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <EmailOutlinedIcon sx={{ color: '#fff', fontSize: 18 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, color: C.text }}>{t('admin.users.editEmailTitle')}</Typography>
+                                <Typography sx={{ color: C.muted, fontSize: 12 }}>{editEmailUserId ? users.find((u) => u.id === editEmailUserId)?.fullName : ''}</Typography>
+                            </Box>
+                        </Box>
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 2.5 }}>
+                    <TextField
+                        label={t('common.email')}
+                        fullWidth
+                        value={newUserEmail}
+                        onChange={(event) => { setNewUserEmail(event.target.value); clearFieldError('email'); }}
+                        disabled={savingEmail}
+                        autoFocus
+                        error={Boolean(errors.email)}
+                        helperText={errors.email}
+                        slotProps={{ htmlInput: { 'data-lpignore': 'true' } }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                    <Button onClick={() => setEditEmailUserId(null)} disabled={savingEmail} variant="outlined" startIcon={<CancelOutlinedIcon sx={{ fontSize: 16 }} />} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.muted, '&:hover': { borderColor: C.muted, backgroundColor: '#F9FAFB' } }}>{t('common.cancel')}</Button>
+                    <Button
+                        onClick={handleUpdateUserEmail}
+                        disabled={savingEmail}
+                        startIcon={savingEmail ? undefined : <SaveOutlinedIcon sx={{ fontSize: 16 }} />}
+                        sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#fff', background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', '&:hover': { background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' } }}
+                    >
+                        {savingEmail ? t('common.saving') : t('common.save')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={deleteDialogId !== null} onClose={() => !deleting && setDeleteDialogId(null)}>
                 <DialogTitle>{t('admin.users.confirmDeleteTitle')}</DialogTitle>
