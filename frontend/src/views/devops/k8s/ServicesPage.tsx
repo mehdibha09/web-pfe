@@ -31,7 +31,10 @@ import { k8sService } from '../../../services/k8sService';
 import type { K8sServiceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageK8s } from '../../../services/authorization';
 import { SERVICE_TYPES } from './constants';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 import PaginationBar from '../../../components/PaginationBar';
 
 const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
@@ -43,17 +46,16 @@ const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
 
 const ServicesPage = () => {
     const { t } = useTranslation();
+    const { errors, setFieldError, clearFieldError } = useInlineErrors();
     const [services, setServices] = useState<K8sServiceResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    const [nsFilter, setNsFilter] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<K8sServiceResponse | null>(null);
 
     // form fields
     const [svcName, setSvcName] = useState('');
-    const [svcNamespace, setSvcNamespace] = useState('default');
     const [svcType, setSvcType] = useState('ClusterIP');
     const [svcPort, setSvcPort] = useState(80);
     const [svcTargetPort, setSvcTargetPort] = useState(8080);
@@ -64,11 +66,12 @@ const ServicesPage = () => {
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
     const PAGE_SIZE = 9;
+    const allowManage = canManageK8s(getStoredUser()!);
 
     const load = async () => {
         setLoading(true);
         try {
-            const result = await k8sService.listServicesPaginated(page, PAGE_SIZE, nsFilter || undefined);
+            const result = await k8sService.listServicesPaginated(page, PAGE_SIZE);
             setServices(result.items);
             setTotalElements(result.total);
             setLoadError(null);
@@ -83,11 +86,6 @@ const ServicesPage = () => {
 
     useEffect(() => { load(); }, [page]);
 
-    const namespaces = useMemo(() => {
-        const set = new Set(services.map((s) => s.namespace));
-        return ['', ...Array.from(set).sort()];
-    }, [services]);
-
     const totalCount = services.length;
     const typeCounts = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -100,20 +98,19 @@ const ServicesPage = () => {
     const openCreate = () => {
         setEditing(null);
         setSvcName('');
-        setSvcNamespace('default');
         setSvcType('ClusterIP');
         setSvcPort(80);
         setSvcTargetPort(8080);
         setSvcProtocol('TCP');
         setSvcSelectorKey('app');
         setSvcSelectorValue('');
+        clearFieldError('name');
         setDialogOpen(true);
     };
 
     const openEdit = (svc: K8sServiceResponse) => {
         setEditing(svc);
         setSvcName(svc.name);
-        setSvcNamespace(svc.namespace);
         setSvcType(svc.type);
         setSvcPort(svc.ports[0]?.port || 80);
         setSvcTargetPort(svc.ports[0]?.targetPort || 8080);
@@ -121,17 +118,19 @@ const ServicesPage = () => {
         const selEntry = Object.entries(svc.selector)[0] || ['app', ''];
         setSvcSelectorKey(selEntry[0]);
         setSvcSelectorValue(selEntry[1]);
+        clearFieldError('name');
         setDialogOpen(true);
     };
 
     const handleSave = async () => {
-        if (!svcName.trim()) return toast.error(t('common.error'));
-        if (!svcNamespace.trim()) return toast.error(t('common.error'));
+        if (!svcName.trim()) {
+            setFieldError('name', t('k8s.services.nameRequired'));
+            return;
+        }
         setSaving(true);
         try {
             const payload = {
                 name: svcName.trim(),
-                namespace: svcNamespace.trim(),
                 type: svcType,
                 port: svcPort,
                 targetPort: svcTargetPort,
@@ -146,6 +145,7 @@ const ServicesPage = () => {
                 toast.success(t('common.success'));
             }
             setDialogOpen(false);
+            clearFieldError('name');
             await load();
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('common.error')));
@@ -181,9 +181,9 @@ const ServicesPage = () => {
                     </Typography>
                     <Typography sx={{ color: C.muted }}>{t('k8s.services.subtitle')}</Typography>
                 </Box>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                {allowManage && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
                     {t('k8s.services.create')}
-                </Button>
+                </Button>}
             </Box>
 
             {!loading && services.length > 0 && (
@@ -220,12 +220,6 @@ const ServicesPage = () => {
                     }}
                     sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
-                <TextField select size="small" value={nsFilter} onChange={(e) => setNsFilter(e.target.value)} sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}>
-                    <MenuItem value="">{t('k8s.services.allNamespaces')}</MenuItem>
-                    {namespaces.filter(Boolean).map((ns) => (
-                        <MenuItem key={ns} value={ns}>{ns}</MenuItem>
-                    ))}
-                </TextField>
             </Box>
 
             {loadError && !loading && (
@@ -268,7 +262,7 @@ const ServicesPage = () => {
                         <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
                             {services.length === 0 ? t('k8s.services.createFirst') : t('k8s.services.adjustSearch')}
                         </Typography>
-                        {services.length === 0 && (
+                        {services.length === 0 && allowManage && (
                             <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
                                 {t('k8s.services.create')}
                             </Button>
@@ -319,16 +313,20 @@ const ServicesPage = () => {
                                         </Typography>
 
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 1 }}>
-                                            <Tooltip title={t('common.edit')!}>
-                                                <IconButton size="small" onClick={() => openEdit(svc)}>
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title={t('common.delete')!}>
-                                                <IconButton size="small" color="error" onClick={() => handleDelete(svc.name, svc.namespace)}>
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {allowManage && (
+                                                <>
+                                                    <Tooltip title={t('common.edit')!}>
+                                                        <IconButton size="small" onClick={() => openEdit(svc)}>
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title={t('common.delete')!}>
+                                                        <IconButton size="small" color="error" onClick={() => handleDelete(svc.name, svc.namespace)}>
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </>
+                                            )}
                                         </Box>
                                         <Box sx={{ flex: 1 }} />
                                 </CardContent>
@@ -361,8 +359,7 @@ const ServicesPage = () => {
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-                        <TextField fullWidth label={t('common.name')} value={svcName} onChange={(e) => setSvcName(e.target.value)} disabled={!!editing} />
-                        <TextField fullWidth label="Namespace" value={svcNamespace} onChange={(e) => setSvcNamespace(e.target.value)} disabled={!!editing} />
+                        <TextField fullWidth label={t('common.name')} value={svcName} onChange={(e) => { setSvcName(e.target.value); clearFieldError('name'); }} disabled={!!editing} error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField select fullWidth label={t('common.type')} value={svcType} onChange={(e) => setSvcType(e.target.value)}>
                             {SERVICE_TYPES.map((st) => (
                                 <MenuItem key={st} value={st}>{st}</MenuItem>

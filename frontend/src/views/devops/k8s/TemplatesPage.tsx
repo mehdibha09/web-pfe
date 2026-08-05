@@ -12,12 +12,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { getStoredUser } from '../../../services/authStorage';
+import { canManageK8s } from '../../../services/authorization';
 import type { DeploymentTemplate, DeploymentTemplateRequest } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { C, fmtDate, PROTOCOLS, IMAGE_PULL_POLICIES, SERVICE_TYPES, RESTART_POLICIES } from './constants';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 const SkeletonCard = () => (
     <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}` }}>
@@ -48,6 +50,8 @@ const TemplatesPage = () => {
     const [deleteTarget, setDeleteTarget] = useState<DeploymentTemplate | null>(null);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
+    const allowManage = canManageK8s(getStoredUser()!);
+    const { errors, setFieldError, clearFieldError } = useInlineErrors();
 
     const load = async (quiet = false) => {
         if (!quiet) setLoading(true);
@@ -82,6 +86,8 @@ const TemplatesPage = () => {
         const user = getStoredUser();
         setEditingId(null);
         setForm(defaultForm(user?.tenantId ?? ''));
+        clearFieldError('name');
+        clearFieldError('dockerImage');
         setDialogOpen(true);
     };
 
@@ -99,12 +105,20 @@ const TemplatesPage = () => {
             startupProbe: tpl.startupProbe || '',
             publicTemplate: !!tpl.publicTemplate
         });
+        clearFieldError('name');
+        clearFieldError('dockerImage');
         setDialogOpen(true);
     };
 
     const handleSave = async () => {
-        if (!form.name.trim()) return toast.error(t('k8s.templates.nameRequired'));
-        if (!form.dockerImage.trim()) return toast.error(t('k8s.templates.dockerRequired'));
+        if (!form.name.trim()) {
+            setFieldError('name', t('k8s.templates.nameRequired'));
+            return;
+        }
+        if (!form.dockerImage.trim()) {
+            setFieldError('dockerImage', t('k8s.templates.dockerRequired'));
+            return;
+        }
         setSaving(true);
         try {
             if (editingId) {
@@ -115,6 +129,8 @@ const TemplatesPage = () => {
                 toast.success(t('k8s.templates.createdToast'));
             }
             setDialogOpen(false);
+            clearFieldError('name');
+            clearFieldError('dockerImage');
             await load(true);
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('k8s.templates.saveFailed')));
@@ -135,11 +151,11 @@ const TemplatesPage = () => {
 
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
-            <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #5FB985, #3F9B66)', mb: 3 }} />
+            <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #BE185D, #9D174D)', mb: 3 }} />
 
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ width: 44, height: 44, borderRadius: 2, background: 'linear-gradient(135deg, #5FB985, #3F9B66)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(95,185,133,0.3)' }}>
+                    <Box sx={{ width: 44, height: 44, borderRadius: 2, background: 'linear-gradient(135deg, #BE185D, #9D174D)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(190,24,93,0.3)' }}>
                         <TemplateIcon sx={{ color: '#fff', fontSize: 22 }} />
                     </Box>
                     <Box>
@@ -155,7 +171,7 @@ const TemplatesPage = () => {
                             </IconButton>
                         </span>
                     </Tooltip>
-                    <MyCustomButton startIcon={<AddIcon />} onClick={openCreate} sx={{ px: 2.5 }}>{t('k8s.templates.new')}</MyCustomButton>
+                    {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={openCreate} sx={{ px: 2.5 }}>{t('k8s.templates.new')}</MyCustomButton>}
                 </Box>
             </Box>
 
@@ -193,7 +209,7 @@ const TemplatesPage = () => {
                         <TemplateIcon sx={{ fontSize: 48, color: C.subtle, mb: 2 }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.templates.noTemplates')}</Typography>
                         <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{t('k8s.templates.createFirst')}</Typography>
-                        <MyCustomButton startIcon={<AddIcon />} onClick={openCreate}>{t('k8s.templates.new')}</MyCustomButton>
+                        {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={openCreate}>{t('k8s.templates.new')}</MyCustomButton>}
                     </Card>
                 </Fade>
             )}
@@ -234,8 +250,12 @@ const TemplatesPage = () => {
                                 {tpl.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 1 }}>{t('k8s.templates.createdAt')}: {fmtDate(tpl.createdAt)}</Typography>}
                             </CardContent>
                             <CardActions sx={{ px: 2.5, py: 1.5, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, background: '#FAFAFA', gap: 0.5 }}>
-                                <Tooltip title={t('common.edit')}><IconButton size="small" onClick={() => openEdit(tpl)} sx={{ color: '#065F46' }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                                <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(tpl)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                {allowManage && (
+                                    <>
+                                        <Tooltip title={t('common.edit')}><IconButton size="small" onClick={() => openEdit(tpl)} sx={{ color: '#065F46' }}><EditIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                        <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(tpl)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                    </>
+                                )}
                             </CardActions>
                         </Card>
                         );
@@ -246,29 +266,32 @@ const TemplatesPage = () => {
             )}
 
             {/* Create/Edit Dialog */}
-            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 32, height: 32, borderRadius: 2, background: 'linear-gradient(135deg, #5FB985, #3F9B66)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <TemplateIcon sx={{ color: '#fff', fontSize: 18 }} />
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <TemplateIcon sx={{ color: '#BE185D', fontSize: 20 }} />
+                            </Box>
+                            <Typography sx={{ fontWeight: 800, color: C.text }}>{editingId ? t('k8s.templates.edit') : t('k8s.templates.new')}</Typography>
                         </Box>
-                        {editingId ? t('k8s.templates.edit') : t('k8s.templates.new')}
+                        <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
-                    <IconButton size="small" onClick={() => setDialogOpen(false)}><CloseIcon fontSize="small" /></IconButton>
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'grid', gap: 1.5, mt: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TemplateIcon sx={{ fontSize: 16, color: '#3F9B66' }} /> {t('k8s.templates.templateInfo')}
+                            <TemplateIcon sx={{ fontSize: 16, color: '#BE185D' }} /> {t('k8s.templates.templateInfo')}
                         </Typography>
-                        <TextField size="small" label={t('k8s.templates.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+                        <TextField size="small" label={t('k8s.templates.name')} value={form.name} onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} required error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField size="small" label={t('k8s.templates.description')} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} multiline rows={2} />
-                        <TextField size="small" label={t('k8s.templates.dockerImage')} value={form.dockerImage} onChange={(e) => setForm((p) => ({ ...p, dockerImage: e.target.value }))} required placeholder="nginx:1.25" />
+                        <TextField size="small" label={t('k8s.templates.dockerImage')} value={form.dockerImage} onChange={(e) => { setForm((p) => ({ ...p, dockerImage: e.target.value })); clearFieldError('dockerImage'); }} required placeholder="nginx:1.25" error={Boolean(errors.dockerImage)} helperText={errors.dockerImage} />
 
                         <Divider sx={{ my: 0.5 }} />
 
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PublicIcon sx={{ fontSize: 16, color: '#3F9B66' }} /> {t('k8s.templates.visibility')}
+                            <PublicIcon sx={{ fontSize: 16, color: '#BE185D' }} /> {t('k8s.templates.visibility')}
                         </Typography>
                         <RadioGroup
                             row
@@ -333,8 +356,10 @@ const TemplatesPage = () => {
             </Dialog>
 
             {/* Delete dialog */}
-            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700 }}>{t('k8s.templates.deleteTitle')}</DialogTitle>
+            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EF4444, #F87171)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, pt: 3 }}>{t('k8s.templates.deleteTitle')}</DialogTitle>
                 <DialogContent><Typography sx={{ color: C.muted }}>{t('k8s.templates.deleteConfirm', { name: deleteTarget?.name })}</Typography></DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
                     <Button variant="outlined" onClick={() => setDeleteTarget(null)}>{t('k8s.templates.cancel')}</Button>

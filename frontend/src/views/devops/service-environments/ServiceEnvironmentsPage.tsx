@@ -20,9 +20,11 @@ import {
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStoredUser } from '../../../services/authStorage';
+import { canManageDeployments } from '../../../services/authorization';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 import CreateForm from './CreateForm';
 import RelationCard from './RelationCard';
@@ -35,6 +37,7 @@ const cardSx = { borderRadius: 3, border: `1px solid ${P.border}`, backgroundCol
 const ServiceEnvironmentsPage = () => {
     const { t } = useTranslation();
     const tenantId = getStoredUser()?.tenantId || '';
+    const allowManage = canManageDeployments(getStoredUser()!);
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
     const [relations, setRelations] = useState<ServiceEnvironmentResponse[]>([]);
@@ -49,6 +52,7 @@ const ServiceEnvironmentsPage = () => {
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
+    const { errors, setFieldError, clearFieldError } = useInlineErrors();
 
     const serviceOptions: Option[] = useMemo(() => services.map((s) => ({ id: s.id, label: s.name })), [services]);
     const envOptions: Option[] = useMemo(() => environments.map((e) => ({ id: e.id, label: e.name })), [environments]);
@@ -92,13 +96,21 @@ const ServiceEnvironmentsPage = () => {
 
     const handleCreate = async () => {
         if (!tenantId.trim()) return toast.error('tenantId is required');
-        if (!serviceId) return toast.error('Select a service');
-        if (!environmentId) return toast.error('Select an environment');
+        if (!serviceId) {
+            setFieldError('serviceId', t('serviceEnvs.selectService'));
+            return;
+        }
+        if (!environmentId) {
+            setFieldError('environmentId', t('serviceEnvs.selectEnvironment'));
+            return;
+        }
         try {
             await createServiceEnvironment({ serviceId, environmentId, tenantId });
-            toast.success('Service linked to environment');
+            toast.success(t('serviceEnvs.linkedSuccess'));
             setServiceId('');
             setEnvironmentId('');
+            clearFieldError('serviceId');
+            clearFieldError('environmentId');
             await load();
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, 'Failed to create relation'));
@@ -109,16 +121,28 @@ const ServiceEnvironmentsPage = () => {
         setEditingRelationId(r.id);
         setEditServiceId(r.serviceId);
         setEditEnvironmentId(r.environmentId);
+        clearFieldError('editServiceId');
+        clearFieldError('editEnvironmentId');
     };
 
     const cancelEdit = () => {
         setEditingRelationId(null);
         setEditServiceId('');
         setEditEnvironmentId('');
+        clearFieldError('editServiceId');
+        clearFieldError('editEnvironmentId');
     };
 
     const handleUpdate = async () => {
         if (!editingRelationId) return;
+        if (!editServiceId) {
+            setFieldError('editServiceId', t('serviceEnvs.selectService'));
+            return;
+        }
+        if (!editEnvironmentId) {
+            setFieldError('editEnvironmentId', t('serviceEnvs.selectEnvironment'));
+            return;
+        }
         try {
             await updateServiceEnvironment(editingRelationId, {
                 serviceId: editServiceId,
@@ -126,6 +150,8 @@ const ServiceEnvironmentsPage = () => {
                 tenantId
             });
             toast.success('Relation updated');
+            clearFieldError('editServiceId');
+            clearFieldError('editEnvironmentId');
             cancelEdit();
             await load();
         } catch (e: unknown) {
@@ -184,16 +210,20 @@ const ServiceEnvironmentsPage = () => {
                 environmentsCount={environments.length}
             />
 
-            <CreateForm
-                serviceId={serviceId}
-                onServiceIdChange={setServiceId}
-                environmentId={environmentId}
-                onEnvironmentIdChange={setEnvironmentId}
-                serviceOptions={serviceOptions}
-                envOptions={envOptions}
-                loading={loading}
-                onCreate={handleCreate}
-            />
+            {allowManage && (
+                <CreateForm
+                    serviceId={serviceId}
+                    onServiceIdChange={setServiceId}
+                    environmentId={environmentId}
+                    onEnvironmentIdChange={setEnvironmentId}
+                    serviceOptions={serviceOptions}
+                    envOptions={envOptions}
+                    loading={loading}
+                    onCreate={handleCreate}
+                    errors={errors}
+                    onFieldErrorClear={clearFieldError}
+                />
+            )}
 
             <RelationsToolbar
                 filteredCount={filteredRelations.length}
@@ -258,6 +288,9 @@ const ServiceEnvironmentsPage = () => {
                                 onCancelEdit={cancelEdit}
                                 onSave={handleUpdate}
                                 onDelete={() => setConfirmDeleteId(r.id)}
+                                allowManage={allowManage}
+                                editErrors={errors}
+                                onEditFieldErrorClear={clearFieldError}
                             />
                         );
                     })}

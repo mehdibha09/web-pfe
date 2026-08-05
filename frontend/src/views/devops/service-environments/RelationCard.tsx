@@ -21,13 +21,16 @@ type RelationCardProps = {
     onCancelEdit: () => void;
     onSave: () => void;
     onDelete: () => void;
+    allowManage?: boolean;
+    editErrors?: Record<string, string>;
+    onEditFieldErrorClear?: (field: string) => void;
 };
 
 const RelationCard = ({
     relation, isEditing, serviceName, environmentName,
     serviceOptions, envOptions, editServiceId, onEditServiceIdChange,
     editEnvironmentId, onEditEnvironmentIdChange, onStartEdit, onCancelEdit,
-    onSave, onDelete
+    onSave, onDelete, allowManage = false, editErrors, onEditFieldErrorClear
 }: RelationCardProps) => {
     const { t } = useTranslation();
     return (
@@ -36,10 +39,10 @@ const RelationCard = ({
         <CardContent sx={{ pt: 3.5, pb: 2, px: 3 }}>
             {isEditing ? (
                 <Box sx={{ display: 'grid', gap: 1.5 }}>
-                    <TextField size="small" select label={t('serviceEnvs.service')} value={editServiceId} onChange={(e) => onEditServiceIdChange(e.target.value)}>
+                    <TextField size="small" select label={t('serviceEnvs.service')} value={editServiceId} onChange={(e) => { onEditServiceIdChange(e.target.value); onEditFieldErrorClear?.('serviceId'); }} error={Boolean(editErrors?.serviceId)} helperText={editErrors?.serviceId}>
                         {serviceOptions.map((s) => <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>)}
                     </TextField>
-                    <TextField size="small" select label={t('serviceEnvs.environment')} value={editEnvironmentId} onChange={(e) => onEditEnvironmentIdChange(e.target.value)}>
+                    <TextField size="small" select label={t('serviceEnvs.environment')} value={editEnvironmentId} onChange={(e) => { onEditEnvironmentIdChange(e.target.value); onEditFieldErrorClear?.('environmentId'); }} error={Boolean(editErrors?.environmentId)} helperText={editErrors?.environmentId}>
                         {envOptions.map((e) => <MenuItem key={e.id} value={e.id}>{e.label}</MenuItem>)}
                     </TextField>
                 </Box>
@@ -70,10 +73,12 @@ const RelationCard = ({
                     <MyCustomButton onClick={onSave}>{t('common.save')}</MyCustomButton>
                 </>
             ) : (
-                <>
-                    <Button size="small" onClick={onStartEdit} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
-                    <Button size="small" onClick={onDelete} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
-                </>
+                allowManage && (
+                    <>
+                        <Button size="small" onClick={onStartEdit} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
+                        <Button size="small" onClick={onDelete} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
+                    </>
+                )
             )}
         </CardActions>
     </Card>

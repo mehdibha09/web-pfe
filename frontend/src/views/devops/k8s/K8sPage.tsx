@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { C } from '../../../theme/tokens';
 import { getStoredUser } from '../../../services/authStorage';
-import { canManageNamespaces } from '../../../services/authorization';
+import { canAccessNamespaces } from '../../../services/authorization';
 import ConfigMapsPage from './ConfigMapsPage';
 import IngressPage from './IngressPage';
 import K8sDeploymentsPage from './K8sDeploymentsPage';
@@ -20,7 +20,7 @@ const K8sPage = () => {
     const [tab, setTab] = useState(0);
 
     const user = getStoredUser();
-    const showNamespaces = user ? canManageNamespaces(user) : false;
+    const showNamespaces = user ? canAccessNamespaces(user) : false;
 
     const tabs = useMemo(() => {
         const all = [

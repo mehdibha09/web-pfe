@@ -6,10 +6,13 @@ import { toast } from 'react-toastify';
 import { k8sService } from '../../../services/k8sService';
 import type { K8sSecretResponse } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManageK8s } from '../../../services/authorization';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
 import { fmtDate } from './constants';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 const SECRET_TYPES = ['Opaque', 'kubernetes.io/tls', 'kubernetes.io/dockerconfigjson', 'kubernetes.io/service-account-token', 'kubernetes.io/basic-auth', 'kubernetes.io/ssh-auth'];
 
@@ -26,11 +29,10 @@ const SecretsPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    const [namespaceFilter, setNamespaceFilter] = useState('');
 
     const [createOpen, setCreateOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<K8sSecretResponse | null>(null);
-    const [form, setForm] = useState({ name: '', namespace: 'default', type: 'Opaque', keys: [{ key: '', value: '' }], labels: '' });
+    const [form, setForm] = useState({ name: '', type: 'Opaque', keys: [{ key: '', value: '' }], labels: '' });
     const [saving, setSaving] = useState(false);
 
     const [detailItem, setDetailItem] = useState<K8sSecretResponse | null>(null);
@@ -38,12 +40,14 @@ const SecretsPage = () => {
     const [totalElements, setTotalElements] = useState(0);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
+    const allowManage = canManageK8s(getStoredUser()!);
+    const { errors, setFieldError, clearFieldError } = useInlineErrors();
 
     const load = async (quiet = false) => {
         if (!quiet) setLoading(true);
         setError(null);
         try {
-            const result = await k8sService.listSecretsPaginated(page, PAGE_SIZE, namespaceFilter || undefined);
+            const result = await k8sService.listSecretsPaginated(page, PAGE_SIZE);
             setItems(result.items);
             setTotalElements(result.total);
         } catch (e: unknown) {
@@ -51,7 +55,7 @@ const SecretsPage = () => {
         } finally { setLoading(false); }
     };
 
-    useEffect(() => { load(); }, [page, namespaceFilter]);
+    useEffect(() => { load(); }, [page]);
 
     useEffect(() => { if (page >= pageCount && page > 0) setPage(pageCount - 1); }, [totalElements]);
 
@@ -63,19 +67,19 @@ const SecretsPage = () => {
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
-    const namespaces = useMemo(() => [...new Set(items.map((s) => s.namespace))], [items]);
-
-    const resetForm = () => setForm({ name: '', namespace: 'default', type: 'Opaque', keys: [{ key: '', value: '' }], labels: '' });
+    const resetForm = () => setForm({ name: '', type: 'Opaque', keys: [{ key: '', value: '' }], labels: '' });
 
     const handleCreateOrUpdate = async () => {
-        if (!form.name.trim()) return toast.error(t('k8s.secrets.nameRequired'));
+        if (!form.name.trim()) {
+            setFieldError('name', t('k8s.secrets.nameRequired'));
+            return;
+        }
         const data: Record<string, string> = {};
         form.keys.filter((k) => k.key.trim()).forEach((k) => { data[k.key.trim()] = k.value; });
         setSaving(true);
         try {
             const payload = {
                 name: form.name.trim(),
-                namespace: form.namespace.trim() || 'default',
                 type: form.type,
                 data: Object.keys(data).length > 0 ? data : undefined,
                 labels: form.labels.trim() ? Object.fromEntries(form.labels.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined,
@@ -91,6 +95,7 @@ const SecretsPage = () => {
             setCreateOpen(false);
             setEditTarget(null);
             resetForm();
+            clearFieldError('name');
             await load(true);
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, editTarget ? 'Failed to update Secret' : 'Failed to create Secret'));
@@ -102,7 +107,6 @@ const SecretsPage = () => {
         if (keys.length === 0) keys.push({ key: '', value: '' });
         setForm({
             name: s.name,
-            namespace: s.namespace,
             type: s.type,
             keys,
             labels: Object.entries(s.labels).map(([k, v]) => `${k}=${v}`).join(', '),
@@ -129,16 +133,15 @@ const SecretsPage = () => {
                 <Box><Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>{t('k8s.secrets.title')}</Typography><Typography sx={{ color: C.muted, fontSize: 14 }}>{t('k8s.secrets.subtitle')}</Typography></Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Tooltip title={t('common.refresh')}><span><IconButton onClick={() => load()} disabled={loading} sx={{ border: `1px solid ${C.border}`, borderRadius: 2 }}><RefreshIcon sx={{ fontSize: 18, color: loading ? C.subtle : C.muted }} /></IconButton></span></Tooltip>
-                    <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.secrets.new')}</MyCustomButton>
+                    {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); }} sx={{ px: 2.5 }}>{t('k8s.secrets.new')}</MyCustomButton>}
                 </Box>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 1.5, mb: 3 }}>
                 {[
                     { label: t('k8s.secrets.total'), value: items.length, bg: '#F8FAFC', fg: '#475569' },
                     { label: t('k8s.secrets.totalEntries'), value: items.reduce((sum, s) => sum + s.dataEntries, 0), bg: '#FCE7F3', fg: '#BE185D' },
                     { label: t('k8s.secrets.types'), value: [...new Set(items.map((s) => s.type))].length, bg: '#F0FDF4', fg: '#16A34A' },
-                    { label: t('k8s.secrets.namespaces'), value: namespaces.length, bg: '#FAF5FF', fg: '#9D174D' },
                 ].map((kpi) => (
                     <Paper key={kpi.label} sx={{ p: 2, borderRadius: 3, bg: kpi.bg, border: `1px solid ${kpi.fg}22`, boxShadow: 'none' }}>
                         <Typography sx={{ color: kpi.fg, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</Typography>
@@ -155,11 +158,6 @@ const SecretsPage = () => {
                             endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><CloseIcon sx={{ fontSize: 16 }} /></IconButton></InputAdornment> : undefined,
                         },
                     }} />
-                <TextField size="small" select value={namespaceFilter} onChange={(e) => setNamespaceFilter(e.target.value)} sx={{ minWidth: 160 }}
-                    slotProps={{ select: { displayEmpty: true } }}>
-                    <MenuItem value="">{t('k8s.secrets.allNamespaces')}</MenuItem>
-                    {namespaces.map((ns) => <MenuItem key={ns} value={ns}>{ns}</MenuItem>)}
-                </TextField>
                 <Chip label={`${filtered.length} / ${totalElements}`} size="small" sx={{ backgroundColor: '#FCE7F3', color: '#BE185D', fontWeight: 700, fontSize: 12 }} />
             </Paper>
 
@@ -172,12 +170,12 @@ const SecretsPage = () => {
                     <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
                         <LockIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                            {namespaceFilter ? t('k8s.secrets.noSecretsInNs', { namespace: namespaceFilter }) : t('k8s.secrets.noSecrets')}
+                            {t('k8s.secrets.noSecrets')}
                         </Typography>
                         <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>
-                            {namespaceFilter ? t('k8s.secrets.tryDifferentNs') : t('k8s.secrets.createFirst')}
+                            {t('k8s.secrets.createFirst')}
                         </Typography>
-                        {!namespaceFilter && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); }}>{t('k8s.secrets.new')}</MyCustomButton>}
+                        {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); }}>{t('k8s.secrets.new')}</MyCustomButton>}
                     </Card>
                 </Fade>
             )}
@@ -193,8 +191,8 @@ const SecretsPage = () => {
                                 <Box sx={{ height: 3, background: `linear-gradient(90deg, ${tc.fg}, #9D174D)`, flexShrink: 0 }} />
                                 <CardContent sx={{ p: 2.5, flex: 1, '&:last-child': { pb: 2.5 } }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-                                        <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <LockIcon sx={{ color: '#D97706', fontSize: 18 }} />
+                                        <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <LockIcon sx={{ color: '#BE185D', fontSize: 18 }} />
                                         </Box>
                                         <Box sx={{ flex: 1 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -249,8 +247,12 @@ const SecretsPage = () => {
                                 </CardContent>
                                 <CardActions sx={{ px: 2.5, py: 1, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, bg: '#FAFAFA', gap: 0.5, mt: 'auto' }}>
                                     <Tooltip title={t('k8s.secrets.viewKeys')}><IconButton size="small" onClick={() => setDetailItem(isExpanded ? null : s)} sx={{ color: C.muted }}><VisibilityIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                                    <Tooltip title={t('common.edit')}><IconButton size="small" onClick={() => openEdit(s)} sx={{ color: '#BE185D' }}><ContentCopy sx={{ fontSize: 16 }} /></IconButton></Tooltip>
-                                    <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(s)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                    {allowManage && (
+                                        <>
+                                            <Tooltip title={t('common.edit')}><IconButton size="small" onClick={() => openEdit(s)} sx={{ color: '#BE185D' }}><ContentCopy sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                            <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(s)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                                        </>
+                                    )}
                                 </CardActions>
                             </Card>
                         );
@@ -263,10 +265,10 @@ const SecretsPage = () => {
             {/* Create/Edit Dialog */}
             <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setEditTarget(null); }} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ p: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderBottom: `1px solid ${C.border}` }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', borderBottom: `1px solid ${C.border}` }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <LockIcon sx={{ color: '#D97706', fontSize: 20 }} />
+                            <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'linear-gradient(135deg, #FCE7F3, #F9D7E7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <LockIcon sx={{ color: '#BE185D', fontSize: 20 }} />
                             </Box>
                             <Box>
                                 <Typography sx={{ fontWeight: 800, color: C.text }}>{editTarget ? t('k8s.secrets.edit') : t('k8s.secrets.new')}</Typography>
@@ -278,16 +280,13 @@ const SecretsPage = () => {
                 </DialogTitle>
                 <DialogContent sx={{ px: 3, pt: 2.5 }}>
                     <Box sx={{ display: 'grid', gap: 2 }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
-                            <TextField size="small" label={t('k8s.secrets.name')} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required disabled={!!editTarget} />
-                            <TextField size="small" label={t('k8s.secrets.namespace')} value={form.namespace} onChange={(e) => setForm((p) => ({ ...p, namespace: e.target.value }))} disabled={!!editTarget} />
-                        </Box>
+                        <TextField size="small" label={t('k8s.secrets.name')} value={form.name} onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} required disabled={!!editTarget} error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField size="small" select label={t('k8s.secrets.type')} value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
                             {SECRET_TYPES.map((ty) => <MenuItem key={ty} value={ty}>{ty}</MenuItem>)}
                         </TextField>
-                        <TextField size="small" label={t('k8s.secrets.labels')} value={form.labels} onChange={(e) => setForm((p) => ({ ...p, labels: e.target.value }))} placeholder="env=prod,team=backend" helperText="Comma-separated key=value" />
+                        <TextField size="small" label={t('k8s.secrets.labels')} value={form.labels} onChange={(e) => setForm((p) => ({ ...p, labels: e.target.value }))} placeholder="env=prod,team=backend" helperText={t('k8s.secrets.labelsHint')} />
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <LockIcon sx={{ fontSize: 14, color: '#D97706' }} /> {t('k8s.secrets.dataEntries')}
+                            <LockIcon sx={{ fontSize: 14, color: '#BE185D' }} /> {t('k8s.secrets.dataEntries')}
                         </Typography>
                         {form.keys.map((entry, i) => (
                             <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 1, alignItems: 'center' }}>

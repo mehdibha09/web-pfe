@@ -48,6 +48,7 @@ const BackupPage = () => {
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [createOpen, setCreateOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Backup | null>(null);
+    const [deleting, setDeleting] = useState(false);
     const [totalElements, setTotalElements] = useState(0);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
@@ -151,6 +152,7 @@ const BackupPage = () => {
 
     const handleDelete = async () => {
         if (!deleteTarget) return;
+        setDeleting(true);
         try {
             await backupService.remove(deleteTarget.id);
             toast.success(t('backups.deleted'));
@@ -158,6 +160,8 @@ const BackupPage = () => {
             await load(true);
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('backups.failedToDelete')));
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -282,7 +286,7 @@ const BackupPage = () => {
                 )}
             </div>
 
-            <DeleteDialog open={!!deleteTarget} name={t('backups.backup')} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />
+            <DeleteDialog open={!!deleteTarget} name={t('backups.backup')} deleting={deleting} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />
         </div>
     );
 };

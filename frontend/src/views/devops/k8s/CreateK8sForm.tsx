@@ -3,6 +3,7 @@ import {
     Accordion,
     AccordionDetails,
     AccordionSummary,
+    Alert,
     Box,
     Button,
     Card,
@@ -11,6 +12,7 @@ import {
     Collapse,
     FormControl,
     FormControlLabel,
+    FormHelperText,
     Grid,
     IconButton,
     InputLabel,
@@ -25,10 +27,13 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 import { getStoredUser } from '../../../services/authStorage';
 import type { EnvironmentResponse, ServiceEnvironmentResponse, ServiceResponse } from '../../../services/devopsService';
 import type { DeploymentTemplate, K8sDeploymentRequest, ProbeConfig } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';
+import { listQuotas } from '../../../services/cloudPricerService';
+import type { QuotaResponse } from '../../../services/cloudPricerService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import {
     C,
@@ -65,6 +70,14 @@ const defaultProbe = (overrides?: Partial<ProbeConfig>): ProbeConfig => ({
 const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, environments }: CreateK8sFormProps) => {
     const { t } = useTranslation();
     const [creating, setCreating] = useState(false);
+    const [serverError, setServerError] = useState('');
+    const {
+        errors,
+        setFieldError,
+        clearFieldError,
+        clearErrors,
+        fieldProps
+    } = useInlineErrors();
     const [templates, setTemplates] = useState<DeploymentTemplate[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [form, setForm] = useState<K8sDeploymentRequest>({
@@ -74,7 +87,6 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
         port: 80,
         targetPort: 80,
         protocol: 'TCP',
-        namespace: 'default',
         tenantId: '',
         serviceEnvironmentId: '',
         envVars: '',
@@ -93,13 +105,18 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
     });
     const [configMapVars, setConfigMapVars] = useState<EnvVar[]>([]);
     const [secretVars, setSecretVars] = useState<EnvVar[]>([]);
+    const [quotas, setQuotas] = useState<QuotaResponse[]>([]);
 
     useEffect(() => {
         if (open) {
             const user = getStoredUser();
             k8sService.listTemplates(user?.tenantId).then(setTemplates).catch(() => {});
+            listQuotas().then(setQuotas).catch(() => setQuotas([]));
         }
     }, [open]);
+
+    const hasActiveQuota = (seId: string): boolean =>
+        quotas.some((q) => q.serviceEnvironmentId === seId && q.isActive);
 
     const loadTemplate = (templateId: string) => {
         const tpl = templates.find((t) => t.id === templateId);
@@ -140,20 +157,22 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
         }));
 
     const handleCreate = async () => {
-        if (!form.name.trim()) return toast.error('Name is required');
-        if (!form.dockerImage.trim()) return toast.error('Docker image is required');
+        clearErrors();
+        setServerError('');
+        if (!form.name.trim()) return setFieldError('name', 'Name is required');
+        if (!form.dockerImage.trim()) return setFieldError('dockerImage', 'Docker image is required');
         if (!IMAGE_REGEX.test(form.dockerImage.trim()))
-            return toast.error('Invalid image format. Use name:tag (e.g. nginx:1.25)');
-        if (!form.serviceEnvironmentId) return toast.error('Select a Service Environment');
-        if (form.replicas < 0 || form.replicas > MAX_REPLICAS) return toast.error(`Replicas must be 0-${MAX_REPLICAS}`);
+            return setFieldError('dockerImage', 'Invalid image format. Use name:tag (e.g. nginx:1.25)');
+        if (!form.serviceEnvironmentId) return setFieldError('serviceEnvironmentId', 'Select a Service Environment');
+        if (form.replicas < 0 || form.replicas > MAX_REPLICAS) return setFieldError('replicas', `Replicas must be 0-${MAX_REPLICAS}`);
         if (form.cpuLimit && !CPU_REGEX.test(form.cpuLimit))
-            return toast.error('CPU limit must be in format like 500m or 0.5');
+            return setFieldError('cpuLimit', 'CPU limit must be in format like 500m or 0.5');
         if (form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit))
-            return toast.error('Memory limit must be in format like 512Mi or 2Gi');
+            return setFieldError('memoryLimit', 'Memory limit must be in format like 512Mi or 2Gi');
         if (form.cpuRequest && !CPU_REGEX.test(form.cpuRequest))
-            return toast.error('CPU request must be in format like 500m or 0.5');
+            return setFieldError('cpuRequest', 'CPU request must be in format like 500m or 0.5');
         if (form.memoryRequest && !MEMORY_REGEX.test(form.memoryRequest))
-            return toast.error('Memory request must be in format like 512Mi or 2Gi');
+            return setFieldError('memoryRequest', 'Memory request must be in format like 512Mi or 2Gi');
 
         setCreating(true);
         try {
@@ -178,7 +197,6 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                 port: 80,
                 targetPort: 80,
                 protocol: 'TCP',
-                namespace: 'default',
                 tenantId: '',
                 serviceEnvironmentId: '',
                 envVars: '',
@@ -200,7 +218,7 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
             onClose();
             onCreated();
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, 'Failed to create deployment'));
+            setServerError(getErrorMessage(e, 'Failed to create deployment'));
         } finally {
             setCreating(false);
         }
@@ -285,6 +303,11 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.createNewDeployment')}</Typography>
                         <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
+                    {serverError && (
+                        <Alert severity="error" onClose={() => setServerError('')} sx={{ borderRadius: 2, mb: 2, whiteSpace: 'pre-line' }}>
+                            {serverError}
+                        </Alert>
+                    )}
 
                     {templates.length > 0 && (
                         <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
@@ -296,7 +319,7 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                                     {templates.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.dockerImage})</MenuItem>)}
                                 </TextField>
                                 {selectedTemplate && (
-                                    <Button size="small" variant="outlined" onClick={() => { setSelectedTemplate(''); setForm({ name: '', dockerImage: '', replicas: 1, port: 80, targetPort: 80, protocol: 'TCP', namespace: 'default', tenantId: '', serviceEnvironmentId: '', envVars: '', secrets: '', cpuLimit: '', memoryLimit: '', cpuRequest: '', memoryRequest: '', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always', labels: '', livenessProbe: defaultProbe({ path: '/health', initialDelaySeconds: 30 }), readinessProbe: defaultProbe({ path: '/ready', initialDelaySeconds: 5, periodSeconds: 5 }), startupProbe: defaultProbe({ enabled: false, path: '/health', failureThreshold: 30, periodSeconds: 10 }) }); }}
+                                    <Button size="small" variant="outlined" onClick={() => { setSelectedTemplate(''); setForm({ name: '', dockerImage: '', replicas: 1, port: 80, targetPort: 80, protocol: 'TCP', tenantId: '', serviceEnvironmentId: '', envVars: '', secrets: '', cpuLimit: '', memoryLimit: '', cpuRequest: '', memoryRequest: '', imagePullPolicy: 'IfNotPresent', serviceType: 'ClusterIP', restartPolicy: 'Always', labels: '', livenessProbe: defaultProbe({ path: '/health', initialDelaySeconds: 30 }), readinessProbe: defaultProbe({ path: '/ready', initialDelaySeconds: 5, periodSeconds: 5 }), startupProbe: defaultProbe({ enabled: false, path: '/health', failureThreshold: 30, periodSeconds: 10 }) }); }}
                                         sx={{ whiteSpace: 'nowrap', color: C.muted, borderColor: C.border }}>Clear</Button>
                                 )}
                             </Box>
@@ -306,24 +329,22 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                     <Grid container spacing={2}>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth required label={t('common.name')} value={form.name}
-                                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder={t('k8s.namePlaceholder')} />
+                                onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} placeholder={t('k8s.namePlaceholder')} {...fieldProps('name')} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth required label={t('k8s.dockerImage')} value={form.dockerImage}
-                                onChange={(e) => setForm((p) => ({ ...p, dockerImage: e.target.value }))}
+                                onChange={(e) => { setForm((p) => ({ ...p, dockerImage: e.target.value })); clearFieldError('dockerImage'); }}
                                 placeholder={t('k8s.dockerPlaceholder')}
-                                error={form.dockerImage.length > 0 && !IMAGE_REGEX.test(form.dockerImage)}
-                                helperText={form.dockerImage.length > 0 && !IMAGE_REGEX.test(form.dockerImage)
-                                    ? t('k8s.dockerErrorFormat') : t('k8s.dockerHint')} />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <TextField fullWidth label={t('k8s.namespace')} value={form.namespace}
-                                onChange={(e) => setForm((p) => ({ ...p, namespace: e.target.value }))} placeholder="default" />
+                                error={Boolean(errors.dockerImage) || (form.dockerImage.length > 0 && !IMAGE_REGEX.test(form.dockerImage))}
+                                helperText={errors.dockerImage || (form.dockerImage.length > 0 && !IMAGE_REGEX.test(form.dockerImage)
+                                    ? t('k8s.dockerErrorFormat') : t('k8s.dockerHint'))} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth type="number" label={t('k8s.replicas')} value={form.replicas}
-                                onChange={(e) => setForm((p) => ({ ...p, replicas: Math.min(Number(e.target.value), MAX_REPLICAS) }))}
-                                slotProps={{ htmlInput: { min: 0, max: MAX_REPLICAS } }} helperText={t('k8s.maxReplicas', { max: MAX_REPLICAS })} />
+                                onChange={(e) => { setForm((p) => ({ ...p, replicas: Math.min(Number(e.target.value), MAX_REPLICAS) })); clearFieldError('replicas'); }}
+                                slotProps={{ htmlInput: { min: 0, max: MAX_REPLICAS } }}
+                                helperText={errors.replicas || t('k8s.maxReplicas', { max: MAX_REPLICAS })}
+                                error={Boolean(errors.replicas)} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <FormControl fullWidth>
@@ -375,41 +396,41 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.cpuRequest')} value={form.cpuRequest}
-                                onChange={(e) => setForm((p) => ({ ...p, cpuRequest: e.target.value }))}
+                                onChange={(e) => { setForm((p) => ({ ...p, cpuRequest: e.target.value })); clearFieldError('cpuRequest'); }}
                                 placeholder={t('k8s.cpuPlaceholder')}
-                                error={!!form.cpuRequest && !CPU_REGEX.test(form.cpuRequest)}
-                                helperText={!!form.cpuRequest && !CPU_REGEX.test(form.cpuRequest)
-                                    ? t('k8s.cpuErrorFormat') : t('k8s.cpuRequestHint')} />
+                                error={Boolean(errors.cpuRequest) || (!!form.cpuRequest && !CPU_REGEX.test(form.cpuRequest))}
+                                helperText={errors.cpuRequest || (!!form.cpuRequest && !CPU_REGEX.test(form.cpuRequest)
+                                    ? t('k8s.cpuErrorFormat') : t('k8s.cpuRequestHint'))} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.cpuLimit')} value={form.cpuLimit}
-                                onChange={(e) => setForm((p) => ({ ...p, cpuLimit: e.target.value }))}
+                                onChange={(e) => { setForm((p) => ({ ...p, cpuLimit: e.target.value })); clearFieldError('cpuLimit'); }}
                                 placeholder={t('k8s.cpuLimitPlaceholder')}
-                                error={!!form.cpuLimit && !CPU_REGEX.test(form.cpuLimit)}
-                                helperText={!!form.cpuLimit && !CPU_REGEX.test(form.cpuLimit)
-                                    ? t('k8s.cpuErrorFormat') : t('k8s.cpuLimitHint')} />
+                                error={Boolean(errors.cpuLimit) || (!!form.cpuLimit && !CPU_REGEX.test(form.cpuLimit))}
+                                helperText={errors.cpuLimit || (!!form.cpuLimit && !CPU_REGEX.test(form.cpuLimit)
+                                    ? t('k8s.cpuErrorFormat') : t('k8s.cpuLimitHint'))} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.memRequest')} value={form.memoryRequest}
-                                onChange={(e) => setForm((p) => ({ ...p, memoryRequest: e.target.value }))}
+                                onChange={(e) => { setForm((p) => ({ ...p, memoryRequest: e.target.value })); clearFieldError('memoryRequest'); }}
                                 placeholder={t('k8s.memPlaceholder')}
-                                error={!!form.memoryRequest && !MEMORY_REGEX.test(form.memoryRequest)}
-                                helperText={!!form.memoryRequest && !MEMORY_REGEX.test(form.memoryRequest)
-                                    ? t('k8s.memErrorFormat') : t('k8s.memRequestHint')} />
+                                error={Boolean(errors.memoryRequest) || (!!form.memoryRequest && !MEMORY_REGEX.test(form.memoryRequest))}
+                                helperText={errors.memoryRequest || (!!form.memoryRequest && !MEMORY_REGEX.test(form.memoryRequest)
+                                    ? t('k8s.memErrorFormat') : t('k8s.memRequestHint'))} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.memLimit')} value={form.memoryLimit}
-                                onChange={(e) => setForm((p) => ({ ...p, memoryLimit: e.target.value }))}
+                                onChange={(e) => { setForm((p) => ({ ...p, memoryLimit: e.target.value })); clearFieldError('memoryLimit'); }}
                                 placeholder={t('k8s.memLimitPlaceholder')}
-                                error={!!form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit)}
-                                helperText={!!form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit)
-                                    ? t('k8s.memErrorFormat') : t('k8s.memLimitHint')} />
+                                error={Boolean(errors.memoryLimit) || (!!form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit))}
+                                helperText={errors.memoryLimit || (!!form.memoryLimit && !MEMORY_REGEX.test(form.memoryLimit)
+                                    ? t('k8s.memErrorFormat') : t('k8s.memLimitHint'))} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <FormControl fullWidth required>
+                            <FormControl fullWidth required error={Boolean(errors.serviceEnvironmentId)}>
                                 <InputLabel>{t('k8s.serviceEnvironment')}</InputLabel>
                                 <Select value={form.serviceEnvironmentId} label={t('k8s.serviceEnvironment')}
-                                    onChange={(e) => setForm((p) => ({ ...p, serviceEnvironmentId: e.target.value }))}>
+                                    onChange={(e) => { setForm((p) => ({ ...p, serviceEnvironmentId: e.target.value })); clearFieldError('serviceEnvironmentId'); }}>
                                     {serviceEnvs.length === 0 && <MenuItem disabled value=""><em>{t('k8s.noServiceEnvs')}</em></MenuItem>}
                                     {serviceEnvs.map((se) => {
                                         const svc = services.find((s) => s.id === se.serviceId)?.name ?? se.serviceId.slice(0, 8);
@@ -417,7 +438,15 @@ const CreateK8sForm = ({ open, onClose, onCreated, serviceEnvs, services, enviro
                                         return <MenuItem key={se.id} value={se.id}>{svc} / {env}</MenuItem>;
                                     })}
                                 </Select>
+                                {errors.serviceEnvironmentId && <FormHelperText error>{errors.serviceEnvironmentId}</FormHelperText>}
                             </FormControl>
+                            {form.serviceEnvironmentId && !hasActiveQuota(form.serviceEnvironmentId) && (
+                                <Box sx={{ mt: 1, p: 1, borderRadius: 2, backgroundColor: C.brandLight, border: `1px solid ${C.brandLight}` }}>
+                                    <Typography sx={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>
+                                        {t('k8s.unlimitedQuotaNote')}
+                                    </Typography>
+                                </Box>
+                            )}
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <TextField fullWidth label={t('k8s.labels')} value={form.labels}

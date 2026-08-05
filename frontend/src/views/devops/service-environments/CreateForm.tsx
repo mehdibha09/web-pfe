@@ -23,6 +23,8 @@ type CreateFormProps = {
     envOptions: Option[];
     loading: boolean;
     onCreate: () => void;
+    errors?: Record<string, string>;
+    onFieldErrorClear?: (field: string) => void;
 };
 
 const CreateForm = ({
@@ -33,7 +35,9 @@ const CreateForm = ({
     serviceOptions,
     envOptions,
     loading,
-    onCreate
+    onCreate,
+    errors,
+    onFieldErrorClear
 }: CreateFormProps) => {
     const { t } = useTranslation();
     return (
@@ -70,8 +74,13 @@ const CreateForm = ({
                         select
                         label={t('serviceEnvs.service')}
                         value={serviceId}
-                        onChange={(e) => onServiceIdChange(e.target.value)}
+                        onChange={(e) => {
+                            onServiceIdChange(e.target.value);
+                            onFieldErrorClear?.('serviceId');
+                        }}
                         sx={inputSx}
+                        error={Boolean(errors?.serviceId)}
+                        helperText={errors?.serviceId}
                     >
                         <MenuItem value="">{t('serviceEnvs.selectService')}</MenuItem>
                         {serviceOptions.map((s) => (
@@ -84,8 +93,13 @@ const CreateForm = ({
                         select
                         label={t('serviceEnvs.environment')}
                         value={environmentId}
-                        onChange={(e) => onEnvironmentIdChange(e.target.value)}
+                        onChange={(e) => {
+                            onEnvironmentIdChange(e.target.value);
+                            onFieldErrorClear?.('environmentId');
+                        }}
                         sx={inputSx}
+                        error={Boolean(errors?.environmentId)}
+                        helperText={errors?.environmentId}
                     >
                         <MenuItem value="">{t('serviceEnvs.selectEnvironment')}</MenuItem>
                         {envOptions.map((e) => (

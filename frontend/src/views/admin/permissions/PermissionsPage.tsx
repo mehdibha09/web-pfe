@@ -1,21 +1,21 @@
 import {
-    Alert, Box, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent,
-    DialogContentText, DialogTitle, MenuItem, Stack, TextField, Typography
+    Alert, Box, Card, CardActions, CardContent, Chip, MenuItem, Stack, TextField, Typography
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import KeyIcon from '@mui/icons-material/VpnKey';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SearchIcon from '@mui/icons-material/Search';
 import ShieldIcon from '@mui/icons-material/Shield';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
-import { createPermission, deletePermission, listPermissions, listPermissionsPaginated, updatePermission } from '../../../services/adminService';
+import { listPermissions, updatePermission } from '../../../services/adminService';
+import { getStoredUser } from '../../../services/authStorage';
+import { canManagePermissions, canManageUsers } from '../../../services/authorization';
 import { C } from '../../../theme/tokens';
 
 type PermissionItem = {
@@ -69,35 +69,36 @@ const parsePermission = (permission: any): PermissionItem => {
     };
 };
 
+const categoryOf = (resource: string): string => {
+    const normalized = resource.trim().toUpperCase();
+    if (categories.includes(normalized)) return normalized;
+    const firstSegment = normalized.split('_')[0];
+    return categories.includes(firstSegment) ? firstSegment : 'GENERAL';
+};
+
 const PermissionsPage = () => {
     const { t } = useTranslation();
-    const [permissionKey, setPermissionKey] = useState('');
-    const [action, setAction] = useState('');
-    const [resource, setResource] = useState('');
-    const [category, setCategory] = useState('');
-    const [description, setDescription] = useState('');
+    const [currentUser] = useState(getStoredUser());
+    const allowEdit = canManagePermissions(currentUser!);
+    const canReadDescriptions = canManageUsers(currentUser!);
 
     const [search, setSearch] = useState('');
     const [filterAction, setFilterAction] = useState('');
     const [filterResource, setFilterResource] = useState('');
-
+    const [filterCategory, setFilterCategory] = useState('');
 
     const [permissions, setPermissions] = useState<PermissionItem[]>([]);
-    const [totalElements, setTotalElements] = useState(0);
     const [loading, setLoading] = useState(false);
     const [editingPermissionId, setEditingPermissionId] = useState<string | null>(null);
-    const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
-    const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
 
     const loadPermissions = async () => {
         setLoading(true);
         try {
-            const result = await listPermissionsPaginated(page, PAGE_SIZE);
-            setPermissions(result.items.map(parsePermission));
-            setTotalElements(result.total);
+            const result = await listPermissions();
+            setPermissions(result.map(parsePermission));
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('admin.permissions.failedToLoadPermissions');
             toast.error(message);
@@ -108,11 +109,17 @@ const PermissionsPage = () => {
 
     useEffect(() => {
         loadPermissions();
-    }, [page]);
+    }, []);
 
-    useEffect(() => {
-        if (page >= pageCount && page > 0) setPage(pageCount - 1);
-    }, [totalElements]);
+    const actionOptions = useMemo(
+        () => Array.from(new Set(permissions.map((permission) => permission.action))).sort(),
+        [permissions]
+    );
+
+    const resourceOptions = useMemo(
+        () => Array.from(new Set(permissions.map((permission) => permission.resource))).sort(),
+        [permissions]
+    );
 
     const filteredPermissions = useMemo(() => {
         return permissions.filter((permission) => {
@@ -126,58 +133,33 @@ const PermissionsPage = () => {
 
             const matchesAction = filterAction ? permission.action === filterAction : true;
             const matchesResource = filterResource ? permission.resource === filterResource : true;
+            const matchesCategory = filterCategory ? categoryOf(permission.resource) === filterCategory : true;
 
-            return matchesSearch && matchesAction && matchesResource;
+            return matchesSearch && matchesAction && matchesResource && matchesCategory;
         });
-    }, [filterAction, filterResource, permissions, search]);
+    }, [filterAction, filterCategory, filterResource, permissions, search]);
 
-    const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
+    useEffect(() => {
+        setPage(0);
+    }, [filterAction, filterCategory, filterResource, search]);
 
-    const handleCreatePermission = async () => {
-        if (!permissionKey.trim()) {
-            toast.error(t('admin.permissions.permissionKeyRequired'));
-            return;
-        }
+    const pageCount = Math.max(1, Math.ceil(filteredPermissions.length / PAGE_SIZE));
+    const currentPageItems = filteredPermissions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
-        const finalAction = action.trim() || 'READ';
-        const finalResource = resource.trim() || 'GENERAL';
-        const generatedName = permissionKey.trim() || `${finalAction}_${finalResource}`;
-        const generatedDescription =
-            description.trim() || `${finalAction} access on ${finalResource} (${category || 'AUTH'})`;
-
-        try {
-            await createPermission({
-                name: generatedName,
-                description: generatedDescription
-            });
-
-            setPermissionKey('');
-            setAction('');
-            setResource('');
-            setCategory('');
-            setDescription('');
-            toast.success(t('admin.permissions.permissionCreated'));
-            await loadPermissions();
-        } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.permissions.failedToCreatePermission');
-            toast.error(message);
-        }
+    const resetFilters = () => {
+        setSearch('');
+        setFilterAction('');
+        setFilterResource('');
+        setFilterCategory('');
     };
 
     const handleUpdatePermission = async (id: string) => {
-        if (!editName.trim()) {
-            toast.error(t('admin.permissions.permissionNameRequired'));
-            return;
-        }
-
         try {
             await updatePermission(id, {
-                name: editName.trim(),
                 description: editDescription.trim() || undefined
             });
             toast.success(t('admin.permissions.permissionUpdated'));
             setEditingPermissionId(null);
-            setEditName('');
             setEditDescription('');
             await loadPermissions();
         } catch (error: any) {
@@ -188,25 +170,12 @@ const PermissionsPage = () => {
 
     const startEditPermission = (permission: PermissionItem) => {
         setEditingPermissionId(permission.id);
-        setEditName(permission.key);
         setEditDescription(permission.description);
     };
 
     const cancelEditPermission = () => {
         setEditingPermissionId(null);
-        setEditName('');
         setEditDescription('');
-    };
-
-    const handleRemovePermission = async (id: string) => {
-        try {
-            await deletePermission(id);
-            toast.success(t('admin.permissions.permissionDeleted'));
-            await loadPermissions();
-        } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('admin.permissions.failedToDeletePermission');
-            toast.error(message);
-        }
     };
 
     const actionGradient = (act: string) => {
@@ -259,7 +228,7 @@ const PermissionsPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                 {[
-                    { label: t('admin.permissions.totalPermissions'), value: totalElements, icon: <ShieldIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
+                    { label: t('admin.permissions.totalPermissions'), value: permissions.length, icon: <ShieldIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
                     { label: t('admin.permissions.matchingFilters'), value: filteredPermissions.length, icon: <FilterListIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' },
                     { label: t('admin.permissions.latestKey'), value: permissions[permissions.length - 1]?.key || '\u2014', icon: <KeyIcon />, gradient: 'linear-gradient(135deg, #10B981, #34D399)' }
                 ].map((stat) => (
@@ -288,150 +257,70 @@ const PermissionsPage = () => {
                 ))}
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2, mb: 3 }}>
-                <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible' }}>
-                    <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                    <CardContent sx={{ pt: 3 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <AddIcon sx={{ color: C.brand }} />
-                            {t('admin.permissions.createPermission')}
-                        </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
-                            <TextField
-                                label={t('admin.permissions.permissionKey')}
-                                value={permissionKey}
-                                onChange={(event) => setPermissionKey(event.target.value)}
-                                size="small"
-                            />
-                            <TextField
-                                select
-                                label={t('admin.permissions.action')}
-                                value={action}
-                                onChange={(event) => setAction(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.select')}</MenuItem>
-                                <MenuItem value="CREATE">{t('admin.permissions.create')}</MenuItem>
-                                <MenuItem value="READ">{t('admin.permissions.read')}</MenuItem>
-                                <MenuItem value="UPDATE">{t('admin.permissions.update')}</MenuItem>
-                                <MenuItem value="DELETE">{t('admin.permissions.delete')}</MenuItem>
-                                <MenuItem value="MANAGE">{t('admin.permissions.manage')}</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                label={t('admin.permissions.resource')}
-                                value={resource}
-                                onChange={(event) => setResource(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.select')}</MenuItem>
-                                <MenuItem value="USER">{t('admin.permissions.user')}</MenuItem>
-                                <MenuItem value="ROLE">{t('admin.permissions.role')}</MenuItem>
-                                <MenuItem value="PERMISSION">{t('admin.permissions.permission')}</MenuItem>
-                                <MenuItem value="TENANT">{t('admin.permissions.tenant')}</MenuItem>
-                                <MenuItem value="SESSION">{t('admin.permissions.session')}</MenuItem>
-                                <MenuItem value="AUDIT">{t('admin.permissions.audit')}</MenuItem>
-                                <MenuItem value="SERVICE">{t('admin.permissions.service')}</MenuItem>
-                                <MenuItem value="ENVIRONMENT">{t('admin.permissions.environment')}</MenuItem>
-                                <MenuItem value="DEPLOYMENT">{t('admin.permissions.deployment')}</MenuItem>
-                                <MenuItem value="VM">{t('admin.permissions.vm')}</MenuItem>
-                                <MenuItem value="BACKUP">{t('admin.permissions.backup')}</MenuItem>
-                                <MenuItem value="K8S">{t('admin.permissions.k8s')}</MenuItem>
-                                <MenuItem value="NOTIFICATION">{t('admin.permissions.notification')}</MenuItem>
-                                <MenuItem value="METRIC">{t('admin.permissions.metric')}</MenuItem>
-                                <MenuItem value="COST">{t('admin.permissions.cost')}</MenuItem>
-                                <MenuItem value="QUOTA">{t('admin.permissions.quota')}</MenuItem>
-                                <MenuItem value="ALERT">{t('admin.permissions.alert')}</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                label={t('admin.permissions.category')}
-                                value={category}
-                                onChange={(event) => setCategory(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.select')}</MenuItem>
-                                {categories.map((item) => (
-                                    <MenuItem key={item} value={item}>
-                                        {item}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                            <TextField
-                                label={t('admin.permissions.description')}
-                                value={description}
-                                onChange={(event) => setDescription(event.target.value)}
-                                size="small"
-                                sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' } }}
-                            />
-                            <Box sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button onClick={handleCreatePermission} startIcon={<AddIcon />}>{t('common.create')}</Button>
-                            </Box>
-                        </Box>
-                    </CardContent>
-                </Card>
-
-                <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible' }}>
-                    <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-                    <CardContent sx={{ pt: 3 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Card sx={{ borderRadius: 3, position: 'relative', overflow: 'visible', mb: 3 }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <CardContent sx={{ pt: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <SearchIcon sx={{ color: '#0EA5E9' }} />
                             {t('admin.permissions.filterPermissions')}
                         </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                            <TextField
-                                label={t('common.search')}
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder={t('admin.permissions.searchPlaceholder')}
-                                size="small"
-                                sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' } }}
-                            />
-                            <TextField
-                                select
-                                label={t('admin.permissions.actionFilter')}
-                                value={filterAction}
-                                onChange={(event) => setFilterAction(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.all')}</MenuItem>
-                                <MenuItem value="CREATE">{t('admin.permissions.create')}</MenuItem>
-                                <MenuItem value="READ">{t('admin.permissions.read')}</MenuItem>
-                                <MenuItem value="UPDATE">{t('admin.permissions.update')}</MenuItem>
-                                <MenuItem value="DELETE">{t('admin.permissions.delete')}</MenuItem>
-                                <MenuItem value="MANAGE">{t('admin.permissions.manage')}</MenuItem>
-                            </TextField>
-                            <TextField
-                                select
-                                label={t('admin.permissions.resourceFilter')}
-                                value={filterResource}
-                                onChange={(event) => setFilterResource(event.target.value)}
-                                size="small"
-                            >
-                                <MenuItem value="">{t('common.all')}</MenuItem>
-                                <MenuItem value="USER">{t('admin.permissions.user')}</MenuItem>
-                                <MenuItem value="ROLE">{t('admin.permissions.role')}</MenuItem>
-                                <MenuItem value="PERMISSION">{t('admin.permissions.permission')}</MenuItem>
-                                <MenuItem value="TENANT">{t('admin.permissions.tenant')}</MenuItem>
-                                <MenuItem value="SESSION">{t('admin.permissions.session')}</MenuItem>
-                                <MenuItem value="AUDIT">{t('admin.permissions.audit')}</MenuItem>
-                                <MenuItem value="SERVICE">{t('admin.permissions.service')}</MenuItem>
-                                <MenuItem value="ENVIRONMENT">{t('admin.permissions.environment')}</MenuItem>
-                                <MenuItem value="DEPLOYMENT">{t('admin.permissions.deployment')}</MenuItem>
-                                <MenuItem value="VM">{t('admin.permissions.vm')}</MenuItem>
-                                <MenuItem value="BACKUP">{t('admin.permissions.backup')}</MenuItem>
-                                <MenuItem value="K8S">{t('admin.permissions.k8s')}</MenuItem>
-                                <MenuItem value="NOTIFICATION">{t('admin.permissions.notification')}</MenuItem>
-                                <MenuItem value="METRIC">{t('admin.permissions.metric')}</MenuItem>
-                                <MenuItem value="COST">{t('admin.permissions.cost')}</MenuItem>
-                                <MenuItem value="QUOTA">{t('admin.permissions.quota')}</MenuItem>
-                                <MenuItem value="ALERT">{t('admin.permissions.alert')}</MenuItem>
-                                <MenuItem value="GENERAL">{t('admin.permissions.general')}</MenuItem>
-                            </TextField>
-                        </Box>
-                    </CardContent>
-                </Card>
-            </Box>
+                        <Button
+                            onClick={resetFilters}
+                            startIcon={<RestartAltIcon />}
+                            variant="text"
+                            sx={{ background: 'transparent', '&:hover': { background: 'rgba(14,165,233,0.08)' } }}
+                        >
+                            {t('admin.permissions.resetFilters')}
+                        </Button>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
+                        <TextField
+                            label={t('common.search')}
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder={t('admin.permissions.searchPlaceholder')}
+                            size="small"
+                        />
+                        <TextField
+                            select
+                            label={t('admin.permissions.actionFilter')}
+                            value={filterAction}
+                            onChange={(event) => setFilterAction(event.target.value)}
+                            size="small"
+                        >
+                            <MenuItem value="">{t('common.all')}</MenuItem>
+                            {actionOptions.map((option) => (
+                                <MenuItem key={option} value={option}>{option}</MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            select
+                            label={t('admin.permissions.resourceFilter')}
+                            value={filterResource}
+                            onChange={(event) => setFilterResource(event.target.value)}
+                            size="small"
+                        >
+                            <MenuItem value="">{t('common.all')}</MenuItem>
+                            {resourceOptions.map((option) => (
+                                <MenuItem key={option} value={option}>{option}</MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            select
+                            label={t('admin.permissions.categoryFilter')}
+                            value={filterCategory}
+                            onChange={(event) => setFilterCategory(event.target.value)}
+                            size="small"
+                        >
+                            <MenuItem value="">{t('common.all')}</MenuItem>
+                            {categories.map((option) => (
+                                <MenuItem key={option} value={option}>{option}</MenuItem>
+                            ))}
+                        </TextField>
+                    </Box>
+                </CardContent>
+            </Card>
 
             {loading ? (
                 <LoadingSpinner variant="block" />
@@ -452,7 +341,7 @@ const PermissionsPage = () => {
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
-                    {filteredPermissions.map((permission) => (
+                    {currentPageItems.map((permission) => (
                         <Card
                             key={permission.id}
                             sx={{
@@ -476,12 +365,9 @@ const PermissionsPage = () => {
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         {editingPermissionId === permission.id ? (
                                             <Box sx={{ display: 'grid', gap: 1 }}>
-                                                <TextField
-                                                    size="small"
-                                                    label={t('admin.permissions.permissionName')}
-                                                    value={editName}
-                                                    onChange={(event) => setEditName(event.target.value)}
-                                                />
+                                                <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, wordBreak: 'break-all' }}>
+                                                    {permission.key}
+                                                </Typography>
                                                 <TextField
                                                     size="small"
                                                     label={t('admin.permissions.description')}
@@ -495,12 +381,14 @@ const PermissionsPage = () => {
                                             </Box>
                                         ) : (
                                             <>
-                                                <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
+                                                <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, wordBreak: 'break-all' }}>
                                                     {permission.key}
                                                 </Typography>
-                                                <Typography sx={{ color: C.muted }}>
-                                                    {permission.description || '-'}
-                                                </Typography>
+                                                {canReadDescriptions && (
+                                                    <Typography sx={{ color: C.muted }}>
+                                                        {permission.description || '-'}
+                                                    </Typography>
+                                                )}
                                             </>
                                         )}
                                     </Box>
@@ -526,42 +414,28 @@ const PermissionsPage = () => {
                                             variant="outlined"
                                             sx={{ fontWeight: 600, borderColor: C.border, color: '#475569' }}
                                         />
+                                        {categoryOf(permission.resource) !== permission.resource && (
+                                        <Chip
+                                            label={categoryOf(permission.resource)}
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{ fontWeight: 600, borderColor: C.border, color: '#475569' }}
+                                        />
+                                        )}
                                     </Stack>
                                 )}
                             </CardContent>
-                            {editingPermissionId !== permission.id && (
+                            {editingPermissionId !== permission.id && allowEdit && (
                                 <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}` }}>
                                     <Button onClick={() => startEditPermission(permission)} startIcon={<EditIcon />}>{t('common.edit')}</Button>
-                                    <Button onClick={() => setDeleteDialogId(permission.id)} startIcon={<DeleteOutlineIcon />} variant="text" sx={{ color: '#DC2626', background: 'transparent', '&:hover': { background: 'rgba(220,38,38,0.08)' } }}>{t('common.delete')}</Button>
                                 </CardActions>
                             )}
                         </Card>
                     ))}
                 </Box>
-                <PaginationBar page={page + 1} pageCount={pageCount} total={totalElements} onPageChange={(p) => setPage(p - 1)} />
+                <PaginationBar page={page + 1} pageCount={pageCount} total={filteredPermissions.length} onPageChange={(p) => setPage(p - 1)} />
                 </>
             )}
-
-            <Dialog open={deleteDialogId !== null} onClose={() => setDeleteDialogId(null)}>
-                <DialogTitle>{t('admin.permissions.confirmDeleteTitle')}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        {t('admin.permissions.confirmDeleteBody')}
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteDialogId(null)}>{t('common.cancel')}</Button>
-                    <Button
-                        onClick={async () => {
-                            if (deleteDialogId) await handleRemovePermission(deleteDialogId);
-                            setDeleteDialogId(null);
-                        }}
-                        sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}
-                    >
-                        {t('common.delete')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 };

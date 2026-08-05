@@ -33,6 +33,8 @@ import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStoredUser } from '../../../services/authStorage';
 import { canManageNamespaces } from '../../../services/authorization';
 import PaginationBar from '../../../components/PaginationBar';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
     Active: { bg: '#E0F1E6', color: '#2E7A4F' },
@@ -41,6 +43,7 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 const NamespacesPage = () => {
     const { t } = useTranslation();
+    const { errors, setFieldError, clearFieldError } = useInlineErrors();
     const [namespaces, setNamespaces] = useState<K8sNamespaceResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -75,13 +78,17 @@ const NamespacesPage = () => {
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const handleCreate = async () => {
-        if (!newName.trim()) return toast.error(t('common.error'));
+        if (!newName.trim()) {
+            setFieldError('name', t('k8s.namespaces.nameRequired'));
+            return;
+        }
         setCreating(true);
         try {
             await k8sService.createNamespace({ name: newName.trim() });
             toast.success(t('common.success'));
             setCreateOpen(false);
             setNewName('');
+            clearFieldError('name');
             await load();
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('common.error')));
@@ -113,11 +120,29 @@ const NamespacesPage = () => {
                     <Typography sx={{ color: C.muted }}>{t('k8s.namespaces.subtitle')}</Typography>
                 </Box>
                 {allowManage && (
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setCreateOpen(true); clearFieldError('name'); }} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
                     {t('k8s.namespaces.create')}
                 </Button>
                 )}
             </Box>
+
+            {currentUser && (
+                <Card sx={{ borderRadius: 3, mb: 3, background: 'linear-gradient(135deg, #FCE7F3, #FDEAF2)', border: `1px solid #F9A8C9` }}>
+                    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 38, height: 38, borderRadius: 2, background: 'linear-gradient(135deg, #E4477D, #BE185D)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <AccountTreeIcon sx={{ color: '#fff', fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontWeight: 700, color: C.text }}>
+                                {t('k8s.namespaces.currentTenant')}
+                            </Typography>
+                            <Typography sx={{ color: C.muted, fontSize: 14 }}>
+                                {currentUser.tenantName}
+                            </Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
+            )}
 
             {!loading && namespaces.length > 0 && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 3 }}>
@@ -228,7 +253,7 @@ const NamespacesPage = () => {
                             {namespaces.length === 0 ? t('k8s.namespaces.createFirst') : t('k8s.namespaces.adjustSearch')}
                         </Typography>
                         {namespaces.length === 0 && (
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setCreateOpen(true); clearFieldError('name'); }} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
                                 {t('k8s.namespaces.create')}
                             </Button>
                         )}
@@ -309,8 +334,10 @@ const NamespacesPage = () => {
                         fullWidth
                         label={t('common.name')}
                         value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
+                        onChange={(e) => { setNewName(e.target.value); clearFieldError('name'); }}
                         placeholder={t('k8s.namespaces.create')}
+                        error={Boolean(errors.name)}
+                        helperText={errors.name}
                         sx={{ mt: 1.5 }}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
                     />

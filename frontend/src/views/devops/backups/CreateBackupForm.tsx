@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import AddIcon from '@mui/icons-material/Add';
-import { toast } from 'react-toastify';
 import type { Vm } from '../../../services/interfaces/vm';
 import type { ServiceEnvironment } from '../../../services/interfaces/serviceEnvironment';
 import { backupService } from '../../../services/backupService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { C } from '../../../theme/tokens';
+import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 interface CreateBackupFormProps {
     vms: Vm[];
@@ -25,12 +25,12 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
     const { t } = useTranslation();
 
     const FREQUENCIES = [
-        { value: '', label: t('backups.manualOnly') },
         { value: 'daily', label: t('backups.daily') },
         { value: 'weekly', label: t('backups.weekly') },
         { value: 'monthly', label: t('backups.monthly') },
     ];
     const [creating, setCreating] = useState(false);
+    const { errors, setServerError, clearFieldError } = useInlineErrors();
     const [selectedVmId, setSelectedVmId] = useState('');
     const [serviceEnvId, setServiceEnvId] = useState('');
     const [notes, setNotes] = useState('');
@@ -40,8 +40,14 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
     const [maintenanceWindow, setMaintenanceWindow] = useState('02:00');
 
     const handleCreate = async () => {
-        if (!selectedVmId) return toast.error(t('backups.selectVm'));
-        if (!serviceEnvId) return toast.error(t('backups.selectServiceEnv'));
+        if (!selectedVmId) {
+            setServerError({ message: t('backups.selectVm') }, 'vm');
+            return;
+        }
+        if (!serviceEnvId) {
+            setServerError({ message: t('backups.selectServiceEnv') }, 'serviceEnv');
+            return;
+        }
 
         setCreating(true);
         try {
@@ -63,8 +69,10 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
             setRetentionDays(30);
             setMaintenanceWindow('02:00');
             onCreated();
+            clearFieldError('vm');
+            clearFieldError('serviceEnv');
         } catch (e: unknown) {
-            toast.error(getErrorMessage(e, t('backups.failedToCreate')));
+            setServerError(e, 'serviceEnv', getErrorMessage(e, t('backups.failedToCreate')));
         } finally {
             setCreating(false);
         }
@@ -73,9 +81,18 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
     return (
         <>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 2 }}>
-                <FormControl size="medium" sx={{ minWidth: 180 }}>
+                <FormControl size="medium" sx={{ minWidth: 180 }} error={Boolean(errors.vm)}>
                     <InputLabel id="vm-select-label">{t('backups.vm')}</InputLabel>
-                    <Select labelId="vm-select-label" value={selectedVmId} label={t('backups.vm')} onChange={(e) => setSelectedVmId(e.target.value)}>
+                    <Select labelId="vm-select-label" value={selectedVmId} label={t('backups.vm')} onChange={(e) => {
+                        const vmId = e.target.value;
+                        setSelectedVmId(vmId);
+                        clearFieldError('vm');
+                        const vm = vms.find((v) => v.id === vmId);
+                        if (vm) {
+                            setServiceEnvId(vm.serviceEnvironmentId);
+                            clearFieldError('serviceEnv');
+                        }
+                    }}>
                         {vms.map((vm) => (
                             <MenuItem key={vm.id} value={vm.id}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -88,11 +105,12 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
                         ))}
                         {vms.length === 0 && <MenuItem disabled value="">{t('backups.noVmsAvailable')}</MenuItem>}
                     </Select>
+                    {errors.vm && <FormHelperText error>{errors.vm}</FormHelperText>}
                 </FormControl>
 
-                <FormControl size="medium" sx={{ minWidth: 180 }}>
+                <FormControl size="medium" sx={{ minWidth: 180 }} error={Boolean(errors.serviceEnv)}>
                     <InputLabel id="env-select-label">{t('backups.serviceEnvironment')}</InputLabel>
-                    <Select labelId="env-select-label" value={serviceEnvId} label={t('backups.serviceEnvironment')} onChange={(e) => setServiceEnvId(e.target.value)}>
+                    <Select labelId="env-select-label" value={serviceEnvId} label={t('backups.serviceEnvironment')} onChange={(e) => { setServiceEnvId(e.target.value); clearFieldError('serviceEnv'); }}>
                         {serviceEnvs.map((env) => {
                             const svcName = serviceNameById[env.serviceId] ?? env.serviceId.slice(0, 8);
                             const envName = envNameById[env.environmentId] ?? env.environmentId.slice(0, 8);
@@ -107,11 +125,16 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
                         })}
                         {serviceEnvs.length === 0 && <MenuItem disabled value="">{t('backups.noEnvironmentsAvailable')}</MenuItem>}
                     </Select>
+                    {errors.serviceEnv && <FormHelperText error>{errors.serviceEnv}</FormHelperText>}
                 </FormControl>
 
                 <FormControl size="medium">
                     <InputLabel id="type-select-label">{t('backups.type')}</InputLabel>
-                    <Select labelId="type-select-label" value={backupType} label={t('backups.type')} onChange={(e) => setBackupType(e.target.value)}>
+                    <Select labelId="type-select-label" value={backupType} label={t('backups.type')} onChange={(e) => {
+                        const type = e.target.value;
+                        setBackupType(type);
+                        if (type !== 'AUTOMATIC') setFrequency('');
+                    }}>
                         {TYPES.map((t) => (
                             <MenuItem key={t} value={t}>{t}</MenuItem>
                         ))}
@@ -129,6 +152,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
                 />
             </Box>
 
+            {backupType === 'AUTOMATIC' && (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, mt: 2 }}>
                 <FormControl size="medium">
                     <InputLabel id="freq-label">{t('backups.schedule')}</InputLabel>
@@ -156,6 +180,7 @@ const CreateBackupForm = ({ vms, serviceEnvs, serviceNameById, envNameById, onCr
                     disabled={!frequency}
                 />
             </Box>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
                 <Button variant="outlined" onClick={onCancel} sx={{ color: C.subtle, borderColor: C.border, '&:hover': { borderColor: C.muted, backgroundColor: '#F9FAFB' } }}>{t('common.cancel')}</Button>
                 <Button

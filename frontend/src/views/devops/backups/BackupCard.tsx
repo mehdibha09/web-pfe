@@ -122,7 +122,7 @@ const BackupCard = ({ backup, vmNameById, seDisplayNameById, allowManage, onRest
                 </Box>
             </CardContent>
             <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}` }}>
-                {backup.status === 'COMPLETED' && (
+                {backup.status === 'COMPLETED' && allowManage && (
                     <Box component="button" onClick={() => onRestore(backup.id)} sx={{ fontSize: 12, fontWeight: 700, color: C.brandDark, border: `1px solid ${C.border}`, borderRadius: 2, px: 1.5, py: 0.5, backgroundColor: C.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { backgroundColor: C.brandLight, borderColor: C.brandDark } }}>
                         <RestoreAltIcon sx={{ fontSize: 14 }} />
                         {t('backups.restore')}
