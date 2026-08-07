@@ -9,16 +9,17 @@ pipeline {
     }
 
     environment {
-        // TEST MODE: Force all stages to run (set to 'true' for testing, use change detection in production)
-        CHANGED_AUTH       = 'true'
-        CHANGED_PRICER     = 'true'
-        CHANGED_GATEWAY    = 'true'
-        CHANGED_FRONTEND   = 'true'
-        CHANGED_K8S        = 'true'
-        CHANGED_DEPLOYMENT = 'true'
-        CHANGED_BACKEND    = 'true'
-        CHANGED_ANY_IMAGE  = 'true'
-        CHANGED_DEPLOY     = 'true'
+        // CHANGE DETECTION: initialised to 'false', Detect Changes stage
+        // sets them based on the diff. Override per service to force a rebuild.
+        CHANGED_AUTH       = 'false'
+        CHANGED_PRICER     = 'false'
+        CHANGED_GATEWAY    = 'false'
+        CHANGED_FRONTEND   = 'false'
+        CHANGED_K8S        = 'false'
+        CHANGED_DEPLOYMENT = 'false'
+        CHANGED_BACKEND    = 'false'
+        CHANGED_ANY_IMAGE  = 'false'
+        CHANGED_DEPLOY     = 'false'
 
         // Kubernetes rollout timeout (e.g. '600s', '10m')
         K8S_ROLLOUT_TIMEOUT = '600s'
@@ -34,52 +35,50 @@ pipeline {
         }
 
         // ═══════════════════════════════════════════════════════════
-        // Détection des changements — désactivée temporairement
-        // Les CHANGED_* sont forcées à 'true' dans environment{}
+        // Détection des changements
         // ═══════════════════════════════════════════════════════════
-        //
-        // stage('Detect Changes') {
-        //     steps {
-        //         script {
-        //             def changedFiles = sh(
-        //                 script: '''
-        //                     git diff --name-only HEAD~1 HEAD 2>/dev/null \
-        //                     || git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD
-        //                 ''',
-        //                 returnStdout: true
-        //             ).trim()
-        //
-        //             echo "Fichiers modifiés :\n${changedFiles}"
-        //
-        //             env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
-        //             env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/')   ? 'true' : 'false'
-        //             env.CHANGED_GATEWAY    = changedFiles.contains('gateway/')       ? 'true' : 'false'
-        //             env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')      ? 'true' : 'false'
-        //             env.CHANGED_K8S        = changedFiles.contains('k8s/')           ? 'true' : 'false'
-        //             env.CHANGED_DEPLOYMENT = changedFiles.contains('deployment/') ? 'true' : 'false'
-        //
-        //             env.CHANGED_BACKEND = (
-        //                 env.CHANGED_AUTH       == 'true' ||
-        //                 env.CHANGED_PRICER     == 'true' ||
-        //                 env.CHANGED_GATEWAY    == 'true' ||
-        //                 env.CHANGED_DEPLOYMENT == 'true'
-        //             ) ? 'true' : 'false'
-        //
-        //             env.CHANGED_ANY_IMAGE = (
-        //                 env.CHANGED_AUTH       == 'true' ||
-        //                 env.CHANGED_PRICER     == 'true' ||
-        //                 env.CHANGED_GATEWAY    == 'true' ||
-        //                 env.CHANGED_DEPLOYMENT == 'true' ||
-        //                 env.CHANGED_FRONTEND   == 'true'
-        //             ) ? 'true' : 'false'
-        //
-        //             env.CHANGED_DEPLOY = (
-        //                 env.CHANGED_ANY_IMAGE == 'true' ||
-        //                 env.CHANGED_K8S       == 'true'
-        //             ) ? 'true' : 'false'
-        //         }
-        //     }
-        // }
+        stage('Detect Changes') {
+            steps {
+                script {
+                    def changedFiles = sh(
+                        script: '''
+                            git diff --name-only HEAD~1 HEAD 2>/dev/null \
+                            || git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Fichiers modifiés :\n${changedFiles}"
+
+                    env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
+                    env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/')   ? 'true' : 'false'
+                    env.CHANGED_GATEWAY    = changedFiles.contains('gateway/')       ? 'true' : 'false'
+                    env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')      ? 'true' : 'false'
+                    env.CHANGED_K8S        = changedFiles.contains('k8s/')           ? 'true' : 'false'
+                    env.CHANGED_DEPLOYMENT = changedFiles.contains('deployment/') ? 'true' : 'false'
+
+                    env.CHANGED_BACKEND = (
+                        env.CHANGED_AUTH       == 'true' ||
+                        env.CHANGED_PRICER     == 'true' ||
+                        env.CHANGED_GATEWAY    == 'true' ||
+                        env.CHANGED_DEPLOYMENT == 'true'
+                    ) ? 'true' : 'false'
+
+                    env.CHANGED_ANY_IMAGE = (
+                        env.CHANGED_AUTH       == 'true' ||
+                        env.CHANGED_PRICER     == 'true' ||
+                        env.CHANGED_GATEWAY    == 'true' ||
+                        env.CHANGED_DEPLOYMENT == 'true' ||
+                        env.CHANGED_FRONTEND   == 'true'
+                    ) ? 'true' : 'false'
+
+                    env.CHANGED_DEPLOY = (
+                        env.CHANGED_ANY_IMAGE == 'true' ||
+                        env.CHANGED_K8S       == 'true'
+                    ) ? 'true' : 'false'
+                }
+            }
+        }
 
         // ─────────────────────────────────────────────
 stage('Build') {
@@ -124,173 +123,178 @@ stage('Build') {
             }
         }
 
-        // stage('Test') {
-        //     steps {
-        //         script {
+        stage('Test') {
+            steps {
+                script {
 
-        //             if (env.CHANGED_AUTH == 'true') {
-        //                 dir('authService') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
+                    if (env.CHANGED_AUTH == 'true') {
+                        dir('authService') {
+                            sh 'mvn test'
+                        }
+                    }
 
-        //             if (env.CHANGED_PRICER == 'true') {
-        //                 dir('cloudPricer') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
+                    if (env.CHANGED_PRICER == 'true') {
+                        dir('cloudPricer') {
+                            sh 'mvn test'
+                        }
+                    }
 
-        //             if (env.CHANGED_DASHBOARD == 'true') {
-        //                 dir('dashboard') {
-        //                     sh 'mvn test'
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+                    if (env.CHANGED_DEPLOYMENT == 'true') {
+                        dir('deployment') {
+                            sh 'mvn test'
+                        }
+                    }
+
+                    if (env.CHANGED_GATEWAY == 'true') {
+                        dir('gateway') {
+                            sh 'mvn test'
+                        }
+                    }
+                }
+            }
+        }
 
         
 
         // ─────────────────────────────────────────────
-        // stage('Start Security VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         sh '''
-        //             set -x
-        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-        //             if echo "$STATE" | grep -q poweroff; then
-        //                 echo "Démarrage Security VM"
-        //                 VBoxManage startvm securite --type headless
-        //                 sleep 15
-        //             else
-        //                 echo "Security VM déjà en cours"
-        //             fi
-        //             '
-        //         '''
-        //     }
-        // }
+        stage('Start Security VM') {
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                sh '''
+                    set -x
+                    ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+                        -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+                    STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+                    if echo "$STATE" | grep -q poweroff; then
+                        echo "Démarrage Security VM"
+                        VBoxManage startvm securite --type headless
+                        sleep 15
+                    else
+                        echo "Security VM déjà en cours"
+                    fi
+                    '
+                '''
+            }
+        }
 
         // ─────────────────────────────────────────────
-        // stage('Wait for VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         echo 'Attente 60 secondes pour le démarrage de la Security VM...'
-        //         sleep(time: 60, unit: 'SECONDS')
-        //     }
-        // }
+        stage('Wait for VM') {
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                echo 'Attente 60 secondes pour le démarrage de la Security VM...'
+                sleep(time: 60, unit: 'SECONDS')
+            }
+        }
 
         // ─────────────────────────────────────────────
-        // stage('Sonar Analysis') {
-        //     when { expression { env.CHANGED_BACKEND == 'true' } }
+        stage('Sonar Analysis') {
+            when { expression { env.CHANGED_BACKEND == 'true' } }
 
-        //     stages {
-        //         stage('Sonar authService') {
-        //             when { expression { env.CHANGED_AUTH == 'true' } }
-        //             steps {
-        //                 dir('authService') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate authService failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar authService : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar authService : échec d'exécution." }
-        //             }
-        //         }
+            stages {
+                stage('Sonar authService') {
+                    when { expression { env.CHANGED_AUTH == 'true' } }
+                    steps {
+                        dir('authService') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate authService failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar authService : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar authService : échec d'exécution." }
+                    }
+                }
 
-        //         stage('Sonar cloudPricer') {
-        //             // Désactivé temporairement: focus authService only
-        //             when { expression { env.CHANGED_PRICER == 'true' } }
-        //             steps {
-        //                 dir('cloudPricer') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate cloudPricer failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar cloudPricer : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar cloudPricer : échec d'exécution." }
-        //             }
-        //         }
-        //         stage('Sonar deployment') {
-        //             when { expression { env.CHANGED_DEPLOYMENT == 'true' } }
-        //             steps {
-        //                 dir('deployment') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate deployment failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar deployment : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar deployment : échec d'exécution." }
-        //             }
-        //         }
+                stage('Sonar cloudPricer') {
+                    when { expression { env.CHANGED_PRICER == 'true' } }
+                    steps {
+                        dir('cloudPricer') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate cloudPricer failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar cloudPricer : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar cloudPricer : échec d'exécution." }
+                    }
+                }
+                stage('Sonar deployment') {
+                    when { expression { env.CHANGED_DEPLOYMENT == 'true' } }
+                    steps {
+                        dir('deployment') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate deployment failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar deployment : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar deployment : échec d'exécution." }
+                    }
+                }
 
-        //         stage('Sonar gateway') {
-        //             when { expression { env.CHANGED_GATEWAY == 'true' } }
-        //             steps {
-        //                 dir('gateway') {
-        //                     withSonarQubeEnv('SonarQubeScanner') {
-        //                         sh 'mvn sonar:sonar'
-        //                     }
-        //                 }
-        //             }
-        //             post {
-        //                 success {
-        //                     script {
-        //                         timeout(time: 2, unit: 'MINUTES') {
-        //                             def qg = waitForQualityGate()
-        //                             if (qg.status != 'OK') {
-        //                                 error "Quality Gate gateway failed: ${qg.status}"
-        //                             } else {
-        //                                 echo "Sonar gateway : OK"
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 failure { echo "Sonar gateway : échec d'exécution." }
-        //             }
-        //         }
-        //     }
-        // }
+                stage('Sonar gateway') {
+                    when { expression { env.CHANGED_GATEWAY == 'true' } }
+                    steps {
+                        dir('gateway') {
+                            withSonarQubeEnv('SonarQubeScanner') {
+                                sh 'mvn sonar:sonar'
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate()
+                                    if (qg.status != 'OK') {
+                                        error "Quality Gate gateway failed: ${qg.status}"
+                                    } else {
+                                        echo "Sonar gateway : OK"
+                                    }
+                                }
+                            }
+                        }
+                        failure { echo "Sonar gateway : échec d'exécution." }
+                    }
+                }
+            }
+        }
 
         // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
@@ -499,94 +503,110 @@ SQL
             }
         }
 
-        // // ─────────────────────────────────────────────
-        // // Security Scan — désactivé (VM securite non disponible)
-        // // ─────────────────────────────────────────────
-        // stage('Security Scan') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         withCredentials([usernamePassword(
-        //             credentialsId: 'nexus-creds',
-        //             usernameVariable: 'NEXUS_USER',
-        //             passwordVariable: 'NEXUS_PASSWORD'
-        //         )]) {
-        //             script {
-        //                 sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
-        //                 def images = [
-        //                     [name: 'auth-service',       changed: env.CHANGED_AUTH],
-        //                     [name: 'cloud-pricer',       changed: env.CHANGED_PRICER],
-        //                     [name: 'gateway',            changed: env.CHANGED_GATEWAY],
-        //                     [name: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
-        //                     [name: 'frontend',           changed: env.CHANGED_FRONTEND],
-        //                 ]
-        //                 images.each { img ->
-        //                     if (img.changed == 'true') {
-        //                         sh """
-        //                             docker run --rm \
-        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
-        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
-        //                                 -v /mnt/nfs/trivy/results:/results \
-        //                                 aquasec/trivy image \
-        //                                 --severity HIGH,CRITICAL \
-        //                                 --format json \
-        //                                 --output /results/${img.name}.json \
-        //                                 192.168.56.30/${img.name}:latest
-        //                             docker run --rm \
-        //                                 -v /var/run/docker.sock:/var/run/docker.sock \
-        //                                 -v /opt/trivy-cache:/root/.cache/trivy \
-        //                                 -v /mnt/nfs/trivy/results:/results \
-        //                                 aquasec/trivy image \
-        //                                 --severity HIGH,CRITICAL \
-        //                                 --format template \
-        //                                 --template "@/contrib/html.tpl" \
-        //                                 --output /results/${img.name}.html \
-        //                                 192.168.56.30/${img.name}:latest
-        //                         """
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        // // ─────────────────────────────────────────────
-        // stage('Publish Security Reports trivey') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         script {
-        //             sh 'mkdir -p reports/trivy reports/zap'
-        //             def images = [
-        //                 [name: 'auth-service',       changed: env.CHANGED_AUTH],
-        //                 [name: 'cloud-pricer',       changed: env.CHANGED_PRICER],
-        //                 [name: 'gateway',            changed: env.CHANGED_GATEWAY],
-        //                 [name: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
-        //                 [name: 'frontend',           changed: env.CHANGED_FRONTEND],
-        //             ]
-        //             images.each { img ->
-        //                 if (img.changed == 'true') {
-        //                     sh """
-        //                         cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
-        //                         cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
-        //                     """
-        //                 }
-        //             }
-        //             archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
-        //             images.each { img ->
-        //                 if (img.changed == 'true') {
-        //                     publishHTML(target: [
-        //                         allowMissing: true,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: 'reports/trivy',
-        //                         reportFiles: "${img.name}.html",
-        //                         reportName: "Trivy Report - ${img.name}"
-        //                     ])
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        // ─────────────────────────────────────────────
+        stage('Security Scan') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-creds',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASSWORD'
+                )]) {
+                    script {
+                        sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
+                        def images = [
+                            [name: 'auth-service',       changed: env.CHANGED_AUTH],
+                            [name: 'cloud-pricer',       changed: env.CHANGED_PRICER],
+                            [name: 'gateway',            changed: env.CHANGED_GATEWAY],
+                            [name: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
+                            [name: 'frontend',           changed: env.CHANGED_FRONTEND],
+                        ]
+                        images.each { img ->
+                            if (img.changed == 'true') {
+                                sh """
+                                    docker run --rm \
+                                        -v /var/run/docker.sock:/var/run/docker.sock \
+                                        -v /opt/trivy-cache:/root/.cache/trivy \
+                                        -v /mnt/nfs/trivy/results:/results \
+                                        aquasec/trivy image \
+                                        --severity HIGH,CRITICAL \
+                                        --format json \
+                                        --output /results/${img.name}.json \
+                                        192.168.56.30/${img.name}:latest
+                                    docker run --rm \
+                                        -v /var/run/docker.sock:/var/run/docker.sock \
+                                        -v /opt/trivy-cache:/root/.cache/trivy \
+                                        -v /mnt/nfs/trivy/results:/results \
+                                        aquasec/trivy image \
+                                        --severity HIGH,CRITICAL \
+                                        --format template \
+                                        --template "@/contrib/html.tpl" \
+                                        --output /results/${img.name}.html \
+                                        192.168.56.30/${img.name}:latest
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ─────────────────────────────────────────────
+        stage('Publish Security Reports trivy') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                script {
+                    sh 'mkdir -p reports/trivy reports/zap'
+                    def images = [
+                        [name: 'auth-service',       changed: env.CHANGED_AUTH],
+                        [name: 'cloud-pricer',       changed: env.CHANGED_PRICER],
+                        [name: 'gateway',            changed: env.CHANGED_GATEWAY],
+                        [name: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
+                        [name: 'frontend',           changed: env.CHANGED_FRONTEND],
+                    ]
+                    def changedJson = []
+                    images.each { img ->
+                        if (img.changed == 'true') {
+                            changedJson += "/mnt/nfs/trivy/results/${img.name}.json"
+                            sh """
+                                cp -f /mnt/nfs/trivy/results/${img.name}.json reports/trivy/ 2>/dev/null || true
+                                cp -f /mnt/nfs/trivy/results/${img.name}.html reports/trivy/ 2>/dev/null || true
+                            """
+                        }
+                    }
+                    archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
+                    if (changedJson.size() > 0) {
+                        sh """
+                            PY="python3 /mnt/nfs/scripts/generate_security_report.py"
+                            if [ -x /usr/bin/python3 ] && [ -f /mnt/nfs/scripts/generate_security_report.py ]; then
+                                \$PY --trivy ${changedJson.join(' ')} --output reports/trivy/trivy-security-report-styled.html || true
+                            fi
+                        """
+                        publishHTML(target: [
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'reports/trivy',
+                            reportFiles: 'trivy-security-report-styled.html',
+                            reportName: 'Trivy Security Report'
+                        ])
+                    }
+                    images.each { img ->
+                        if (img.changed == 'true') {
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'reports/trivy',
+                                reportFiles: "${img.name}.html",
+                                reportName: "Trivy Report - ${img.name}"
+                            ])
+                        }
+                    }
+                }
+            }
+        }
 
         // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
@@ -654,79 +674,91 @@ SQL
             }
         }
 
-        // // ─────────────────────────────────────────────
-        // // OWASP ZAP — désactivé (VM securite non disponible)
-        // // ─────────────────────────────────────────────
-        // stage('OWASP ZAP Full Scan') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         script {
-        //             int zapExitCode = sh(
-        //                 script: """
-        //                     docker run --rm \
-        //                         --name owasp-zap-scan-\${BUILD_NUMBER} \
-        //                         --cpus="0.7" \
-        //                         -v /mnt/nfs/owasp-zap:/zap/wrk \
-        //                         ghcr.io/zaproxy/zaproxy:stable \
-        //                         zap-full-scan.py \
-        //                         -t http://192.168.56.10:30080 \
-        //                         -J /zap/wrk/zap-report-\${BUILD_NUMBER}.json \
-        //                         -r /zap/wrk/zap-report-\${BUILD_NUMBER}.html
-        //                 """,
-        //                 returnStatus: true
-        //             )
-        //             if (zapExitCode == 0) {
-        //                 echo 'OWASP ZAP : aucune vulnérabilité (code 0).'
-        //             } else if (zapExitCode == 2) {
-        //                 echo 'OWASP ZAP : vulnérabilités détectées (code 2).'
-        //             } else if (zapExitCode == 3) {
-        //                 echo 'OWASP ZAP : vulnérabilités MEDIUM/HIGH détectées (code 3).'
-        //             } else {
-        //                 error "OWASP ZAP a échoué (code \${zapExitCode})"
-        //             }
-        //         }
-        //     }
-        // }
-        // // ─────────────────────────────────────────────
-        // stage('Publish Security Reports owasp zap') {
-        //     agent { label 'security' }
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         sh """
-        //             cp -f /mnt/nfs/owasp-zap/zap-report-\${BUILD_NUMBER}.html reports/zap/ 2>/dev/null || true
-        //             cp -f /mnt/nfs/owasp-zap/zap-report-\${BUILD_NUMBER}.json reports/zap/ 2>/dev/null || true
-        //         """
-        //         archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
-        //         publishHTML(target: [
-        //             allowMissing: true,
-        //             alwaysLinkToLastBuild: true,
-        //             keepAll: true,
-        //             reportDir: 'reports/zap',
-        //             reportFiles: "zap-report-\${BUILD_NUMBER}.html",
-        //             reportName: 'OWASP ZAP Report'
-        //         ])
-        //     }
-        // }
+// ─────────────────────────────────────────────
+        stage('OWASP ZAP Full Scan') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                script {
+                    int zapExitCode = sh(
+                        script: """
+                            docker run --rm \
+                                --name owasp-zap-scan-\${BUILD_NUMBER} \
+                                --cpus="0.7" \
+                                -v /mnt/nfs/owasp-zap:/zap/wrk \
+                                ghcr.io/zaproxy/zaproxy:stable \
+                                zap-full-scan.py \
+                                -t http://192.168.56.10:30080 \
+                                -J /zap/wrk/zap-report-\${BUILD_NUMBER}.json \
+                                -r /zap/wrk/zap-report-\${BUILD_NUMBER}.html
+                        """,
+                        returnStatus: true
+                    )
+                    if (zapExitCode == 0) {
+                        echo 'OWASP ZAP : aucune vulnérabilité (code 0).'
+                    } else if (zapExitCode == 2) {
+                        echo 'OWASP ZAP : vulnérabilités détectées (code 2).'
+                    } else if (zapExitCode == 3) {
+                        echo 'OWASP ZAP : vulnérabilités MEDIUM/HIGH détectées (code 3).'
+                    } else {
+                        error "OWASP ZAP a échoué (code \${zapExitCode})"
+                    }
+                }
+            }
+        }
+        // ─────────────────────────────────────────────
+        stage('Publish Security Reports owasp zap') {
+            agent { label 'security' }
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                script {
+                    // Génère un rapport HTML stylé (thème rose/blanc de l'app) depuis le JSON ZAP
+                    sh '''
+                        set +e
+                        mkdir -p reports/zap
+                        if [ -f /mnt/nfs/scripts/generate_security_report.py ]; then
+                            PY="python3 /mnt/nfs/scripts/generate_security_report.py"
+                            JSON=/mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.json
+                            if [ -f "$JSON" ]; then
+                                $PY --zap "$JSON" --output reports/zap/owasp-zap-report-styled.html
+                            fi
+                        fi
+                        set -e
+                        # Conserve aussi les rapport ZAP bruts (html+json) pour archive
+                        cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.html reports/zap/ 2>/dev/null || true
+                        cp -f /mnt/nfs/owasp-zap/zap-report-${BUILD_NUMBER}.json reports/zap/ 2>/dev/null || true
+                    '''
+                    archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.json', allowEmptyArchive: true
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'reports/zap',
+                        reportFiles: 'owasp-zap-report-styled.html',
+                        reportName: 'OWASP ZAP Report'
+                    ])
+                }
+            }
+        }
 
-        // // ─────────────────────────────────────────────
-        // stage('Stop Security VM') {
-        //     when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
-        //     steps {
-        //         sh '''
-        //             ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
-        //                 -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
-        //             STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
-        //             if echo "$STATE" | grep -q running; then
-        //                 echo "Arrêt Security VM"
-        //                 VBoxManage controlvm securite acpipowerbutton
-        //             else
-        //                 echo "Security VM déjà arrêtée"
-        //             fi
-        //             '
-        //         '''
-        //     }
-        // }
+        // ─────────────────────────────────────────────
+        stage('Stop Security VM') {
+            when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
+            steps {
+                sh '''
+                    ssh -T -i /var/jenkins_home/.ssh/id_rsa_vmjenkins_nopass \
+                        -o StrictHostKeyChecking=no mehdi@192.168.1.15 '
+                    STATE=$(VBoxManage showvminfo securite --machinereadable | grep VMState=)
+                    if echo "$STATE" | grep -q running; then
+                        echo "Arrêt Security VM"
+                        VBoxManage controlvm securite acpipowerbutton
+                    else
+                        echo "Security VM déjà arrêtée"
+                    fi
+                    '
+                '''
+            }
+        }
 
     }
 

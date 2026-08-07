@@ -2,7 +2,10 @@ package com.auth.service.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +71,26 @@ public class AuditLogService {
                 .sorted((first, second) -> second.getTimestamp().compareTo(first.getTimestamp()))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLogResponse> listAuditLogs(String authorizationHeader, AuditLogQuery query, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        ensureCanReadAuditLogs(currentUser);
+
+        Instant from = query.from() == null ? Instant.now().minusSeconds(60L * 60L * 24L * 30L) : query.from();
+        Instant to = query.to() == null ? Instant.now() : query.to();
+
+        if (from.isAfter(to)) {
+            throw new BadRequestException("from must be before to");
+        }
+
+        UUID tenantId = isSuperAdmin(currentUser) ? null : currentUser.getTenant().getId();
+        String action = query.action() == null || query.action().isBlank() ? null : query.action().trim();
+        String resource = query.resource() == null || query.resource().isBlank() ? null : query.resource().trim();
+
+        return auditLogRepository.search(tenantId, from, to, action, resource, query.userId(), pageable)
+                .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

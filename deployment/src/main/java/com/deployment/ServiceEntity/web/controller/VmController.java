@@ -169,9 +169,13 @@ public class VmController {
             String content = vmClient.readRemoteFile(keyPath);
             String filename = keyPath.replaceFirst("^.*[/\\\\]", "");
             byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            auditService.record("VM_SSH_KEY_DOWNLOAD", "vm", id.toString(),
+                    "Private SSH key downloaded (vm=" + id + ")");
             ByteArrayResource resource = new ByteArrayResource(bytes);
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .contentLength(bytes.length)
                     .body(resource);

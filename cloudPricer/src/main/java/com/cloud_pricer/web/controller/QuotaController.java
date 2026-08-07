@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
@@ -42,11 +41,8 @@ public class QuotaController {
   @GetMapping
   public ResponseEntity<Page<QuotaResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
     UserContext.requirePermission("QUOTA_READ");
-    List<QuotaResponse> list = quotaService.getAll().stream().map(this::map).toList();
-    int start = (int) pageable.getOffset();
-    int end = Math.min(start + pageable.getPageSize(), list.size());
-    List<QuotaResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-    return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
+    Page<Quota> page = quotaService.getPageByTenantId(UserContext.getTenantId(), pageable);
+    return ResponseEntity.ok(page.map(this::map));
   }
 
   @GetMapping("/{id}")

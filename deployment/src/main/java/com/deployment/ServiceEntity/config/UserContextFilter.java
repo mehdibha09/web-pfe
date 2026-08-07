@@ -31,9 +31,11 @@ public class UserContextFilter extends OncePerRequestFilter {
     );
 
     private final AuthTokenResolver tokenResolver;
+    private final IdentitySigner identitySigner;
 
-    public UserContextFilter(AuthTokenResolver tokenResolver) {
+    public UserContextFilter(AuthTokenResolver tokenResolver, IdentitySigner identitySigner) {
         this.tokenResolver = tokenResolver;
+        this.identitySigner = identitySigner;
     }
 
     @Override
@@ -52,8 +54,13 @@ public class UserContextFilter extends OncePerRequestFilter {
             String tenantIdHeader = request.getHeader("X-Tenant-Id");
             String permissionsHeader = request.getHeader("X-User-Permissions");
             String rolesHeader = request.getHeader("X-User-Roles");
+            String signatureHeader = request.getHeader(IdentitySigner.SIGNATURE_HEADER);
 
-            if (userIdHeader != null && !"unknown".equals(userIdHeader) && !userIdHeader.isBlank()) {
+            boolean signatureValid = identitySigner.verify(
+                    signatureHeader, userIdHeader, tenantIdHeader, rolesHeader, permissionsHeader);
+
+            if (userIdHeader != null && !"unknown".equals(userIdHeader) && !userIdHeader.isBlank()
+                    && signatureValid) {
                 UUID userId = UUID.fromString(userIdHeader);
                 UUID tenantId = tenantIdHeader != null && !tenantIdHeader.isBlank()
                         ? UUID.fromString(tenantIdHeader) : null;

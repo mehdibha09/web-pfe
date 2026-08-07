@@ -9,9 +9,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "cost_record")
+@Table(
+        name = "cost_record",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_cost_record_se_window_mode",
+                columnNames = { "service_environment_id", "period_start", "period_end", "mode" }
+        )
+)
 public class CostRecord {
 
   @Id

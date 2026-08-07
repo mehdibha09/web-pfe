@@ -272,7 +272,7 @@ const SuperAdminDashboard = () => {
                         icon={<DnsIcon sx={{ color: '#0EA5E9', fontSize: 26 }} />}
                         bgColor="#E4EEF7"
                         color="#0EA5E9"
-                        onClick={() => navigate('/admin/vms')}
+                        onClick={() => navigate('/admin/devops/vms')}
                     />
                     <DashboardKpiCard
                         title={t('dashboard.superAdmin.kpiK8s')}
@@ -281,7 +281,7 @@ const SuperAdminDashboard = () => {
                         icon={<WidgetsIcon sx={{ color: '#5E4B9E', fontSize: 26 }} />}
                         bgColor="#F5F3FF"
                         color="#5E4B9E"
-                        onClick={() => navigate('/admin/kubernetes')}
+                        onClick={() => navigate('/admin/devops/k8s')}
                     />
                     <DashboardKpiCard
                         title={t('dashboard.superAdmin.kpiBackups')}
@@ -290,7 +290,7 @@ const SuperAdminDashboard = () => {
                         icon={<RestorePageIcon sx={{ color: '#2E7A4F', fontSize: 26 }} />}
                         bgColor="#ECFDF5"
                         color="#2E7A4F"
-                        onClick={() => navigate('/admin/backups')}
+                        onClick={() => navigate('/admin/devops/backups')}
                     />
                 </Box>
             </Box>
@@ -319,7 +319,7 @@ const SuperAdminDashboard = () => {
                         icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
                         bgColor="#FDF2F4"
                         color="#A23B4E"
-                        onClick={() => navigate('/admin/alerts')}
+                        onClick={() => navigate('/admin/devops/alerts')}
                     />
                     <DashboardKpiCard
                         title={t('dashboard.superAdmin.kpiCosts')}
@@ -328,7 +328,7 @@ const SuperAdminDashboard = () => {
                         icon={<PaymentsIcon sx={{ color: '#B45309', fontSize: 26 }} />}
                         bgColor="#FFFAF0"
                         color="#B45309"
-                        onClick={() => navigate('/admin/costs')}
+                        onClick={() => navigate('/admin/devops/costs')}
                     />
                 </Box>
             </Box>

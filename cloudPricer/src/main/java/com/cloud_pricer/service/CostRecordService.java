@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,20 @@ public class CostRecordService {
 
     @Transactional
     public CostRecord create(CostRecord record, List<CostBreakdown> breakdowns) {
+        boolean duplicate = costRecordRepository
+                .findByServiceEnvironmentIdAndPeriodStartAndPeriodEndAndMode(
+                        record.getServiceEnvironmentId(),
+                        record.getPeriodStart(),
+                        record.getPeriodEnd(),
+                        record.getMode())
+                .isPresent();
+        if (duplicate) {
+            log.info("Skipping duplicate cost record for se={} window=[{},{}] mode={}",
+                    record.getServiceEnvironmentId(), record.getPeriodStart(), record.getPeriodEnd(),
+                    record.getMode());
+            return record;
+        }
+
         CostRecord saved = costRecordRepository.save(record);
         if (breakdowns != null) {
             for (CostBreakdown bd : breakdowns) {
@@ -46,6 +62,10 @@ public class CostRecordService {
 
     public List<CostRecord> getByTenantId(UUID tenantId) {
         return costRecordRepository.findByTenantId(tenantId);
+    }
+
+    public Page<CostRecord> getPageByTenantId(UUID tenantId, Pageable pageable) {
+        return costRecordRepository.findByTenantId(tenantId, pageable);
     }
 
     public List<CostRecord> getByServiceEnvironmentId(UUID serviceEnvironmentId) {

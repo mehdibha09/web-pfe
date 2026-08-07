@@ -92,6 +92,7 @@ public class StartupDataSeeder implements CommandLineRunner {
         Permission priceConfigManage = seedPermission("PRICE_CONFIG_MANAGE", "Manage pricing configurations");
         Permission forecastRead = seedPermission("FORECAST_READ", "Read cost forecasts");
         Permission sshManage = seedPermission("SSH_MANAGE", "Manage SSH access");
+        Permission dashboardRead = seedPermission("DASHBOARD_READ", "Read the DevOps overview dashboard");
 
         Role defaultSuperAdminRole = seedRole(defaultTenant, SUPER_ADMIN_ROLE_NAME, "Platform super administrator");
         Role defaultAdminRole = seedRole(defaultTenant, "admin", "Default tenant administrator");
@@ -114,38 +115,38 @@ public class StartupDataSeeder implements CommandLineRunner {
                 deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage,
                 k8sRead, k8sManage, notificationRead, notificationManage,
                 costRead, costManage, quotaRead, quotaManage, alertRead, alertManage, metricRead, metricManage,
-                priceConfigRead, priceConfigManage, forecastRead, sshManage);
+                priceConfigRead, priceConfigManage, forecastRead, sshManage, dashboardRead);
 
         List<Permission> readOnlyDevops = List.of(
-                userRead, deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead);
+                userRead, deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead, dashboardRead);
 
         List<Permission> managerPermissions = List.of(
                 userRead, userManage, sessionManage, auditRead,
                 deploymentRead, deploymentManage, vmRead, vmManage, backupRead, backupManage,
                 k8sRead, k8sManage, notificationRead, notificationManage,
-                metricRead, metricManage, sshManage);
+                metricRead, metricManage, sshManage, dashboardRead);
 
         List<Permission> financeManagerPermissions = List.of(
                 userRead, userManage, sessionManage, auditRead,
                 deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
                 costRead, costManage, quotaRead, quotaManage, alertRead, alertManage,
-                priceConfigRead, priceConfigManage, forecastRead);
+                priceConfigRead, priceConfigManage, forecastRead, dashboardRead);
 
         List<Permission> analystPermissions = List.of(
                 userRead, auditRead,
                 deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
-                costRead, quotaRead, alertRead, forecastRead);
+                costRead, quotaRead, alertRead, forecastRead, dashboardRead);
 
         List<Permission> financeViewerPermissions = List.of(
                 userRead,
                 deploymentRead, vmRead, backupRead, k8sRead, notificationRead, metricRead,
-                costRead, quotaRead, alertRead, priceConfigRead, forecastRead);
+                costRead, quotaRead, alertRead, priceConfigRead, forecastRead, dashboardRead);
 
         seedRolePermissions(defaultSuperAdminRole, allPermissions);
         seedRolePermissions(defaultAdminRole, allPermissions);
         seedRolePermissions(defaultManagerRole, managerPermissions);
         seedRolePermissions(defaultViewerRole, readOnlyDevops);
-        seedRolePermissions(defaultSupportRole, List.of(userRead, sessionManage, deploymentRead, vmRead, k8sRead, notificationRead, metricRead));
+        seedRolePermissions(defaultSupportRole, List.of(userRead, sessionManage, deploymentRead, vmRead, k8sRead, notificationRead, metricRead, dashboardRead));
 
         seedRolePermissions(salesAdminRole, allPermissions);
         seedRolePermissions(salesManagerRole, managerPermissions);

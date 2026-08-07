@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
@@ -35,15 +34,12 @@ public class AlertController {
   private final AlertService alertService;
   private final AuditService auditService;
 
-  @GetMapping
-  public ResponseEntity<Page<AlertResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
+@GetMapping
+public ResponseEntity<Page<AlertResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
     UserContext.requirePermission("ALERT_READ");
-    List<AlertResponse> list = alertService.getByTenantId(UserContext.getTenantId()).stream().map(this::map).toList();
-    int start = (int) pageable.getOffset();
-    int end = Math.min(start + pageable.getPageSize(), list.size());
-    List<AlertResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-    return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
-  }
+    Page<Alert> page = alertService.getPageByTenantId(UserContext.getTenantId(), pageable);
+    return ResponseEntity.ok(page.map(this::map));
+}
 
   @GetMapping("/status/{status}")
   public ResponseEntity<List<AlertResponse>> getByStatus(@PathVariable String status) {

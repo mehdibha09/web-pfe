@@ -13,6 +13,7 @@ import {
     canAccessAuditLogs,
     canAccessBackups,
     canAccessCosts,
+    canAccessDashboard,
     canAccessEnvironments,
     canAccessK8s,
     canAccessMetrics,
@@ -175,7 +176,7 @@ const AppRoutes = () => {
                         />
 
                         {/* DevOps mini-Kubernetes dashboard */}
-                        <Route path="/admin/devops/dashboard" element={<DevopsDashboardPage />} />
+                        <Route path="/admin/devops/dashboard" element={<AdminAccessRoute canAccess={canAccessDashboard}><DevopsDashboardPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/services" element={<AdminAccessRoute canAccess={canAccessServices}><DevOpsServicesPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/environments" element={<AdminAccessRoute canAccess={canAccessEnvironments}><DevOpsEnvironmentsPage /></AdminAccessRoute>} />
                         <Route path="/admin/devops/service-environments" element={<AdminAccessRoute canAccess={canAccessServiceEnvironments}><DevOpsServiceEnvironmentsPage /></AdminAccessRoute>} />

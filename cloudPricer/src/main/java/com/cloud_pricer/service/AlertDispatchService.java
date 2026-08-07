@@ -29,6 +29,9 @@ public class AlertDispatchService {
     @Value("${app.mail.from:noreply@cloud-pricer.local}")
     private String fromEmail;
 
+    @Value("${app.alert.recipient:admin@example.com}")
+    private String recipientEmail;
+
     @Scheduled(fixedDelayString = "${alert.check.interval:60000}", initialDelay = 60000)
     public void dispatchOpenAlerts() {
         List<Alert> openAlerts = alertRepository.findByStatus("OPEN");
@@ -56,7 +59,7 @@ public class AlertDispatchService {
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
-        message.setTo("admin@example.com");
+        message.setTo(recipientEmail);
         message.setSubject(subject);
         message.setText(body);
         try {

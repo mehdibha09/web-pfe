@@ -24,6 +24,7 @@ import {
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { seLabel } from '../common/seLabel';
+import { formatMoney, currencySymbol } from '../../../utils/format';
 
 const getPct = (used: number, max: number): number =>
     max > 0 ? Math.min((used / max) * 100, 100) : 0;
@@ -208,7 +209,7 @@ const BudgetUsageSection = () => {
                                         {t('costs.budgetLabel')}
                                     </Typography>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: totals.budgetPct >= 90 ? '#C95B6E' : C.text }}>
-                                        ${totals.used.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${totals.budget.toLocaleString()}
+                                        {formatMoney(totals.used)} / {formatMoney(totals.budget, 0)}
                                     </Typography>
                                 </Box>
                                 <LinearProgress
@@ -229,7 +230,7 @@ const BudgetUsageSection = () => {
                             </Box>
                             <Typography variant="caption" sx={{ color: C.muted }}>
                                 {t('costs.remainingBudget')}:{' '}
-                                <strong>${Math.max(totals.budget - totals.used, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                <strong>{formatMoney(Math.max(totals.budget - totals.used, 0))}</strong>
                             </Typography>
                         </Box>
 
@@ -256,8 +257,8 @@ const BudgetUsageSection = () => {
                                                     t('costs.budgetLabel'),
                                                     r.usedCost,
                                                     r.quota.maxBudget,
-                                                    '$',
-                                                    t('costs.remainingBudget') + ': $' + Math.max(r.quota.maxBudget - r.usedCost, 0).toFixed(2)
+                                                    currencySymbol(),
+                                                    t('costs.remainingBudget') + ': ' + formatMoney(Math.max(r.quota.maxBudget - r.usedCost, 0))
                                                 )}
                                                 {u ? (
                                                     <>

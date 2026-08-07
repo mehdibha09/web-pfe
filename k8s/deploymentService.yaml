@@ -53,6 +53,12 @@ spec:
                   name: postgres-secret
                   key: SPRING_DATASOURCE_PASSWORD
 
+            - name: SECURITY_INTERNAL_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: SECURITY_INTERNAL_SIGNING_SECRET
+
             - name: SPRING_PROFILES_ACTIVE
               valueFrom:
                 configMapKeyRef:
@@ -64,6 +70,9 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: DEPLOYMENT_SERVER_PORT
+
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:7070"
 
             - name: VM_PROVIDER
               value: "remote-vagrant"

@@ -4,6 +4,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -67,6 +71,16 @@ public class PermissionService {
                 .map(this::toResponse)
                 .sorted((first, second) -> first.name().compareToIgnoreCase(second.name()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PermissionResponse> listPermissions(String authorizationHeader, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        if (pageable.getSort().isSorted()) {
+            return permissionRepository.findAll(pageable).map(this::toResponse);
+        }
+        return permissionRepository.findAll(PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.ASC, "name"))).map(this::toResponse);
     }
 
     @Transactional

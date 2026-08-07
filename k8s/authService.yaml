@@ -39,6 +39,9 @@ spec:
             - containerPort: 7070
 
           env:
+            - name: DEPLOYMENT_SERVICE_URL
+              value: "http://deployment-service:8082"
+
             - name: DB_HOST
               value: postgres
 

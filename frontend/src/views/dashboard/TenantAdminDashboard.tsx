@@ -34,6 +34,8 @@ import { listAlerts, type AlertResponse } from '../../services/cloudPricerServic
 import { C } from '../../theme/tokens';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DashboardKpiCard from './DashboardKpiCard';
+import { getStoredUser } from '../../services/authStorage';
+import { canAccessAlerts } from '../../services/authorization';
 
 const actionColor = (action: string) => {
     const a = action.toUpperCase();
@@ -59,6 +61,7 @@ const TenantAdminDashboard = () => {
     const [alerts, setAlerts] = useState<AlertResponse[]>([]);
 
     const fetchAll = useCallback(async () => {
+        const user = getStoredUser();
         try {
             const [u, r, s, a, svc, dep, al] = await Promise.allSettled([
                 listUsers(),
@@ -67,7 +70,7 @@ const TenantAdminDashboard = () => {
                 listAuditLogs({}),
                 listServices(),
                 listDeploymentHistory(),
-                listAlerts()
+                user && canAccessAlerts(user) ? listAlerts() : Promise.resolve([] as AlertResponse[])
             ]);
             if (u.status === 'fulfilled') setUsers(u.value);
             if (r.status === 'fulfilled') setRoles(r.value);

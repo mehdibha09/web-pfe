@@ -28,6 +28,7 @@ import { getStoredUser } from '../../../services/authStorage';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { C, PAGE_BG } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { formatMoney } from '../../../utils/format';
 import { type PeriodFilter, getPeriodRange } from './constants';
 import PaginationBar from '../../../components/PaginationBar';
 import BudgetUsageSection from './BudgetUsageSection';
@@ -234,7 +235,7 @@ const CostsPage = () => {
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <Box>
                                                 <Typography variant="h4" sx={{ fontWeight: 900, color: kpi.color }}>
-                                                    ${kpi.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    {formatMoney(kpi.value)}
                                                 </Typography>
                                                 <Typography sx={{ color: kpi.color, fontWeight: 600, fontSize: 13, mt: 0.5 }}>
                                                     {kpi.label}
@@ -286,7 +287,7 @@ const CostsPage = () => {
                     sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    {(['week', 'month', 'year', 'all'] as PeriodFilter[]).map((p) => (
+                    {(['today', 'week', 'month', 'year', 'all'] as PeriodFilter[]).map((p) => (
                         <Chip
                             key={p}
                             label={t(`costs.periodFilter_${p}` as any, p)}

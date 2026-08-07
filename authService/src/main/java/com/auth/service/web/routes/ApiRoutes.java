@@ -27,8 +27,6 @@ public final class ApiRoutes {
         public static final String TWO_FA_DISABLE = "/2fa";
         public static final String TWO_FA_EMAIL_VERIFY = "/2fa/email/verify";
         public static final String TWO_FA_EMAIL_RESEND = "/2fa/email/resend";
-        public static final String TWO_FA_BACKUP_CODES = "/2fa/backup-codes";
-        public static final String TWO_FA_BACKUP_CODES_REGENERATE = "/2fa/backup-codes/regenerate";
     }
 
     public static final class Roles {

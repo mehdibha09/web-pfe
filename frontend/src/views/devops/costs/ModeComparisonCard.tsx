@@ -14,6 +14,7 @@ import {
 import { seLabel } from '../common/seLabel';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
+import { formatMoney } from '../../../utils/format';
 
 interface ModeComparisonCardProps {
     costs: CostRecordResponse[];
@@ -38,16 +39,6 @@ interface ModeAgg {
 
 const emptyMode = (): ModeAgg => ({ total: 0, compute: 0, storage: 0, network: 0, backup: 0, os: 0 });
 
-const money = (v: number) => v.toLocaleString(undefined, {
-    minimumFractionDigits: v.toFixed(2) === '0.00' && v > 0 ? 4 : 2,
-    maximumFractionDigits: v.toFixed(2) === '0.00' && v > 0 ? 6 : 2
-});
-
-/**
- * Flexible VM vs K8s comparison, grouped per service environment.
- * Only SEs that actually expose BOTH VM and K8s modes are shown — it is a
- * real comparison. Single-mode SEs are not displayed here.
- */
 const ModeComparisonCard = ({ costs }: ModeComparisonCardProps) => {
     const { t } = useTranslation();
     const [seNames, setSeNames] = useState<Record<string, string>>({});
@@ -116,7 +107,7 @@ const ModeComparisonCard = ({ costs }: ModeComparisonCardProps) => {
                         </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ color: C.muted, fontWeight: 600 }}>
-                        {t('costs.total')}: <strong>${money(grandTotal)}</strong>
+                        {t('costs.total')}: <strong>{formatMoney(grandTotal)}</strong>
                     </Typography>
                 </Box>
 
@@ -154,7 +145,7 @@ const ModeComparisonCard = ({ costs }: ModeComparisonCardProps) => {
                                                     {mode === 'VM' ? t('costs.vmMode') : t('costs.k8sMode')}
                                                 </Typography>
                                                 <Typography sx={{ ml: 'auto', fontWeight: 900, color: C.brand }}>
-                                                    ${money(m.total)}
+                                                    {formatMoney(m.total)}
                                                 </Typography>
                                             </Box>
                                             {BREAKDOWN.map((b) => {
@@ -165,7 +156,7 @@ const ModeComparisonCard = ({ costs }: ModeComparisonCardProps) => {
                                                             {t(b.label)}
                                                         </Typography>
                                                         <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600 }}>
-                                                            ${money(value)}
+                                                            {formatMoney(value)}
                                                         </Typography>
                                                     </Box>
                                                 );

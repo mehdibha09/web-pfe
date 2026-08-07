@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,10 @@ public class AlertService {
 
     public List<Alert> getByTenantId(UUID tenantId) {
         return alertRepository.findByTenantId(tenantId);
+    }
+
+    public Page<Alert> getPageByTenantId(UUID tenantId, Pageable pageable) {
+        return alertRepository.findByTenantId(tenantId, pageable);
     }
 
     public List<Alert> getByTenantIdAndStatus(UUID tenantId, String status) {

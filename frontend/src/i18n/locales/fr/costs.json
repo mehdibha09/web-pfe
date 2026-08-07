@@ -63,6 +63,7 @@
         "remainingBudget": "Restant",
         "noActiveQuota": "Aucun quota actif.",
         "noActiveQuotaHint": "Créez un quota actif dans la page Quotas pour visualiser l'utilisation du budget et des ressources par environnement.",
+        "periodFilter_today": "Aujourd'hui",
         "periodFilter_week": "Cette semaine",
         "periodFilter_month": "Ce mois",
         "periodFilter_year": "Cette année",

@@ -53,6 +53,12 @@ spec:
                   name: postgres-secret
                   key: SPRING_DATASOURCE_PASSWORD
 
+            - name: SECURITY_INTERNAL_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: SECURITY_INTERNAL_SIGNING_SECRET
+
             - name: SPRING_PROFILES_ACTIVE
               valueFrom:
                 configMapKeyRef:
@@ -64,6 +70,18 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: CLOUD_PRICER_SERVER_PORT
+
+            - name: DEPLOYMENT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DEPLOYMENT_SERVICE_URL
+
+            - name: APP_ALERT_RECIPIENT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: MAIL_FROM
 
           readinessProbe:
             httpGet:

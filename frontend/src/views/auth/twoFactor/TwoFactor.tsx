@@ -48,13 +48,13 @@ const TwoFactor = () => {
                 code: trimmedCode
             });
 
-            if (!response.tokens) {
+            if (!response.me) {
                 throw new Error(t('auth.missingTokens'));
             }
 
             setVerificationSucceeded(true);
             clearPendingTwoFactorSession();
-            saveSession(response.tokens.accessToken, response.tokens.refreshToken, response.me);
+            saveSession(response.me);
             toast.success(response.message || t('auth.loginSuccess'));
             navigate('/admin/dashboard', { replace: true });
         } catch (error: any) {

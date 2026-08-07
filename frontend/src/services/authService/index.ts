@@ -11,11 +11,10 @@ export type {
   TwoFaEnablePayload,
   TwoFaEmailVerifyPayload,
   TwoFaActionResponse,
-  BackupCodesResponse,
 } from '../interfaces/auth';
 
 import axiosInstance from '../axiosInstance';
-import type { AuthUser, AuthTokens, LoginResponse, TwoFaSetupResponse, TwoFaActionResponse, BackupCodesResponse } from '../interfaces/auth';
+import type { AuthUser, AuthTokens, LoginResponse, TwoFaSetupResponse, TwoFaActionResponse } from '../interfaces/auth';
 import type { ForgotPasswordPayload, ResetPasswordPayload, LoginPayload, ChangePasswordPayload, UpdateEmailPayload, TwoFaEnablePayload, TwoFaEmailVerifyPayload } from '../interfaces/auth';
 
 export const login = async (payload: LoginPayload): Promise<LoginResponse> => {
@@ -77,19 +76,7 @@ export const disableTwoFa = async (): Promise<TwoFaActionResponse> => {
   return response.data;
 };
 
-export const logout = async (refreshToken?: string) => {
-  const response = await axiosInstance.post('/auth/logout', {
-    refreshToken,
-  });
-  return response.data;
-};
-
-export const getBackupCodes = async (): Promise<BackupCodesResponse> => {
-  const response = await axiosInstance.get('/auth/2fa/backup-codes');
-  return response.data;
-};
-
-export const regenerateBackupCodes = async (): Promise<BackupCodesResponse> => {
-  const response = await axiosInstance.post('/auth/2fa/backup-codes/regenerate');
+export const logout = async () => {
+  const response = await axiosInstance.post('/auth/logout', {});
   return response.data;
 };

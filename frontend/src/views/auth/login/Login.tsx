@@ -42,11 +42,11 @@ const Login = () => {
                 return;
             }
 
-            if (!response.tokens) {
+            if (!response.me) {
                 throw new Error(t('auth.missingTokens'));
             }
 
-            saveSession(response.tokens.accessToken, response.tokens.refreshToken, response.me);
+            saveSession(response.me);
             toast.success(t('auth.loginSuccess'));
             navigate('/admin/dashboard');
         } catch (error: any) {

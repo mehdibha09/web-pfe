@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getAccessToken, getStoredUser } from '../services/authStorage';
+import { getStoredUser } from '../services/authStorage';
 import { C } from '../theme/tokens';
 import {
     countUnreadNotifications,
@@ -124,17 +124,15 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
 
   useEffect(() => {
     if (!user) return;
-    const token = getAccessToken();
-    if (!token) return;
     const ctrl = new AbortController();
 
     (async () => {
       try {
         await fetchEventSource(`${API_BASE_URL}/notifications/stream`, {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
           signal: ctrl.signal,
           onmessage: (event) => {

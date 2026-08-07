@@ -12,7 +12,6 @@
     <modules>
         <module>authService</module>
         <module>cloudPricer</module>
-        <module>dashboard</module>
         <module>deployment</module>
         <module>gateway</module>
     </modules>

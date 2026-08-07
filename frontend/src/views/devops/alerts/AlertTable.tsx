@@ -19,6 +19,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import PauseCircleOutlinedIcon from '@mui/icons-material/PauseCircleOutlined';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import { useTranslation } from 'react-i18next';
 
 interface AlertTableProps {
     alerts: AlertResponse[];
@@ -51,21 +52,46 @@ const statusGradient: Record<string, string> = {
     RESOLVED: 'linear-gradient(135deg, #E0F1E6, #BBF7D0)'
 };
 
-const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTableProps) => (
-    <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)' }}>
-        <TableContainer>
-            <Table>
-                <TableHead>
-                    <TableRow sx={{ background: 'linear-gradient(135deg, #F8F5FA, #F8F5FA)' }}>
-                        {['Severity', 'Type', 'Metric', 'Threshold', 'Actual', 'Status', 'Message', 'Created', 'Actions'].map(
-                            (h) => (
+const severityLabel: Record<string, string> = {
+    CRITICAL: 'alerts.severityCritical',
+    WARN: 'alerts.severityWarn',
+    INFO: 'alerts.severityInfo'
+};
+
+const statusLabel: Record<string, string> = {
+    OPEN: 'alerts.statusOpen',
+    ACK: 'alerts.statusAck',
+    RESOLVED: 'alerts.statusResolved'
+};
+
+const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTableProps) => {
+    const { t } = useTranslation();
+
+    const columns = [
+        t('alerts.severity'),
+        t('alerts.type'),
+        t('alerts.metric'),
+        t('alerts.threshold'),
+        t('alerts.actualValue'),
+        t('alerts.status'),
+        t('alerts.message'),
+        t('alerts.columnCreated'),
+        t('alerts.columnActions')
+    ];
+
+    return (
+        <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)' }}>
+            <TableContainer>
+                <Table>
+                    <TableHead>
+                        <TableRow sx={{ background: 'linear-gradient(135deg, #F8F5FA, #F8F5FA)' }}>
+                            {columns.map((h) => (
                                 <TableCell key={h} sx={{ fontWeight: 700, color: '#334155', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `2px solid ${C.border}` }}>
                                     {h}
                                 </TableCell>
-                            )
-                        )}
-                    </TableRow>
-                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHead>
                 <TableBody>
                     {alerts.map((a) => (
                         <TableRow
@@ -82,7 +108,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                             <TableCell>
                                 <Chip
                                     icon={severityIcon[a.severity] as React.ReactElement}
-                                    label={a.severity}
+                                    label={t(severityLabel[a.severity] || a.severity)}
                                     size="small"
                                     sx={{
                                         background: severityGradient[a.severity] || '#E2E8F0',
@@ -94,7 +120,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                                 />
                             </TableCell>
                             <TableCell>
-                                <Typography sx={{ fontWeight: 600, color: '#1E293B', fontSize: 13 }}>{a.type}</Typography>
+                                <Typography sx={{ fontWeight: 600, color: '#1E293B', fontSize: 13 }}>{a.type === 'QUOTA' ? t('alerts.typeQuota') : a.type === 'BUDGET' ? t('alerts.typeBudget') : a.type}</Typography>
                             </TableCell>
                             <TableCell>
                                 <Typography sx={{ color: '#334155', fontSize: 13 }}>{a.metric}</Typography>
@@ -108,7 +134,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                             <TableCell>
                                 <Chip
                                     icon={statusIcon[a.status] as React.ReactElement}
-                                    label={a.status}
+                                    label={t(statusLabel[a.status] || a.status)}
                                     size="small"
                                     sx={{
                                         background: statusGradient[a.status] || '#E2E8F0',
@@ -140,7 +166,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                                             '&:hover': { boxShadow: '0 4px 10px rgba(245,158,11,0.4)' }
                                         }}
                                     >
-                                        ACK
+                                        {t('alerts.actionAck')}
                                     </Button>
                                 )}
                                 {(a.status === 'OPEN' || a.status === 'ACK') && (
@@ -157,7 +183,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                                             '&:hover': { boxShadow: '0 4px 10px rgba(34,197,94,0.4)' }
                                         }}
                                     >
-                                        RESOLVE
+                                        {t('alerts.actionResolve')}
                                     </Button>
                                 )}
                                 <Button
@@ -167,7 +193,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
                                     onClick={() => onDelete(a.id)}
                                     sx={{ fontWeight: 700, fontSize: 11 }}
                                 >
-                                    DELETE
+                                    {t('alerts.actionDelete')}
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -176,6 +202,7 @@ const AlertTable = ({ alerts, onAcknowledge, onResolve, onDelete }: AlertTablePr
             </Table>
         </TableContainer>
     </Card>
-);
+    );
+};
 
 export default AlertTable;

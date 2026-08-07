@@ -329,7 +329,50 @@ public class TenantService {
 
         Tenant savedTenant = tenantRepository.save(tenant);
         writeAudit(currentUser, "TENANT_DELETE", "Tenant disabled", savedTenant.getId().toString());
+
+        deprovisionTenant(tenantId, authorizationHeader);
+
         return toResponse(savedTenant);
+    }
+
+    /**
+     * Best-effort deprovisioning when a tenant is disabled: revokes every
+     * session belonging to the tenant and requests the deployment service to
+     * delete the tenant's Kubernetes namespace. Failures are logged but never
+     * block the tenant disablement.
+     */
+    private void deprovisionTenant(UUID tenantId, String authorizationHeader) {
+        try {
+            List<Session> tenantSessions = sessionRepository.findAllByTenant_Id(tenantId);
+            for (Session session : tenantSessions) {
+                session.setRevokedAt(Instant.now());
+                sessionRepository.save(session);
+            }
+            if (!tenantSessions.isEmpty()) {
+                log.info("Revoked {} session(s) for tenant '{}'", tenantSessions.size(), tenantId);
+            }
+        } catch (Exception e) {
+            log.warn("Could not revoke sessions for tenant '{}': {}", tenantId, e.getMessage());
+        }
+
+        try {
+            String namespaceName = "tenant-" + tenantId.toString().substring(0, 8).toLowerCase();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(deploymentServiceUrl + "/api/v1/k8s/namespaces/" + namespaceName))
+                    .header("Authorization", authorizationHeader)
+                    .timeout(Duration.ofSeconds(10))
+                    .DELETE()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("K8s namespace '{}' deleted for tenant '{}'", namespaceName, tenantId);
+            } else {
+                log.warn("Failed to delete K8s namespace '{}' for tenant '{}': HTTP {} - {}",
+                        namespaceName, tenantId, response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.warn("Could not delete K8s namespace for tenant '{}': {}", tenantId, e.getMessage());
+        }
     }
 
     private Tenant requireTenant(UUID tenantId) {

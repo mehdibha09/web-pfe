@@ -1,4 +1,6 @@
 import CloudIcon from '@mui/icons-material/Cloud';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
     Box,
@@ -250,11 +252,43 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                         <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600 }}>
                             {t('quotas.budgetLabel')}: <strong>${q.maxBudget.toLocaleString()}</strong>
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <Button size="small" variant="text" onClick={() => setEditOpen(true)} sx={{ minWidth: 0, fontWeight: 600 }}>
+                        <Box sx={{ display: 'flex', gap: 0.75 }}>
+                            <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => setEditOpen(true)}
+                                startIcon={<EditOutlinedIcon sx={{ fontSize: 15 }} />}
+                                sx={{
+                                    borderRadius: 2,
+                                    fontWeight: 700,
+                                    textTransform: 'none',
+                                    fontSize: 12,
+                                    background: 'linear-gradient(135deg, #E4477D, #BE185D)',
+                                    boxShadow: '0 2px 6px rgba(228,71,125,0.3)',
+                                    px: 1.5,
+                                    color: '#FFFFFF',
+                                    '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)', boxShadow: '0 4px 12px rgba(228,71,125,0.4)' }
+                                }}
+                            >
                                 {t('common.edit')}
                             </Button>
-                            <Button size="small" variant="text" color="error" onClick={() => setDeleteOpen(true)} sx={{ minWidth: 0, fontWeight: 600 }}>
+                            <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => setDeleteOpen(true)}
+                                startIcon={<DeleteOutlinedIcon sx={{ fontSize: 15 }} />}
+                                sx={{
+                                    borderRadius: 2,
+                                    fontWeight: 700,
+                                    textTransform: 'none',
+                                    fontSize: 12,
+                                    px: 1.5,
+                                    backgroundColor: '#FCE7F3',
+                                    color: '#BE185D',
+                                    boxShadow: 'none',
+                                    '&:hover': { backgroundColor: '#F9D5E8', boxShadow: 'none' }
+                                }}
+                            >
                                 {t('common.delete')}
                             </Button>
                         </Box>
@@ -271,21 +305,21 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setDeleteOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
-                    <Button onClick={handleDelete} variant="contained" color="error" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.delete')}</Button>
+                    <Button onClick={() => setDeleteOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#BE185D', borderColor: '#F2B8CC' }}>{t('common.cancel')}</Button>
+                    <Button onClick={handleDelete} variant="contained" sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
 
             <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth
                 slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
                 <Box sx={{
-                    background: 'linear-gradient(135deg, #E4EEF7 0%, #FFFFFF 100%)',
+                    background: 'linear-gradient(135deg, #FCE7F3 0%, #FFFFFF 100%)',
                     px: 3, py: 2.5,
                     display: 'flex', alignItems: 'center', gap: 1.5,
                     borderBottom: `1px solid ${C.border}`
                 }}>
-                    <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: '#E4EEF7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CloudIcon sx={{ color: '#2E5C8A', fontSize: 20 }} />
+                    <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: '#FCE7F3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CloudIcon sx={{ color: '#BE185D', fontSize: 20 }} />
                     </Box>
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, lineHeight: 1.2 }}>
@@ -331,7 +365,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
-                    <Button onClick={() => setEditOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, px: 3 }}>{t('common.cancel')}</Button>
+                    <Button onClick={() => setEditOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, px: 3, color: '#BE185D', borderColor: '#F2B8CC' }}>{t('common.cancel')}</Button>
                     <MyCustomButton onClick={handleUpdate} disabled={saving} sx={{ px: 4 }}>
                         {saving ? t('quotas.saving') : t('common.save')}
                     </MyCustomButton>

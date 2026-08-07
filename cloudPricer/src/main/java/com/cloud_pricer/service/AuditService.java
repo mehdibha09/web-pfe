@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cloud_pricer.config.ClientIpResolver;
 import com.cloud_pricer.config.UserContext;
 import com.cloud_pricer.domain.AuditLog;
 import com.cloud_pricer.repository.AuditLogRepository;
@@ -17,9 +18,11 @@ public class AuditService {
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
     private final AuditLogRepository auditLogRepository;
+    private final ClientIpResolver clientIpResolver;
 
-    public AuditService(AuditLogRepository auditLogRepository) {
+    public AuditService(AuditLogRepository auditLogRepository, ClientIpResolver clientIpResolver) {
         this.auditLogRepository = auditLogRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional
@@ -40,22 +43,6 @@ public class AuditService {
     }
 
     private String resolveClientIp() {
-        try {
-            jakarta.servlet.http.HttpServletRequest request =
-                    ((org.springframework.web.context.request.ServletRequestAttributes)
-                            org.springframework.web.context.request.RequestContextHolder.getRequestAttributes())
-                            .getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp.trim();
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return "unknown";
-        }
+        return clientIpResolver.resolve();
     }
 }

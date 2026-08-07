@@ -68,6 +68,12 @@ spec:
                   name: backend-config
                   key: CLOUD_PRICER_SERVICE_URL
 
+            - name: SECURITY_INTERNAL_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: SECURITY_INTERNAL_SIGNING_SECRET
+
           readinessProbe:
             httpGet:
               path: /actuator/health

@@ -3,7 +3,6 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { C} from '../../../theme/tokens';
-import { getAccessToken } from '../../../services/authStorage';
 
 interface SshTerminalProps {
     vmId: string;
@@ -74,11 +73,8 @@ const SshTerminal = ({ vmId, vmName }: SshTerminalProps) => {
         term.writeln(`\x1b[1;38;5;204m╚══════════════════════════════════════╝\x1b[0m`);
         term.writeln('\x1b[33mConnecting...\x1b[0m');
 
-        // ── WebSocket connection ──
-        const token = getAccessToken();
-        const wsUrl = token
-            ? `${WS_BASE}/ws/ssh/${vmId}?token=${encodeURIComponent(token)}`
-            : `${WS_BASE}/ws/ssh/${vmId}`;
+        // ── WebSocket connection (HttpOnly cookie auth via same-origin handshake) ──
+        const wsUrl = `${WS_BASE}/ws/ssh/${vmId}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

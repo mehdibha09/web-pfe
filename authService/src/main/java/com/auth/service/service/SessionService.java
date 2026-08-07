@@ -5,12 +5,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.domain.AuditLog;
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.RolePermission;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.User;
@@ -35,14 +38,17 @@ public class SessionService {
     private final AuditLogRepository auditLogRepository;
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final ClientIpResolver clientIpResolver;
 
     public SessionService(SessionRepository sessionRepository, AuditLogRepository auditLogRepository,
                           UserRoleRepository userRoleRepository,
-                          RolePermissionRepository rolePermissionRepository) {
+                          RolePermissionRepository rolePermissionRepository,
+                          ClientIpResolver clientIpResolver) {
         this.sessionRepository = sessionRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRoleRepository = userRoleRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +73,23 @@ public class SessionService {
         return sorted.stream()
                 .map(session -> toResponse(session, recentActive))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SessionResponse> listSessions(String authorizationHeader, Pageable pageable) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        Page<Session> page;
+        if (isSuperAdmin(currentUser)) {
+            page = sessionRepository.findAll(pageable);
+        } else if (canManageSessions(currentUser)) {
+            page = sessionRepository.findByTenant_Id(currentUser.getTenant().getId(), pageable);
+        } else {
+            page = sessionRepository.findByUser_Id(currentUser.getId(), pageable);
+        }
+        List<Session> recentActive = page.getContent().stream()
+                .filter(s -> s.getRevokedAt() == null)
+                .toList();
+        return page.map(session -> toResponse(session, recentActive));
     }
 
     @Transactional
@@ -209,19 +232,6 @@ public class SessionService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
-        }
+        return clientIpResolver.resolve();
     }
 }

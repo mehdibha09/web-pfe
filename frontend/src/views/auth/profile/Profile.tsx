@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Chip, Divider, TextField, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -14,20 +14,16 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import {
     changePassword,
     disableTwoFa,
-    getBackupCodes,
     getMe,
     logout,
-    regenerateBackupCodes,
     setupTwoFa,
     updateEmail,
     verifyTwoFa,
-    type TwoFaSetupResponse,
-    type BackupCodesResponse
+    type TwoFaSetupResponse
 } from '../../../services/authService';
 import { C } from '../../../theme/tokens';
 import {
     clearSession,
-    getRefreshToken,
     getStoredUser,
     isAuthenticated,
     setStoredUser
@@ -53,8 +49,6 @@ const Profile = () => {
     const [twoFaSetup, setTwoFaSetup] = useState<TwoFaSetupResponse | null>(null);
     const [twoFaCode, setTwoFaCode] = useState('');
     const [twoFaLoading, setTwoFaLoading] = useState(false);
-    const [backupCodes, setBackupCodes] = useState<BackupCodesResponse | null>(null);
-    const [showBackupCodes, setShowBackupCodes] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [emailLoading, setEmailLoading] = useState(false);
     const {
@@ -110,9 +104,7 @@ const Profile = () => {
     }, [navigate]);
 
     const handleLogout = () => {
-        const refreshToken = getRefreshToken() || undefined;
-
-        logout(refreshToken)
+        logout()
             .catch(() => undefined)
             .finally(() => {
                 clearSession();
@@ -171,8 +163,6 @@ const Profile = () => {
             const response = await setupTwoFa();
             setTwoFaSetup(response);
             setTwoFaCode('');
-            setBackupCodes(null);
-            setShowBackupCodes(false);
             toast.success(response.message || t('profile.twoFaSetupSuccess'));
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('profile.twoFaSetupFailed');
@@ -227,36 +217,12 @@ const Profile = () => {
             setTwoFaEnabled(Boolean(me.twoFaEnabled));
             setTwoFaSetup(null);
             setTwoFaCode('');
-            setBackupCodes(null);
-            setShowBackupCodes(false);
             toast.success(response.message || t('profile.twoFaDisabled'));
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || t('profile.twoFaDisableFailed');
             toast.error(message);
         } finally {
             setTwoFaLoading(false);
-        }
-    };
-
-    const handleShowBackupCodes = async () => {
-        try {
-            const response = await getBackupCodes();
-            setBackupCodes(response);
-            setShowBackupCodes(true);
-        } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('profile.backupCodesFailed');
-            toast.error(message);
-        }
-    };
-
-    const handleRegenerateBackupCodes = async () => {
-        try {
-            const response = await regenerateBackupCodes();
-            setBackupCodes(response);
-            toast.success(t('profile.backupCodesGenerated'));
-        } catch (error: any) {
-            const message = error?.response?.data?.message || error?.message || t('profile.backupCodesRegenerateFailed');
-            toast.error(message);
         }
     };
 
@@ -421,7 +387,6 @@ const Profile = () => {
                         <Button onClick={handleEnableTwoFa} disabled={twoFaLoading} size="small">{twoFaLoading ? t('common.loading') : t('profile.enable2fa')}</Button>
                         <Button onClick={handleVerifyTwoFa} disabled={twoFaLoading || !twoFaSetup} size="small">{t('profile.verifyEnable')}</Button>
                         <Button onClick={handleDisableTwoFa} disabled={twoFaLoading || !twoFaEnabled} size="small">{t('profile.disable2fa')}</Button>
-                        {twoFaEnabled && <Button onClick={handleShowBackupCodes} size="small">{t('profile.backupCodesShow')}</Button>}
                     </Box>
                     <TextField
                         size="small"
@@ -441,26 +406,6 @@ const Profile = () => {
                             <Typography variant="caption" sx={{ color: '#475569', display: 'block', mb: 1 }}>
                                 {t('profile.twoFaEnterCode')}
                             </Typography>
-                        </Box>
-                    )}
-                    {showBackupCodes && backupCodes && (
-                        <Box sx={{ mt: 2, p: 2, bgcolor: '#FFFBEB', borderRadius: 2, border: '1px solid #FDE68A' }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5, color: '#92400E', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <SecurityOutlinedIcon sx={{ fontSize: 14 }} />
-                                {t('profile.backupCodesTitle')}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#B45309', display: 'block', mb: 1.5, fontSize: 11 }}>
-                                {t('profile.backupCodesDescription')}
-                            </Typography>
-                            <Box sx={{ fontFamily: 'monospace', fontSize: 14, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                {backupCodes?.codes.map((code, i) => (
-                                    <Typography key={i} sx={{ fontFamily: 'monospace', fontSize: 12, color: '#92400E', letterSpacing: '0.05em' }}>
-                                        {code.replace(/-/g, '')}
-                                    </Typography>
-                                ))}
-                            </Box>
-                            <Divider sx={{ my: 1.5, borderColor: '#FDE68A' }} />
-                            <Button onClick={handleRegenerateBackupCodes} size="small">{t('profile.regenerateCodes')}</Button>
                         </Box>
                     )}
                 </CardContent>

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { logout } from '../../../services/authService';
-import { clearSession, getRefreshToken } from '../../../services/authStorage';
+import { clearSession } from '../../../services/authStorage';
 import Module from './Module';
 
 interface FooterProps {
@@ -19,8 +19,7 @@ const Footer = ({ isMenuClosed }: FooterProps) => {
       selectedIndex={' '}
       isMenuClosed={isMenuClosed}
       onClick={() => {
-        const refreshToken = getRefreshToken() || undefined;
-        logout(refreshToken)
+        logout()
           .catch(() => undefined)
           .finally(() => {
             clearSession();

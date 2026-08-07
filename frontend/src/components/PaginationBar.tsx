@@ -10,10 +10,9 @@ interface PaginationBarProps {
     pageCount: number;
     total: number;
     onPageChange: (page: number) => void;
-    label?: string;
 }
 
-const PaginationBar = ({ page, pageCount, total, onPageChange, label = 'page(s)' }: PaginationBarProps) => {
+const PaginationBar = ({ page, pageCount, total, onPageChange }: PaginationBarProps) => {
     if (pageCount <= 1) return null;
 
     const from = (page - 1) * 10 + 1;
@@ -66,6 +65,8 @@ const PaginationBar = ({ page, pageCount, total, onPageChange, label = 'page(s)'
                 <Button
                     size="small"
                     variant="outlined"
+                    aria-label="First page"
+                    title="First page"
                     disabled={page <= 1}
                     onClick={() => onPageChange(1)}
                     sx={btnSx}
@@ -75,6 +76,8 @@ const PaginationBar = ({ page, pageCount, total, onPageChange, label = 'page(s)'
                 <Button
                     size="small"
                     variant="outlined"
+                    aria-label="Previous page"
+                    title="Previous page"
                     disabled={page <= 1}
                     onClick={() => onPageChange(page - 1)}
                     sx={btnSx}
@@ -95,6 +98,8 @@ const PaginationBar = ({ page, pageCount, total, onPageChange, label = 'page(s)'
                 <Button
                     size="small"
                     variant="outlined"
+                    aria-label="Next page"
+                    title="Next page"
                     disabled={page >= pageCount}
                     onClick={() => onPageChange(page + 1)}
                     sx={btnSx}
@@ -104,6 +109,8 @@ const PaginationBar = ({ page, pageCount, total, onPageChange, label = 'page(s)'
                 <Button
                     size="small"
                     variant="outlined"
+                    aria-label="Last page"
+                    title="Last page"
                     disabled={page >= pageCount}
                     onClick={() => onPageChange(pageCount)}
                     sx={btnSx}

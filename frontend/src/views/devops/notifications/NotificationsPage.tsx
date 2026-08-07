@@ -3,7 +3,7 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getAccessToken, getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/authStorage';
 import {
     countUnreadNotifications,
     deleteNotification,
@@ -65,17 +65,15 @@ const NotificationsPage = () => {
 
     useEffect(() => {
         if (!user) return;
-        const token = getAccessToken();
-        if (!token) return;
         const ctrl = new AbortController();
 
         (async () => {
             try {
                 await fetchEventSource(`${API_BASE_URL}/notifications/stream`, {
                     method: 'GET',
+                    credentials: 'include',
                     headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
                     signal: ctrl.signal,
                     onmessage: (event) => {

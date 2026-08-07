@@ -24,6 +24,7 @@ import {
     canAccessAuditLogs,
     canAccessBackups,
     canAccessCosts,
+    canAccessDashboard,
     canAccessEnvironments,
     canAccessK8s,
     canAccessMetrics,
@@ -93,7 +94,7 @@ const Body = ({ isMenuClosed }: BodyProps) => {
         {
             label: t('nav.devops'),
             modules: [
-                { label: t('nav.dashboard'), link: 'admin/devops/dashboard', icon: DashboardIcon, visible: user ? !isSuperAdmin(user) : false },
+                { label: t('nav.dashboard'), link: 'admin/devops/dashboard', icon: DashboardIcon, visible: user ? (canAccessDashboard(user) && !isSuperAdmin(user)) : false },
                 { label: t('nav.services'), link: 'admin/devops/services', icon: DashboardIcon, visible: user ? (canAccessServices(user) && !isSuperAdmin(user)) : false },
                 { label: t('nav.environments'), link: 'admin/devops/environments', icon: DomainAddIcon, visible: user ? (canAccessEnvironments(user) && !isSuperAdmin(user)) : false },
                 { label: t('nav.serviceEnvs'), link: 'admin/devops/service-environments', icon: DevicesIcon, visible: user ? (canAccessServiceEnvironments(user) && !isSuperAdmin(user)) : false },

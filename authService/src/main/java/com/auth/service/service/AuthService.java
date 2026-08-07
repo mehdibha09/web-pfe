@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.PasswordResetToken;
 import com.auth.service.domain.RolePermission;
@@ -49,7 +51,6 @@ import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.repository.UserTwoFactorRepository;
 import com.auth.service.web.dto.auth.AuthActionResponse;
-import com.auth.service.web.dto.auth.AuthBackupCodesResponse;
 import com.auth.service.web.dto.auth.AuthChangePasswordRequest;
 import com.auth.service.web.dto.auth.AuthForgotPasswordRequest;
 import com.auth.service.web.dto.auth.AuthLoginRequest;
@@ -87,6 +88,7 @@ public class AuthService {
     private final ObjectMapper objectMapper;
     private final EmailService emailService;
     private final TotpService totpService;
+    private final ClientIpResolver clientIpResolver;
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -115,7 +117,8 @@ public class AuthService {
             Environment environment,
             ObjectMapper objectMapper,
             EmailService emailService,
-            TotpService totpService) {
+            TotpService totpService,
+            ClientIpResolver clientIpResolver) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.sessionRepository = sessionRepository;
@@ -129,6 +132,7 @@ public class AuthService {
         this.objectMapper = objectMapper;
         this.emailService = emailService;
         this.totpService = totpService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional
@@ -173,6 +177,7 @@ public class AuthService {
         return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, null);
     }
 
+    @Transactional
     public AuthLoginResponse verifyEmailTwoFa(
             AuthTwoFaEmailVerifyRequest request,
             String ipAddress,
@@ -184,7 +189,28 @@ public class AuthService {
 
         PendingEmailTwoFaContext challenge = pendingEmailTwoFaChallenges.get(normalizedEmail);
 
-        if (challenge != null && challenge.userId() != null) {
+        if (challenge == null) {
+            throw new UnauthorizedException("Invalid or expired verification challenge");
+        }
+
+        if (challenge.expiresAt() == null || challenge.expiresAt().isBefore(Instant.now())) {
+            pendingEmailTwoFaChallenges.remove(normalizedEmail);
+            throw new UnauthorizedException("Invalid or expired verification challenge");
+        }
+
+        if (hashToken(providedCode).equals(challenge.codeHash())) {
+            pendingEmailTwoFaChallenges.remove(normalizedEmail);
+
+            User emailUser = userRepository.findById(challenge.userId())
+                    .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
+
+            Session emailSession = createSession(emailUser, ipAddress, userAgent, acceptLanguage, clientTimezone);
+            writeAudit(emailUser, emailUser.getTenant(), "AUTH_LOGIN_2FA_EMAIL_VERIFY", "Email 2FA verified");
+
+            return new AuthLoginResponse(toTokens(emailSession), toMeResponse(emailUser), false, "Login successful");
+        }
+
+        if (challenge.userId() != null) {
             User challengedUser = userRepository.findById(challenge.userId())
                     .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
             UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(challengedUser.getId()).orElse(null);
@@ -216,33 +242,10 @@ public class AuthService {
                     return new AuthLoginResponse(toTokens(session), toMeResponse(challengedUser), false,
                             "Login successful");
                 }
-
-                throw new UnauthorizedException("Invalid 2FA code. Try again.");
             }
         }
 
-        if (challenge == null) {
-            throw new UnauthorizedException("Invalid or expired verification challenge");
-        }
-
-        if (challenge.expiresAt().isBefore(Instant.now())) {
-            pendingEmailTwoFaChallenges.remove(normalizedEmail);
-            throw new UnauthorizedException("Invalid or expired verification challenge");
-        }
-
-        if (!hashToken(providedCode).equals(challenge.codeHash())) {
-            throw new UnauthorizedException("Invalid verification code");
-        }
-
-        pendingEmailTwoFaChallenges.remove(normalizedEmail);
-
-        User user = userRepository.findById(challenge.userId())
-                .orElseThrow(() -> new UnauthorizedException("Invalid verification challenge"));
-
-        Session session = createSession(user, ipAddress, userAgent, acceptLanguage, clientTimezone);
-        writeAudit(user, user.getTenant(), "AUTH_LOGIN_2FA_EMAIL_VERIFY", "Email 2FA verified");
-
-        return new AuthLoginResponse(toTokens(session), toMeResponse(user), false, "Login successful");
+        throw new UnauthorizedException("Invalid 2FA code. Try again.");
     }
 
     public AuthActionResponse resendLoginTwoFaEmail(String rawEmail) {
@@ -272,12 +275,15 @@ public class AuthService {
 
     @Transactional
     public AuthTokensResponse refresh(
-            AuthRefreshRequest request,
+            String refreshToken,
             String ipAddress,
             String userAgent,
             String acceptLanguage,
             String clientTimezone) {
-        Session existingSession = sessionRepository.findByRefreshToken(request.refreshToken())
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new UnauthorizedException("Invalid refresh token");
+        }
+        Session existingSession = sessionRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
         if (existingSession.getRevokedAt() != null) {
@@ -532,20 +538,22 @@ public class AuthService {
     }
 
     @Transactional
-    public com.auth.service.web.dto.auth.PasswordResetResponse forgotPassword(AuthForgotPasswordRequest request) {
-        User user = resolveUserForPasswordReset(request);
-        String resetToken = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
-        PasswordResetToken token = new PasswordResetToken();
-        token.setUser(user);
-        token.setTokenHash(hashToken(resetToken));
-        token.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
-        passwordResetTokenRepository.save(token);
-        writeAudit(user, user.getTenant(), "AUTH_FORGOT_PASSWORD", "Password reset token generated");
+    public AuthActionResponse forgotPassword(AuthForgotPasswordRequest request) {
+        Optional<User> userOpt = resolveUserForPasswordReset(request);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String resetToken = UUID.randomUUID() + UUID.randomUUID().toString().replace("-", "");
+            PasswordResetToken token = new PasswordResetToken();
+            token.setUser(user);
+            token.setTokenHash(hashToken(resetToken));
+            token.setExpiresAt(Instant.now().plus(Duration.ofHours(1)));
+            passwordResetTokenRepository.save(token);
+            writeAudit(user, user.getTenant(), "AUTH_FORGOT_PASSWORD", "Password reset token generated");
 
-        // Send password reset email
-        emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
+            emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getEmail());
+        }
 
-        return new com.auth.service.web.dto.auth.PasswordResetResponse("Password reset token generated", resetToken);
+        return new AuthActionResponse("If that email exists, a password reset link has been sent to it");
     }
 
     @Transactional
@@ -782,26 +790,26 @@ public class AuthService {
         throw new BadRequestException("tenantId or tenantName is required for SSO");
     }
 
-    private User resolveUserForPasswordReset(AuthForgotPasswordRequest request) {
+    private Optional<User> resolveUserForPasswordReset(AuthForgotPasswordRequest request) {
         String email = normalizeEmail(request.email());
         if (request.tenantId() != null) {
-            return userRepository.findByTenant_IdAndEmail(request.tenantId(), email)
-                    .orElseThrow(() -> new NotFoundException("User not found"));
+            return userRepository.findByTenant_IdAndEmail(request.tenantId(), email);
         }
         if (request.tenantName() != null && !request.tenantName().isBlank()) {
-            Tenant tenant = tenantRepository.findByName(request.tenantName().trim())
-                    .orElseThrow(() -> new NotFoundException("Tenant not found"));
-            return userRepository.findByTenant_IdAndEmail(tenant.getId(), email)
-                    .orElseThrow(() -> new NotFoundException("User not found"));
+            Tenant tenant = tenantRepository.findByName(request.tenantName().trim()).orElse(null);
+            if (tenant == null) {
+                return Optional.empty();
+            }
+            return userRepository.findByTenant_IdAndEmail(tenant.getId(), email);
         }
         List<User> users = userRepository.findByEmail(email);
         if (users.isEmpty()) {
-            throw new NotFoundException("User not found");
+            return Optional.empty();
         }
         if (users.size() > 1) {
-            throw new BadRequestException("tenantId or tenantName is required for this email");
+            return Optional.empty();
         }
-        return users.getFirst();
+        return users.stream().findFirst();
     }
 
     private SsoProviderSettings resolveSsoProviderSettings(String provider) {
@@ -958,38 +966,7 @@ public class AuthService {
     private String generateEmailTwoFaCode() {
         int code = secureRandom.nextInt(1_000_000);
         return String.format("%06d", code);
-    }
-
-    @Transactional
-    public AuthBackupCodesResponse getBackupCodes(String authorizationHeader) {
-        User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new BadRequestException("2FA is not enabled"));
-
-        if (userTwoFactor.getBackupCodesJson() == null) {
-            List<String> codes = generateBackupCodes();
-            userTwoFactor.setBackupCodesJson(toJson(codes));
-            userTwoFactorRepository.save(userTwoFactor);
-            return new AuthBackupCodesResponse(codes, "Backup codes generated. Store them safely.");
-        }
-
-        List<String> existingCodes = parseBackupCodes(userTwoFactor.getBackupCodesJson());
-        return new AuthBackupCodesResponse(existingCodes, "Existing backup codes");
-    }
-
-    @Transactional
-    public AuthBackupCodesResponse regenerateBackupCodes(String authorizationHeader) {
-        User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
-        UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new BadRequestException("2FA is not enabled"));
-
-        List<String> codes = generateBackupCodes();
-        userTwoFactor.setBackupCodesJson(toJson(codes));
-        userTwoFactorRepository.save(userTwoFactor);
-
-        writeAudit(user, user.getTenant(), "AUTH_2FA_BACKUP_CODES_REGENERATE", "Backup codes regenerated");
-        return new AuthBackupCodesResponse(codes, "New backup codes generated. Previous codes are invalid.");
-    }
+}
 
     private List<String> generateBackupCodes() {
         List<String> codes = new java.util.ArrayList<>();
@@ -1035,20 +1012,6 @@ public class AuthService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
-                    .getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
-        }
+        return clientIpResolver.resolve();
     }
 }

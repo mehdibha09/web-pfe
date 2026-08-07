@@ -37,7 +37,6 @@ import {
     listServices
 } from '../../../services/devopsService';
 import { useSse as useSseStream } from '../../../hooks/useSse';
-import { getAccessToken } from '../../../services/authStorage';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { formatBps, formatPct, isMetricStale, serviceEnvironmentLabel } from '../metrics/constants';
@@ -132,7 +131,6 @@ const MonitoringTempsReelPage = () => {
 
     const { connected: sseConnected } = useSseStream({
         url: selectedSeId ? `${sseBaseUrl}/metrics/stream/${selectedSeId}` : '',
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
         enabled: useSse && !!selectedSeId,
         onMessage: (data: MetricResponse) => {
             setLatest(data);
@@ -300,28 +298,28 @@ const MonitoringTempsReelPage = () => {
                     { key: 'cpu', labelKey: 'monitoring.cpuUsage', color: '#6366F1', unit: '%' },
                     { key: 'ram', labelKey: 'monitoring.ramUsage', color: '#10B981', unit: '%' }
                 ] as const).map((chart) => (
-                    <Grid key={chart.key} size={{ xs: 12, md: 6 }}>
+                    <Grid key={chart.key} size={{ xs: 12 }}>
                         <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, boxShadow: `0 4px 16px ${chart.color}14`, overflow: 'hidden' }}>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                    <Box sx={{ width: 3, height: 18, borderRadius: 2, backgroundColor: chart.color }} />
-                                    <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, fontSize: 15 }}>{t(chart.labelKey)}</Typography>
+                                    <Box sx={{ width: 4, height: 22, borderRadius: 2, backgroundColor: chart.color }} />
+                                    <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, fontSize: 16 }}>{t(chart.labelKey)}</Typography>
                                     <Typography sx={{ ml: 'auto', fontSize: 11, color: '#9CA3AF' }}>{chartData.length > 0 && `${chartData.length} pts`}</Typography>
                                 </Box>
                                 {loading && chartData.length === 0 ? (
-                                    <Skeleton variant="rectangular" height={110} sx={{ borderRadius: 2 }} />
+                                    <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 2 }} />
                                 ) : chartData.length === 0 ? (
                                     <Typography sx={{ color: C.muted, textAlign: 'center', py: 6 }}>
                                         {selectedSeId ? t('monitoring.noMetrics') : t('monitoring.selectDeploymentHint')}
                                     </Typography>
                                 ) : (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Typography sx={{ fontWeight: 900, fontSize: 42, color: chart.color, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                                    <Box>
+                                        <Typography sx={{ fontWeight: 900, fontSize: 40, color: chart.color, lineHeight: 1.1, mb: 1.5 }}>
                                             {chart.key === 'cpu'
                                                 ? latestStale ? '—' : (latest?.cpuUsage ?? 0).toFixed(0) + '%'
                                                 : latestStale ? '—' : (latest?.ramUsage ?? 0).toFixed(0) + '%'}
                                         </Typography>
-                                        <Box sx={{ flex: 1, minWidth: 0, '& svg': { width: '100%', height: 70, display: 'block' } }}>
+                                        <Box sx={{ width: '100%', '& svg': { width: '100%', height: 220, display: 'block' } }}>
                                             <SparkLine points={chartData.map((d) => d[chart.key] ?? 0)} color={chart.color} />
                                         </Box>
                                     </Box>

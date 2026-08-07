@@ -1,10 +1,8 @@
 package com.auth.service.web.controller;
 
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +38,8 @@ public class PermissionController {
             @RequestHeader("Authorization") String authorizationHeader,
             @PageableDefault(size = 10) Pageable pageable
     ) {
-        List<PermissionResponse> list = permissionService.listPermissions(authorizationHeader);
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), list.size());
-        List<PermissionResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
+        Page<PermissionResponse> page = permissionService.listPermissions(authorizationHeader, pageable);
+        return ResponseEntity.ok(page);
     }
 
     @GetMapping(ApiRoutes.Permissions.BY_ID)

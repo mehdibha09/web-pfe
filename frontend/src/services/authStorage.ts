@@ -1,7 +1,5 @@
 import type { AuthUser } from './authService';
 
-const ACCESS_TOKEN_KEY = 'accessToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'authUser';
 const PENDING_2FA_KEY = 'pendingTwoFactorSession';
 
@@ -9,16 +7,12 @@ type PendingTwoFactorSession = {
   email: string;
 };
 
-export const saveSession = (accessToken: string, refreshToken: string, user: AuthUser) => {
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+export const saveSession = (user: AuthUser) => {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   sessionStorage.removeItem(PENDING_2FA_KEY);
 };
 
 export const clearSession = () => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(PENDING_2FA_KEY);
   window.dispatchEvent(new Event('authUserUpdated'));
@@ -50,38 +44,6 @@ export const setStoredUser = (user: AuthUser) => {
   window.dispatchEvent(new Event('authUserUpdated'));
 };
 
-export const setSessionTokens = (accessToken: string, refreshToken: string) => {
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-};
-
-export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
-
-export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
-
-const base64UrlDecode = (str: string): string => {
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  return atob(base64);
-};
-
-export const isAuthenticated = () => {
-  const token = getAccessToken();
-  if (!token) return false;
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const payload = JSON.parse(base64UrlDecode(parts[1]));
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      clearSession();
-      return false;
-    }
-    return true;
-  } catch {
-    clearSession();
-    return false;
-  }
-};
-
 export const getStoredUser = (): AuthUser | null => {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) {
@@ -94,3 +56,5 @@ export const getStoredUser = (): AuthUser | null => {
     return null;
   }
 };
+
+export const isAuthenticated = () => !!getStoredUser();

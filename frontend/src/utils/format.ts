@@ -1,3 +1,20 @@
+export const currencySymbol = (): string => {
+    if (typeof window !== 'undefined' && window.location?.pathname) {
+        const lang = localStorage.getItem('i18nextLng');
+        return lang?.startsWith('fr') ? '€' : '$';
+    }
+    return '$';
+};
+
+export const formatMoney = (value: number, decimals?: number): string => {
+    const symbol = currencySymbol();
+    const frac = decimals ?? (Math.abs(value) > 0 && Math.abs(value) < 0.01 ? 4 : 2);
+    return `${symbol}${value.toLocaleString(undefined, {
+        minimumFractionDigits: frac,
+        maximumFractionDigits: frac
+    })}`;
+};
+
 export const fmtDate = (iso?: string | null): string | null => {
     if (!iso) return null;
     return new Date(iso).toLocaleDateString(undefined, {
@@ -13,7 +30,7 @@ export const fmtDateTime = (iso?: string | null): string | null => {
 };
 
 export const fmtCurrency = (value: number): string =>
-    `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    formatMoney(value, 2);
 
 export const fmtNumber = (value: number, decimals = 0): string =>
     value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });

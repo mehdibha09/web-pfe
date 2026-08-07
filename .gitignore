@@ -6,6 +6,11 @@
 
 # Vagrant VMs (machine-specific generated files)
 vms/
+.vagrant/
+
+# Docker
+.registry/
+*.tar.gz
 
 # Java
 target/
@@ -32,3 +37,17 @@ Thumbs.db
 
 docs
 *.md
+
+Documentation_PFE
+
+AGENTS.md
+
+scripts
+
+/docs/
+*.md
+*.markdown
+/Documentation_PFE/
+/AGENTS.md
+/scripts/
+

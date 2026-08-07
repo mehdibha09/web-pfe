@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type { CostBreakdownResponse, CostRecordResponse } from '../../../services/cloudPricerService';
 import { modeColors } from './constants';
 import { C } from '../../../theme/tokens';
+import { formatMoney } from '../../../utils/format';
 
 interface CostCardProps {
     cost: CostRecordResponse;
@@ -48,7 +49,7 @@ const CostCard = ({ cost, isExpanded, onToggleExpand }: CostCardProps) => {
                             sx={{ backgroundColor: mc.bg, color: mc.color, fontWeight: 700, height: 24 }}
                         />
                         <Typography variant="h6" sx={{ fontWeight: 900, color: C.text }}>
-                            ${cost.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {formatMoney(cost.totalCost)}
                         </Typography>
                     </Box>
 
@@ -61,7 +62,7 @@ const CostCard = ({ cost, isExpanded, onToggleExpand }: CostCardProps) => {
                         {costItems.map((item) => (
                             <Chip
                                 key={item.label}
-                                label={`${item.label}: $${item.value.toFixed(2)} (${((item.value / totalForShare) * 100).toFixed(0)}%)`}
+                                label={`${item.label}: ${formatMoney(item.value)} (${((item.value / totalForShare) * 100).toFixed(0)}%)`}
                                 size="small"
                                 variant="outlined"
                                 sx={{ borderColor: item.color, color: item.color, fontWeight: 600, fontSize: 11 }}
@@ -109,16 +110,16 @@ const CostCard = ({ cost, isExpanded, onToggleExpand }: CostCardProps) => {
                                     }}
                                 >
                                     <Typography variant="body2" sx={{ color: C.text }}>{b.type}</Typography>
-                                    <Typography variant="body2" sx={{ color: C.muted }}>${b.unitCost}</Typography>
+                                    <Typography variant="body2" sx={{ color: C.muted }}>{formatMoney(b.unitCost)}</Typography>
                                     <Typography variant="body2" sx={{ color: C.muted }}>{b.quantity}</Typography>
-                                    <Typography variant="body2" sx={{ color: C.text, fontWeight: 600 }}>${b.total.toFixed(2)}</Typography>
+                                    <Typography variant="body2" sx={{ color: C.text, fontWeight: 600 }}>{formatMoney(b.total)}</Typography>
                                 </Box>
                             ))}
                             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', px: 2, py: 0.75, borderTop: `1px solid ${C.border}`, backgroundColor: '#F8FAFC' }}>
                                 <Typography variant="caption" sx={{ fontWeight: 700, color: C.text }}>{t('costs.breakdownTotal')}</Typography>
                                 <Typography variant="caption" />
                                 <Typography variant="caption" />
-                                <Typography variant="caption" sx={{ fontWeight: 700, color: C.text }}>${breakdownTotal.toFixed(2)}</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700, color: C.text }}>{formatMoney(breakdownTotal)}</Typography>
                             </Box>
                         </Box>
                     </Collapse>

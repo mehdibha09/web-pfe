@@ -3,6 +3,8 @@ package com.deployment.ServiceEntity.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.config.UserContext;
@@ -35,6 +37,11 @@ public class NotificationService {
     public List<NotificationResponseDto> getByUserId(UUID userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
                 .stream().map(this::map).toList();
+    }
+
+    public Page<NotificationResponseDto> getPageByUserId(UUID userId, Pageable pageable) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(this::map);
     }
 
     public List<NotificationResponseDto> getUnreadByUserId(UUID userId) {

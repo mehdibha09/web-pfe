@@ -21,6 +21,13 @@ import { listServices, listDeploymentHistory, type ServiceResponse, type History
 import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } from '../../services/cloudPricerService';
 import { listNotifications, type NotificationResponse } from '../../services/notificationService';
 import { getStoredUser } from '../../services/authStorage';
+import {
+    canAccessAlerts,
+    canAccessAuditLogs,
+    canAccessCosts,
+    canAccessNotifications,
+    canAccessServices
+} from '../../services/authorization';
 import { C } from '../../theme/tokens';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DashboardKpiCard from './DashboardKpiCard';
@@ -42,24 +49,21 @@ const StandardUserDashboard = () => {
 
     const fetchAll = useCallback(async () => {
         const user = getStoredUser();
-        try {
-            const [svc, dep, al, co, no] = await Promise.allSettled([
-                listServices(),
-                listDeploymentHistory(),
-                listAlerts(),
-                listCosts(),
-                user ? listNotifications(user.userId) : Promise.resolve([] as NotificationResponse[])
-            ]);
-            if (svc.status === 'fulfilled') setServices(svc.value);
-            if (dep.status === 'fulfilled') setHistory(dep.value);
-            if (al.status === 'fulfilled') setAlerts(al.value);
-            if (co.status === 'fulfilled') setCosts(co.value);
-            if (no.status === 'fulfilled') setNotifications(no.value);
-        } catch (e: any) {
-            setError(e?.message || 'Failed to load dashboard');
-        } finally {
-            setLoading(false);
-        }
+        if (!user) return;
+        const calls = [
+            canAccessServices(user) ? listServices() : Promise.resolve([] as ServiceResponse[]),
+            canAccessAuditLogs(user) ? listDeploymentHistory() : Promise.resolve([] as HistoryEntry[]),
+            canAccessAlerts(user) ? listAlerts() : Promise.resolve([] as AlertResponse[]),
+            canAccessCosts(user) ? listCosts() : Promise.resolve([] as CostRecordResponse[]),
+            canAccessNotifications(user) ? listNotifications(user.userId) : Promise.resolve([] as NotificationResponse[])
+        ];
+        const [svc, dep, al, co, no] = await Promise.allSettled(calls);
+        if (svc.status === 'fulfilled') setServices(svc.value as ServiceResponse[]);
+        if (dep.status === 'fulfilled') setHistory(dep.value as HistoryEntry[]);
+        if (al.status === 'fulfilled') setAlerts(al.value as AlertResponse[]);
+        if (co.status === 'fulfilled') setCosts(co.value as CostRecordResponse[]);
+        if (no.status === 'fulfilled') setNotifications(no.value as NotificationResponse[]);
+        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -75,6 +79,11 @@ const StandardUserDashboard = () => {
     const recentNotifications = [...notifications]
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
         .slice(0, 5);
+
+    const user = getStoredUser();
+    const allowsAlerts = !!user && canAccessAlerts(user);
+    const allowsCosts = !!user && canAccessCosts(user);
+    const allowsNotifications = !!user && canAccessNotifications(user);
 
     if (loading) {
         return <LoadingSpinner variant="page" />;
@@ -118,24 +127,28 @@ const StandardUserDashboard = () => {
                     color="#5E4B9E"
                     onClick={() => navigate('/admin/audit-logs')}
                 />
-                <DashboardKpiCard
-                    title={t('dashboard.standardUser.kpiOpenAlerts')}
-                    value={openAlerts.length}
-                    subtitle={t('dashboard.standardUser.requireAttention')}
-                    icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
-                    bgColor="#FDE8EC"
-                    color="#A23B4E"
-                    onClick={() => navigate('/admin/devops/alerts')}
-                />
-                <DashboardKpiCard
-                    title={t('dashboard.standardUser.kpiTotalCost')}
-                    value={formatCurrency(totalCost)}
-                    subtitle={t('dashboard.standardUser.recordsCount', { count: costs.length })}
-                    icon={<AttachMoneyIcon sx={{ color: '#8A6A2E', fontSize: 26 }} />}
-                    bgColor="#FFF7ED"
-                    color="#8A6A2E"
-                    onClick={() => navigate('/admin/devops/costs')}
-                />
+                {allowsAlerts && (
+                    <DashboardKpiCard
+                        title={t('dashboard.standardUser.kpiOpenAlerts')}
+                        value={openAlerts.length}
+                        subtitle={t('dashboard.standardUser.requireAttention')}
+                        icon={<WarningAmberIcon sx={{ color: '#A23B4E', fontSize: 26 }} />}
+                        bgColor="#FDE8EC"
+                        color="#A23B4E"
+                        onClick={() => navigate('/admin/devops/alerts')}
+                    />
+                )}
+                {allowsCosts && (
+                    <DashboardKpiCard
+                        title={t('dashboard.standardUser.kpiTotalCost')}
+                        value={formatCurrency(totalCost)}
+                        subtitle={t('dashboard.standardUser.recordsCount', { count: costs.length })}
+                        icon={<AttachMoneyIcon sx={{ color: '#8A6A2E', fontSize: 26 }} />}
+                        bgColor="#FFF7ED"
+                        color="#8A6A2E"
+                        onClick={() => navigate('/admin/devops/costs')}
+                    />
+                )}
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3 }}>

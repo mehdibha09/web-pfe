@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +42,10 @@ public class QuotaService {
 
     public List<Quota> getAll() {
         return quotaRepository.findByTenantId(UserContext.getTenantId());
+    }
+
+    public Page<Quota> getPageByTenantId(UUID tenantId, Pageable pageable) {
+        return quotaRepository.findByTenantId(tenantId, pageable);
     }
 
     public List<Quota> getByServiceEnvironmentId(UUID serviceEnvironmentId) {

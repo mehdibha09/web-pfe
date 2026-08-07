@@ -12,6 +12,7 @@ import type { ServiceEnvironmentResponse, ServiceResponse, EnvironmentResponse }
 import { seLabel } from '../common/seLabel';
 import MyCustomButton from '../../../components/MyCustomButton';
 import { C } from '../../../theme/tokens';
+import { formatMoney } from '../../../utils/format';
 
 const ForecastCard = () => {
     const { t } = useTranslation();
@@ -114,7 +115,7 @@ const ForecastCard = () => {
                                     {t('costs.predictedCost')}
                                 </Typography>
                                 <Typography variant="h5" sx={{ fontWeight: 900, color: C.brand }}>
-                                    ${forecastResult.predictedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {formatMoney(forecastResult.predictedCost)}
                                 </Typography>
                             </CardContent>
                         </Card>

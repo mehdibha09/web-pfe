@@ -25,8 +25,8 @@ const SsoCallback = () => {
                 code,
                 state,
             });
-            if (data.tokens) {
-                saveSession(data.tokens.accessToken, data.tokens.refreshToken, data.me);
+            if (data.me) {
+                saveSession(data.me);
                 toast.success(t('auth.ssoLoginSuccess'));
                 navigate('/admin/dashboard');
             } else if (data.twoFaRequired) {

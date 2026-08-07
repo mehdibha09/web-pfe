@@ -36,6 +36,19 @@
         "threshold": "Threshold",
         "actualValue": "Actual Value",
         "message": "Message",
-        "creating": "Creating…"
+        "creating": "Creating…",
+        "columnCreated": "Created",
+        "columnActions": "Actions",
+        "severityInfo": "Info",
+        "severityWarn": "Warning",
+        "severityCritical": "Critical",
+        "typeQuota": "Quota",
+        "typeBudget": "Budget",
+        "statusOpen": "Open",
+        "statusAck": "Acknowledged",
+        "statusResolved": "Resolved",
+        "actionAck": "Acknowledge",
+        "actionResolve": "Resolve",
+        "actionDelete": "Delete"
     }
 }

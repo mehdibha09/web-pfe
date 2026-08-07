@@ -1,5 +1,6 @@
 {
     "periods": {
+        "today": "Today",
         "daily": "Daily",
         "weekly": "Weekly",
         "monthly": "Monthly"

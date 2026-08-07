@@ -8,7 +8,6 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
@@ -57,11 +56,7 @@ public class NotificationController {
     public ResponseEntity<Page<NotificationResponseDto>> getByUserId(
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("NOTIFICATION_READ");
-        List<NotificationResponseDto> all = notificationService.getByUserId(UserContext.getUserId());
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), all.size());
-        List<NotificationResponseDto> content = start < all.size() ? all.subList(start, end) : List.of();
-        return ResponseEntity.ok(new PageImpl<>(content, pageable, all.size()));
+        return ResponseEntity.ok(notificationService.getPageByUserId(UserContext.getUserId(), pageable));
     }
 
     @GetMapping("/unread")
@@ -114,6 +109,7 @@ public class NotificationController {
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe() {
+        UserContext.requirePermission("NOTIFICATION_READ");
         SseEmitter emitter = new SseEmitter(-1L);
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));

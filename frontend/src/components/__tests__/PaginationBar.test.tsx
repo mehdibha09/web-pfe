@@ -12,7 +12,7 @@ describe('PaginationBar', () => {
 
   it('renders pagination info', () => {
     render(<PaginationBar {...defaultProps} />)
-    expect(screen.getByText('1–10 / 50')).toBeInTheDocument()
+    expect(screen.getByText('1–10 / 50 résultats')).toBeInTheDocument()
   })
 
   it('calls onPageChange on next', () => {

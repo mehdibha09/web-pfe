@@ -54,6 +54,7 @@ export const useSse = ({ url, headers, enabled = true, onMessage, onError, recon
             try {
                 await fetchEventSource(urlRef.current, {
                     method: 'GET',
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                         ...headersRef.current

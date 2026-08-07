@@ -71,28 +71,32 @@ public class CostAutoGeneratorService {
             return;
         }
 
+        // Compute the billing window ONCE so both modes (VM and K8s) of the
+        // same service environment share the exact same [periodStart, periodEnd].
         Window window = computeWindow(se, vms, deployments);
         if (window.hours() <= 0) {
             log.debug("No elapsed time to bill for se={} (window empty)", se.getId());
             return;
         }
 
+        // A hybrid SE produces one CostRecord per mode that is actually present.
         if (!vms.isEmpty()) {
-            List<PriceConfig> configs = priceConfigService.getAllByModeForSystem("VM");
-            if (configs.isEmpty()) {
+            List<PriceConfig> vmConfigs = priceConfigService.getAllByModeForSystem("VM");
+            if (vmConfigs.isEmpty()) {
                 log.debug("No active price configs for mode VM, se={}", se.getId());
-                return;
+            } else {
+                generateVmCost(se, vms, vmConfigs, window);
             }
-            generateVmCost(se, vms, configs, window);
-            return;
         }
 
-        List<PriceConfig> k8sConfigs = priceConfigService.getAllByModeForSystem("KUBERNETES");
-        if (k8sConfigs.isEmpty()) {
-            log.debug("No active price configs for mode KUBERNETES, se={}", se.getId());
-            return;
+        if (!deployments.isEmpty()) {
+            List<PriceConfig> k8sConfigs = priceConfigService.getAllByModeForSystem("KUBERNETES");
+            if (k8sConfigs.isEmpty()) {
+                log.debug("No active price configs for mode KUBERNETES, se={}", se.getId());
+            } else {
+                generateK8sCost(se, deployments, k8sConfigs, window);
+            }
         }
-        generateK8sCost(se, deployments, k8sConfigs, window);
     }
 
     private void generateVmCost(ServiceEnvironment se, List<Vm> vms, List<PriceConfig> configs, Window window) {

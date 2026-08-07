@@ -139,6 +139,9 @@ export const canManageAlerts = (user: AuthUser) =>
 export const canAccessMetrics = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'METRIC');
 
+export const canAccessDashboard = (user: AuthUser) =>
+  isSuperAdmin(user) || hasPermission(user, 'DASHBOARD');
+
 export const canAccessServices = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'DEPLOYMENT');
 

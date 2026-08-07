@@ -1,4 +1,4 @@
-import { clearSession, getAccessToken, getRefreshToken, setSessionTokens } from './authStorage';
+import { clearSession, getStoredUser } from './authStorage';
 
 const API_BASE_URL = (() => {
     const explicitBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -15,7 +15,7 @@ const API_BASE_URL = (() => {
 
 // ── Refresh state ────────────────────────────────────────────────────────────
 let isRefreshing = false;
-let failedQueue: { resolve: (token: string) => void; reject: (err: Error) => void }[] = [];
+let failedQueue: { resolve: () => void; reject: (err: Error) => void }[] = [];
 
 const buildClientHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {};
@@ -36,30 +36,24 @@ const buildClientHeaders = (): Record<string, string> => {
     return headers;
 };
 
-const processQueue = (error: Error | null, token: string | null = null) => {
+const processQueue = (error: Error | null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) reject(error);
-        else if (token) resolve(token);
+        else resolve();
     });
     failedQueue = [];
 };
 
 // ── Core refresh call (no interceptor – plain fetch to avoid loops) ──────────
-const refreshTokens = async (): Promise<string> => {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) throw new Error('No refresh token');
-
+const refreshTokens = async (): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...buildClientHeaders() },
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...buildClientHeaders() }
     });
 
     if (!response.ok) throw new Error('Refresh failed');
-
-    const data = await response.json();
-    setSessionTokens(data.accessToken, data.refreshToken);
-    return data.accessToken;
+    await response.json();
 };
 
 // ── Pagination meta ──────────────────────────────────────────────────────────
@@ -128,7 +122,7 @@ const request = async <T = any>(
     payload?: any,
     _retry: boolean = false
 ): Promise<{ data: T; pagination?: PaginationMeta }> => {
-    const token = getAccessToken();
+    const hasSession = !!getStoredUser();
     const fullUrl = `${API_BASE_URL}${url}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -138,10 +132,10 @@ const request = async <T = any>(
         response = await fetch(fullUrl, {
             method,
             signal: controller.signal,
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
-                ...buildClientHeaders(),
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
+                ...buildClientHeaders()
             },
             ...(payload !== undefined ? { body: JSON.stringify(payload) } : {})
         });
@@ -169,7 +163,7 @@ const request = async <T = any>(
             url,
             fullUrl,
             status: response.status,
-            hasAuthHeader: !!token,
+            hasSession,
             retryAttempt: _retry
         });
     }
@@ -202,12 +196,12 @@ const request = async <T = any>(
         return { data: parsed as T };
     }
 
-    // ── Not a 401, or already retried, or public request without token → throw
-    if (response.status !== 401 || _retry || !token) {
+    // ── Not a 401, or already retried, or no signed-in user → throw ──────────
+    if (response.status !== 401 || _retry || !hasSession) {
         throw await toError(response);
     }
 
-    // ── 401: try to refresh ──────────────────────────────────────────────────
+    // ── 401: try to refresh via HttpOnly cookie ──────────────────────────────
     if (isRefreshing) {
         // Another refresh is in flight – queue this request and wait
         return new Promise((resolve, reject) => {
@@ -222,7 +216,7 @@ const request = async <T = any>(
 
     try {
         await refreshTokens();
-        processQueue(null, null);
+        processQueue(null);
         return request(method, url, payload, true); // retry original
     } catch (err) {
         processQueue(err as Error);

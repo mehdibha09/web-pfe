@@ -19,7 +19,7 @@ import {
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getAccessToken, getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/authStorage';
 import { useSse } from '../../../hooks/useSse';
 
 import type {
@@ -215,7 +215,6 @@ const MetricsPage = () => {
 
     const { connected: sseConnected } = useSse({
         url: serviceEnvironmentId ? `${sseBaseUrl}/metrics/stream/${serviceEnvironmentId}` : '',
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
         enabled: useSseEnabled && !!serviceEnvironmentId,
         onMessage: (data: MetricResponse) => {
             setLatest(data);

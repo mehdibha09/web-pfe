@@ -104,13 +104,13 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth
             slotProps={{ paper: { sx: { borderRadius: 3, overflow: 'hidden' } } }}>
             <Box sx={{
-                background: 'linear-gradient(135deg, #E4EEF7 0%, #FFFFFF 100%)',
+                background: 'linear-gradient(135deg, #FCE7F3 0%, #FFFFFF 100%)',
                 px: 3, py: 2.5,
                 display: 'flex', alignItems: 'center', gap: 1.5,
                 borderBottom: `1px solid ${C.border}`
             }}>
-                <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: '#E4EEF7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CloudIcon sx={{ color: '#2E5C8A', fontSize: 20 }} />
+                <Box sx={{ width: 38, height: 38, borderRadius: 2, backgroundColor: '#FCE7F3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CloudIcon sx={{ color: '#BE185D', fontSize: 20 }} />
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
                     {t('quotas.newQuota')}
@@ -176,7 +176,7 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
                 </Box>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
-                <Button onClick={handleClose} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, px: 3 }}>{t('common.cancel')}</Button>
+                <Button onClick={handleClose} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, px: 3, color: '#BE185D', borderColor: '#F2B8CC' }}>{t('common.cancel')}</Button>
                 <MyCustomButton onClick={handleCreate} disabled={creating} sx={{ px: 4 }}>
                     {creating ? t('quotas.creating') : t('quotas.create')}
                 </MyCustomButton>

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { CostRecordResponse } from '../../../services/cloudPricerService';
 import { C } from '../../../theme/tokens';
+import { formatMoney } from '../../../utils/format';
 
 interface MonthComparisonCardProps {
     costs: CostRecordResponse[];
@@ -67,13 +68,13 @@ const MonthComparisonCard = ({ costs }: MonthComparisonCardProps) => {
                     <Box>
                         <Typography variant="caption" sx={{ color: C.muted }}>{t('costs.currentMonth')}</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 800, color: isUp ? '#C95B6E' : C.brand }}>
-                            ${currentMonthTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {formatMoney(currentMonthTotal)}
                         </Typography>
                     </Box>
                     <Box>
                         <Typography variant="caption" sx={{ color: C.muted }}>{t('costs.previousMonth')}</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 800, color: C.muted }}>
-                            ${previousMonthTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {formatMoney(previousMonthTotal)}
                         </Typography>
                     </Box>
                 </Box>

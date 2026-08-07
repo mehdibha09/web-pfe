@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
@@ -58,11 +57,8 @@ public class CostController {
     @GetMapping
     public ResponseEntity<Page<CostRecordResponse>> getAll(@PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("COST_READ");
-        List<CostRecordResponse> list = costRecordService.getByTenantId(UserContext.getTenantId()).stream().map(this::map).toList();
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), list.size());
-        List<CostRecordResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
+        Page<CostRecord> page = costRecordService.getPageByTenantId(UserContext.getTenantId(), pageable);
+        return ResponseEntity.ok(page.map(this::map));
     }
 
     @GetMapping("/{id}")

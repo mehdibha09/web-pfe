@@ -7,6 +7,7 @@ import {
     Typography
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { formatMoney } from '../../../utils/format';
 import {
     AreaChart,
     Area,
@@ -32,7 +33,7 @@ interface CostChartsProps {
     onPeriodFilterChange: (filter: PeriodFilter) => void;
 }
 
-const FILTERS: PeriodFilter[] = ['week', 'month', 'year', 'all'];
+const FILTERS: PeriodFilter[] = ['today', 'week', 'month', 'year', 'all'];
 
 const money = (v: number) => v.toLocaleString(undefined, {
     minimumFractionDigits: Math.abs(v) > 0 && Math.abs(v) < 0.01 ? 4 : 2,
@@ -132,8 +133,8 @@ const CostCharts = ({ costs, totals, periodFilter, onPeriodFilterChange }: CostC
                                 </defs>
                                 <CartesianGrid strokeDasharray="4 4" stroke={gridStroke} vertical={false} />
                                 <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
-                                <YAxis tick={axisTick} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${money(v)}`} width={60} />
-                                <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [`$${money(Number(value))}`, '']} />
+                                <YAxis tick={axisTick} axisLine={false} tickLine={false} tickFormatter={(v: number) => formatMoney(v)} width={70} />
+                                <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [formatMoney(Number(value)), '']} />
                                 <Legend wrapperStyle={{ fontSize: 12 }} />
                                 <Area type="monotone" dataKey="total" name={t('costs.totalCost')} stroke={C.brand} fill="url(#gradTotal)" strokeWidth={2.5} dot={{ r: 3, fill: C.brand, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                                 <Area type="monotone" dataKey="compute" name={t('costs.computeLabel')} stroke="#2E5C8A" fill="transparent" strokeWidth={1.5} strokeDasharray="5 3" />
@@ -166,12 +167,12 @@ const CostCharts = ({ costs, totals, periodFilter, onPeriodFilterChange }: CostC
                             <ResponsiveContainer width="100%" height={320}>
                                 <BarChart data={breakdownBarData} layout="vertical" margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
                                     <CartesianGrid strokeDasharray="4 3" stroke={gridStroke} horizontal={false} />
-                                    <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${money(v)}`} />
+                                    <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} tickFormatter={(v: number) => formatMoney(v)} />
                                     <YAxis dataKey="name" type="category" width={90} tick={axisTick} axisLine={false} tickLine={false} />
                                     <Tooltip
                                         contentStyle={tooltipStyle}
                                         formatter={(value: any) => [
-                                            `$${money(Number(value))}${grandTotal > 0 ? ` (${((Number(value) / grandTotal) * 100).toFixed(1)}%)` : ''}`,
+                                            `${formatMoney(Number(value))}${grandTotal > 0 ? ` (${((Number(value) / grandTotal) * 100).toFixed(1)}%)` : ''}`,
                                             ''
                                         ]}
                                     />
@@ -179,7 +180,7 @@ const CostCharts = ({ costs, totals, periodFilter, onPeriodFilterChange }: CostC
                                         {breakdownBarData.map((entry, index) => (
                                             <rect key={index} fill={entry.fill} />
                                         ))}
-                                        <LabelList dataKey="value" position="right" formatter={(v: any) => `$${money(Number(v))}`} style={{ fill: C.muted, fontSize: 11, fontWeight: 700 }} />
+                                        <LabelList dataKey="value" position="right" formatter={(v: any) => formatMoney(Number(v))} style={{ fill: C.muted, fontSize: 11, fontWeight: 700 }} />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>

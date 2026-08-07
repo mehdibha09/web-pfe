@@ -233,4 +233,5 @@ spring:
                         exposedHeaders:
                             - Authorization
                             - Content-Disposition
+                            - Set-Cookie
                         allowCredentials: true

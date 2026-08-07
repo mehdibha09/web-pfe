@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.auth.service.config.AuthCookieWriter;
 import com.auth.service.service.AuthService;
 import com.auth.service.web.dto.auth.AuthActionResponse;
-import com.auth.service.web.dto.auth.AuthBackupCodesResponse;
 import com.auth.service.web.dto.auth.AuthChangePasswordRequest;
 import com.auth.service.web.dto.auth.AuthForgotPasswordRequest;
 import com.auth.service.web.dto.auth.AuthLoginRequest;
@@ -33,7 +33,9 @@ import com.auth.service.web.dto.auth.AuthTwoFaVerifyRequest;
 import com.auth.service.web.dto.auth.AuthUpdateEmailRequest;
 import com.auth.service.web.routes.ApiRoutes;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 @RestController
@@ -41,34 +43,45 @@ import jakarta.validation.Valid;
 @Validated
 public class AuthController {
     private final AuthService authService;
+    private final AuthCookieWriter authCookieWriter;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AuthCookieWriter authCookieWriter) {
         this.authService = authService;
+        this.authCookieWriter = authCookieWriter;
     }
 
     @PostMapping(ApiRoutes.Auth.LOGIN)
-    public ResponseEntity<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(authService.login(
+    public ResponseEntity<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        AuthLoginResponse body = authService.login(
                 request,
                 resolveClientIp(httpRequest),
                 normalizeHeader(httpRequest.getHeader("User-Agent")),
                 normalizeHeader(httpRequest.getHeader("Accept-Language")),
                 normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
-        ));
+        );
+        if (body.tokens() != null) {
+            authCookieWriter.setAuthCookies(httpResponse, body.tokens());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping(ApiRoutes.Auth.TWO_FA_EMAIL_VERIFY)
     public ResponseEntity<AuthLoginResponse> verifyLoginTwoFa(
             @Valid @RequestBody AuthTwoFaEmailVerifyRequest request,
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
     ) {
-        return ResponseEntity.ok(authService.verifyEmailTwoFa(
+        AuthLoginResponse body = authService.verifyEmailTwoFa(
             request,
             resolveClientIp(httpRequest),
             normalizeHeader(httpRequest.getHeader("User-Agent")),
             normalizeHeader(httpRequest.getHeader("Accept-Language")),
             normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
-        ));
+        );
+        if (body.tokens() != null) {
+            authCookieWriter.setAuthCookies(httpResponse, body.tokens());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping(ApiRoutes.Auth.TWO_FA_EMAIL_RESEND)
@@ -77,14 +90,37 @@ public class AuthController {
     }
 
     @PostMapping(ApiRoutes.Auth.REFRESH)
-    public ResponseEntity<AuthTokensResponse> refresh(@Valid @RequestBody AuthRefreshRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(authService.refresh(
-                request,
+    public ResponseEntity<AuthTokensResponse> refresh(
+            @RequestBody(required = false) AuthRefreshRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        String refreshToken = resolveRefreshToken(request, httpRequest);
+        AuthTokensResponse tokens = authService.refresh(
+                refreshToken,
                 resolveClientIp(httpRequest),
                 normalizeHeader(httpRequest.getHeader("User-Agent")),
                 normalizeHeader(httpRequest.getHeader("Accept-Language")),
                 normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
-        ));
+        );
+        authCookieWriter.setAuthCookies(httpResponse, tokens);
+        return ResponseEntity.ok(tokens);
+    }
+
+    private String resolveRefreshToken(AuthRefreshRequest request, HttpServletRequest httpRequest) {
+        if (request != null && request.refreshToken() != null && !request.refreshToken().isBlank()) {
+            return request.refreshToken();
+        }
+        Cookie[] cookies = httpRequest.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (AuthCookieWriter.REFRESH_COOKIE.equals(cookie.getName()) && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return request == null ? null : request.refreshToken();
     }
 
     private String resolveClientIp(HttpServletRequest httpRequest) {
@@ -112,10 +148,13 @@ public class AuthController {
     @PostMapping(ApiRoutes.Auth.LOGOUT)
     public ResponseEntity<AuthActionResponse> logout(
             @RequestBody(required = false) AuthLogoutRequest request,
-            @RequestHeader("Authorization") String authorizationHeader
+            @RequestHeader("Authorization") String authorizationHeader,
+            HttpServletResponse httpResponse
     ) {
         String refreshToken = request == null ? null : request.refreshToken();
-        return ResponseEntity.ok(authService.logout(refreshToken, authorizationHeader));
+        AuthActionResponse body = authService.logout(refreshToken, authorizationHeader);
+        authCookieWriter.clearAuthCookies(httpResponse);
+        return ResponseEntity.ok(body);
     }
 
     @GetMapping(ApiRoutes.Auth.ME)
@@ -140,7 +179,7 @@ public class AuthController {
     }
 
     @PostMapping(ApiRoutes.Auth.FORGOT_PASSWORD)
-    public ResponseEntity<com.auth.service.web.dto.auth.PasswordResetResponse> forgotPassword(
+    public ResponseEntity<AuthActionResponse> forgotPassword(
             @Valid @RequestBody AuthForgotPasswordRequest request
     ) {
         return ResponseEntity.ok(authService.forgotPassword(request));
@@ -166,16 +205,26 @@ public class AuthController {
             @RequestParam(name = "code", required = false) String code,
             @RequestParam(name = "state", required = false) String state,
             @RequestParam(name = "tenantId", required = false) java.util.UUID tenantId,
-            @RequestParam(name = "tenantName", required = false) String tenantName
+            @RequestParam(name = "tenantName", required = false) String tenantName,
+            HttpServletResponse httpResponse
     ) {
-        return ResponseEntity.ok(authService.ssoCallback(provider, code, state, tenantId, tenantName));
+        AuthLoginResponse body = authService.ssoCallback(provider, code, state, tenantId, tenantName);
+        if (body.tokens() != null) {
+            authCookieWriter.setAuthCookies(httpResponse, body.tokens());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping(ApiRoutes.Auth.SSO_CALLBACK_POST)
     public ResponseEntity<AuthLoginResponse> ssoCallbackPost(
-            @Valid @RequestBody AuthSsoCallbackRequest request
+            @Valid @RequestBody AuthSsoCallbackRequest request,
+            HttpServletResponse httpResponse
     ) {
-        return ResponseEntity.ok(authService.ssoCallback(request.provider(), request.code(), request.state(), null, null));
+        AuthLoginResponse body = authService.ssoCallback(request.provider(), request.code(), request.state(), null, null);
+        if (body.tokens() != null) {
+            authCookieWriter.setAuthCookies(httpResponse, body.tokens());
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping(ApiRoutes.Auth.TWO_FA_SETUP)
@@ -194,15 +243,5 @@ public class AuthController {
     @DeleteMapping(ApiRoutes.Auth.TWO_FA_DISABLE)
     public ResponseEntity<AuthActionResponse> disableTwoFa(@RequestHeader("Authorization") String authorizationHeader) {
         return ResponseEntity.ok(authService.disableTwoFa(authorizationHeader));
-    }
-
-    @GetMapping(ApiRoutes.Auth.TWO_FA_BACKUP_CODES)
-    public ResponseEntity<AuthBackupCodesResponse> getBackupCodes(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(authService.getBackupCodes(authorizationHeader));
-    }
-
-    @PostMapping(ApiRoutes.Auth.TWO_FA_BACKUP_CODES_REGENERATE)
-    public ResponseEntity<AuthBackupCodesResponse> regenerateBackupCodes(@RequestHeader("Authorization") String authorizationHeader) {
-        return ResponseEntity.ok(authService.regenerateBackupCodes(authorizationHeader));
     }
 }

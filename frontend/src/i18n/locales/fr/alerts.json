@@ -36,6 +36,19 @@
         "threshold": "Seuil",
         "actualValue": "Valeur actuelle",
         "message": "Message",
-        "creating": "Création…"
+        "creating": "Création…",
+        "columnCreated": "Créé",
+        "columnActions": "Actions",
+        "severityInfo": "Info",
+        "severityWarn": "Avertissement",
+        "severityCritical": "Critique",
+        "typeQuota": "Quota",
+        "typeBudget": "Budget",
+        "statusOpen": "Ouverte",
+        "statusAck": "Reconnue",
+        "statusResolved": "Résolue",
+        "actionAck": "Reconnaître",
+        "actionResolve": "Résoudre",
+        "actionDelete": "Supprimer"
     }
 }

@@ -40,10 +40,18 @@ spec:
           image: 192.168.56.30/frontend:latest
           imagePullPolicy: IfNotPresent
 
-          envFrom:
-            - configMapRef:
-                name: frontend-config
-                optional: true
+          env:
+            - name: VITE_API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: VITE_API_BASE_URL
+
+            - name: FRONTEND_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-secret
+                  key: FRONTEND_SECRET
 
           ports:
             - containerPort: 80
@@ -135,6 +143,7 @@ spec:
     - name: metrics
       port: 9113
       targetPort: 9113
+      nodePort: 30872
 
   type: NodePort
 

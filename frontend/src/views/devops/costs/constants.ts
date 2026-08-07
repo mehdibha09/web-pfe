@@ -11,9 +11,10 @@ export interface BreakdownRow {
     quantity: number;
 }
 
-export type PeriodFilter = 'week' | 'month' | 'year' | 'all';
+export type PeriodFilter = 'today' | 'week' | 'month' | 'year' | 'all';
 
 export const filterLabel: Record<PeriodFilter, string> = {
+    today: 'Today',
     week: 'This Week',
     month: 'This Month',
     year: 'This Year',
@@ -26,6 +27,10 @@ export const getPeriodRange = (filter: PeriodFilter): { start: Date; end: Date }
     let start: Date;
 
     switch (filter) {
+        case 'today': {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+        }
         case 'week': {
             start = new Date(now);
             start.setDate(now.getDate() - now.getDay());

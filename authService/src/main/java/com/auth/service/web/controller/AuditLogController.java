@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -44,11 +43,7 @@ public class AuditLogController {
             @PageableDefault(size = 10) Pageable pageable
     ) {
         AuditLogQuery query = new AuditLogQuery(from, to, action, resource, userId);
-        List<AuditLogResponse> list = auditLogService.listAuditLogs(authorizationHeader, query);
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), list.size());
-        List<AuditLogResponse> content = start < list.size() ? list.subList(start, end) : List.of();
-        return ResponseEntity.ok(new PageImpl<>(content, pageable, list.size()));
+        return ResponseEntity.ok(auditLogService.listAuditLogs(authorizationHeader, query, pageable));
     }
 
     @GetMapping(ApiRoutes.AuditLogs.RESOURCES)

@@ -70,8 +70,3 @@ export interface TwoFaEmailVerifyPayload {
 export interface TwoFaActionResponse {
   message: string;
 }
-
-export interface BackupCodesResponse {
-  codes: string[];
-  message: string;
-}

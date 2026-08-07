@@ -17,22 +17,34 @@ import com.cloud_pricer.repository.QuotaRepository;
 import com.cloud_pricer.repository.ServiceEnvironmentRepository;
 import com.cloud_pricer.web.dto.cost.MetricSnapshot;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AlertGeneratorService {
 
     private final QuotaRepository quotaRepository;
     private final AlertRepository alertRepository;
     private final ServiceEnvironmentRepository serviceEnvironmentRepository;
     private final CostRecordRepository costRecordRepository;
+    private final String deploymentServiceBaseUrl;
+    private final RestClient restClient;
 
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("http://localhost:8082")
-            .build();
+    public AlertGeneratorService(QuotaRepository quotaRepository,
+                                 AlertRepository alertRepository,
+                                 ServiceEnvironmentRepository serviceEnvironmentRepository,
+                                 CostRecordRepository costRecordRepository,
+                                 @org.springframework.beans.factory.annotation.Value(
+                                         "${deployment-service-url:http://localhost:8082}") String deploymentServiceBaseUrl) {
+        this.quotaRepository = quotaRepository;
+        this.alertRepository = alertRepository;
+        this.serviceEnvironmentRepository = serviceEnvironmentRepository;
+        this.costRecordRepository = costRecordRepository;
+        this.deploymentServiceBaseUrl = deploymentServiceBaseUrl;
+        this.restClient = RestClient.builder()
+                .baseUrl(deploymentServiceBaseUrl)
+                .build();
+    }
 
     private static final double WARN_CPU = 80.0;
     private static final double CRIT_CPU = 90.0;
@@ -134,7 +146,7 @@ public class AlertGeneratorService {
         if (ratio >= 100.0 && !hasOpenAlert(seId, "BUDGET", "CRITICAL")) {
             createAlert(seId, tenantId, "BUDGET", maxBudget, usedCost, "CRITICAL",
                     "Budget épuisé — " + String.format("%.2f", usedCost) + " / " + String.format("%.2f", maxBudget)
-                            + " (" + String.format("%.0f", ratio) + "%). Nouvelles ressources bloquées.");
+                            + " (" + String.format("%.0f", ratio) + "%). Dépenses au-delà du budget alloué.");
         } else if (ratio >= 90.0 && !hasOpenAlert(seId, "BUDGET", "WARNING")) {
             createAlert(seId, tenantId, "BUDGET", maxBudget, usedCost, "WARNING",
                     "Budget presque épuisé — " + String.format("%.0f", ratio) + "% utilisé (" + String.format("%.2f", usedCost) + " / " + String.format("%.2f", maxBudget) + ")");
