@@ -8,22 +8,7 @@ pipeline {
         nodejs 'node'
     }
 
-    environment {
-        // CHANGE DETECTION: initialised to 'false', Detect Changes stage
-        // sets them based on the diff. Override per service to force a rebuild.
-        CHANGED_AUTH       = 'false'
-        CHANGED_PRICER     = 'false'
-        CHANGED_GATEWAY    = 'false'
-        CHANGED_FRONTEND   = 'false'
-        CHANGED_K8S        = 'false'
-        CHANGED_DEPLOYMENT = 'false'
-        CHANGED_BACKEND    = 'false'
-        CHANGED_ANY_IMAGE  = 'false'
-        CHANGED_DEPLOY     = 'false'
 
-        // Kubernetes rollout timeout (e.g. '600s', '10m')
-        K8S_ROLLOUT_TIMEOUT = '600s'
-    }
 
     stages {
 
