@@ -71,14 +71,15 @@ stage('Detect Changes') {
             // ─────────────────────────────────────────────
             // Construction explicite de la liste (sans closures problématiques)
             // ─────────────────────────────────────────────
-            String[] lines = changedFiles.split('\n')
-            List<String> changedList = new ArrayList<>()
-            for (String line : lines) {
-                String trimmed = line.trim()
-                if (trimmed.length() > 0) {
-                    changedList.add(trimmed)
-                }
-            }
+              def changedList = []
+                    def lines = changedFiles.split('\n')
+                    for (line in lines) {
+                        def trimmed = line.trim()
+                        if (trimmed) {
+                            changedList.add(trimmed)
+                        }
+                    }
+
 
             echo "📋 changedList contient ${changedList.size()} fichier(s)"
 
