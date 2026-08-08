@@ -116,6 +116,8 @@ stage('Detect Changes') {
             // ─────────────────────────────────────────────
             // LOG CLAIR des flags pour debug facile
             // ─────────────────────────────────────────────
+            echo "DETECT_VERSION=v3"
+
             echo """
 ╔══════════════════════════════════════╗
 ║       DÉTECTION DES CHANGEMENTS      ║
