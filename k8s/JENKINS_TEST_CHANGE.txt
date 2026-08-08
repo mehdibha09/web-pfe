@@ -3,3 +3,5 @@ Si ce fichier est pousse, CHANGED_K8S=true et le deploiement K8s est re-applique
 Modifié pour test 01:41:29
 
 Test jenkins k8s
+
+Detection run 02c022:22
