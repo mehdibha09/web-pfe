@@ -38,105 +38,108 @@ pipeline {
         // Détection des changements
         // ═══════════════════════════════════════════════════════════
 
-    stage('Detect Changes') {
-steps {
-    script {
+stage('Detect Changes') {
+    steps {
+        script {
 
-        sh '''
-            git fetch origin +refs/heads/*:refs/remotes/origin/* --prune
-        '''
+            sh '''
+                git fetch origin +refs/heads/*:refs/remotes/origin/* --prune
+            '''
 
-        def changedFiles = sh(
-            script: '''
-                if [ -n "$GIT_PREVIOUS_COMMIT" ] &&
-                   git cat-file -e "$GIT_PREVIOUS_COMMIT^{commit}" 2>/dev/null; then
+            def changedFiles = sh(
+                script: '''
+                    CURRENT=$(git rev-parse HEAD)
 
-                    git diff --name-only "$GIT_PREVIOUS_COMMIT" "$GIT_COMMIT"
+                    if git rev-parse HEAD~1 >/dev/null 2>&1; then
+                        BASE=$(git rev-parse HEAD~1)
 
-                else
-                    echo "Aucun commit précédent disponible"
-                    git diff-tree --no-commit-id --name-only -r "$GIT_COMMIT"
-                fi
-            ''',
-            returnStdout: true
-        ).trim()
+                        echo "Commit actuel : $CURRENT" >&2
+                        echo "Commit précédent : $BASE" >&2
 
-        echo "Fichiers modifiés :\n${changedFiles}"
+                        git diff --name-only "$BASE" "$CURRENT"
+                    else
+                        echo "Premier commit détecté" >&2
+                        git diff-tree --no-commit-id --name-only -r "$CURRENT"
+                    fi
+                ''',
+                returnStdout: true
+            ).trim()
 
-        boolean authChanged       = false
-        boolean pricerChanged     = false
-        boolean gatewayChanged    = false
-        boolean frontendChanged   = false
-        boolean k8sChanged        = false
-        boolean deploymentChanged = false
+            echo "Fichiers modifiés :\n${changedFiles}"
 
-        if (changedFiles) {
+            boolean authChanged       = false
+            boolean pricerChanged     = false
+            boolean gatewayChanged    = false
+            boolean frontendChanged   = false
+            boolean k8sChanged        = false
+            boolean deploymentChanged = false
 
-            def changedList = changedFiles.readLines()
+            if (changedFiles) {
 
-            echo "Nombre de fichiers : ${changedList.size()}"
+                def changedList = changedFiles.readLines()
 
-            for (String line : changedList) {
+                echo "Nombre de fichiers : ${changedList.size()}"
 
-                line = line.trim()
+                for (String line : changedList) {
 
-                echo "Analyse fichier : [${line}]"
+                    line = line.trim()
 
-                if (line.startsWith('authService/')) {
-                    authChanged = true
-                }
+                    echo "Analyse fichier : [${line}]"
 
-                if (line.startsWith('cloudPricer/')) {
-                    pricerChanged = true
-                }
+                    if (line.startsWith('authService/')) {
+                        authChanged = true
+                    }
 
-                if (line.startsWith('gateway/')) {
-                    gatewayChanged = true
-                }
+                    if (line.startsWith('cloudPricer/')) {
+                        pricerChanged = true
+                    }
 
-                if (line.startsWith('frontend/')) {
-                    frontendChanged = true
-                }
+                    if (line.startsWith('gateway/')) {
+                        gatewayChanged = true
+                    }
 
-                if (line.startsWith('k8s/')) {
-                    k8sChanged = true
-                }
+                    if (line.startsWith('frontend/')) {
+                        frontendChanged = true
+                    }
 
-                if (line.startsWith('deployment/')) {
-                    deploymentChanged = true
+                    if (line.startsWith('k8s/')) {
+                        k8sChanged = true
+                    }
+
+                    if (line.startsWith('deployment/')) {
+                        deploymentChanged = true
+                    }
                 }
             }
-        }
 
-        env.CHANGED_AUTH       = authChanged ? 'true' : 'false'
-        env.CHANGED_PRICER     = pricerChanged ? 'true' : 'false'
-        env.CHANGED_GATEWAY    = gatewayChanged ? 'true' : 'false'
-        env.CHANGED_FRONTEND   = frontendChanged ? 'true' : 'false'
-        env.CHANGED_K8S        = k8sChanged ? 'true' : 'false'
-        env.CHANGED_DEPLOYMENT = deploymentChanged ? 'true' : 'false'
+            env.CHANGED_AUTH       = authChanged ? 'true' : 'false'
+            env.CHANGED_PRICER     = pricerChanged ? 'true' : 'false'
+            env.CHANGED_GATEWAY    = gatewayChanged ? 'true' : 'false'
+            env.CHANGED_FRONTEND   = frontendChanged ? 'true' : 'false'
+            env.CHANGED_K8S        = k8sChanged ? 'true' : 'false'
+            env.CHANGED_DEPLOYMENT = deploymentChanged ? 'true' : 'false'
 
-        env.CHANGED_BACKEND = (
-            authChanged ||
-            pricerChanged ||
-            gatewayChanged ||
-            deploymentChanged
-        ) ? 'true' : 'false'
+            env.CHANGED_BACKEND = (
+                authChanged ||
+                pricerChanged ||
+                gatewayChanged ||
+                deploymentChanged
+            ) ? 'true' : 'false'
 
-        env.CHANGED_ANY_IMAGE = (
-            authChanged ||
-            pricerChanged ||
-            gatewayChanged ||
-            deploymentChanged ||
-            frontendChanged
-        ) ? 'true' : 'false'
+            env.CHANGED_ANY_IMAGE = (
+                authChanged ||
+                pricerChanged ||
+                gatewayChanged ||
+                deploymentChanged ||
+                frontendChanged
+            ) ? 'true' : 'false'
 
-        env.CHANGED_DEPLOY = (
-            env.CHANGED_ANY_IMAGE == 'true' ||
-            env.CHANGED_K8S == 'true'
-        ) ? 'true' : 'false'
+            env.CHANGED_DEPLOY = (
+                env.CHANGED_ANY_IMAGE == 'true' ||
+                env.CHANGED_K8S == 'true'
+            ) ? 'true' : 'false'
 
-
-        echo """
+            echo """
 ╔══════════════════════════════════════════════╗
 ║          DÉTECTION DES CHANGEMENTS           ║
 ╠══════════════════════════════════════════════╣
@@ -152,9 +155,9 @@ steps {
 ║ DEPLOY       : ${env.CHANGED_DEPLOY}
 ╚══════════════════════════════════════════════╝
 """
+        }
     }
 }
-    }
 stage('Build') {
             steps {
                 script {
