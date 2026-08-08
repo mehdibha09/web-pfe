@@ -38,7 +38,7 @@ pipeline {
         // Détection des changements
         // ═══════════════════════════════════════════════════════════
 
-
+    }
 steps {
     script {
 
