@@ -40,10 +40,31 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
+                    // Récupère l'historique complet (le checkout Jenkins peut être shallow depth=1,
+                    // ce qui rend HEAD~1 indisponible et viderait le diff => tous les stages sautés).
+                    sh 'git fetch --unshallow origin 2>/dev/null || true'
+
                     def changedFiles = sh(
                         script: '''
-                            git diff --name-only HEAD~1 HEAD 2>/dev/null \
-                            || git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD
+                            # 1) Historique complet requis (un checkout shallow rend HEAD~1 indisponible)
+                            git fetch --unshallow origin 2>/dev/null || true
+
+                            # 2) Base de comparaison : le dernier build (couvre tout le push, même multi-commits),
+                            #    sinon le dernier commit poussé, sinon tout le dépôt (1er build / shallow).
+                            BASE=""
+                            if [ -n "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ] && git cat-file -e $GIT_PREVIOUS_SUCCESSFUL_COMMIT 2>/dev/null; then
+                                BASE="$GIT_PREVIOUS_SUCCESSFUL_COMMIT"
+                            elif [ -n "$GIT_PREVIOUS_COMMIT" ] && git cat-file -e "$GIT_PREVIOUS_COMMIT" 2>/dev/null; then
+                                BASE="$GIT_PREVIOUS_COMMIT"
+                            elif git rev-parse HEAD~1 >/dev/null 2>&1; then
+                                BASE="HEAD~1"
+                            fi
+
+                            if [ -n "$BASE" ]; then
+                                git diff --name-only $BASE HEAD
+                            else
+                                git ls-files
+                            fi
                         ''',
                         returnStdout: true
                     ).trim()
