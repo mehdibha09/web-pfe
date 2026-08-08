@@ -38,7 +38,7 @@ pipeline {
         // Détection des changements
         // ═══════════════════════════════════════════════════════════
 
-    }
+    stage('Detect Changes') {
 steps {
     script {
 
@@ -154,6 +154,7 @@ steps {
 """
     }
 }
+    }
 stage('Build') {
             steps {
                 script {
@@ -797,4 +798,3 @@ SQL
         failure { echo 'Pipeline en échec. Consulter les logs.' }
     }
 }
-
