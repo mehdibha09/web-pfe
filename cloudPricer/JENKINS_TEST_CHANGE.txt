@@ -1,2 +1,2 @@
 TEST JENKINS - detection de changement cloudPricer
-Si ce fichier est pousse, CHANGED_PRICER=true et l'image cloud-pricer est reconstruite.
+Si ce fichier est pousse, CHANGED_PRICER=true et l'image cloud-pricer est reconstruite..

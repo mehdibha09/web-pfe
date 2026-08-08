@@ -34,13 +34,13 @@ import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.web.dto.auth.AuthActionResponse;
 import com.auth.service.web.dto.role.RoleResponse;
-
-import jakarta.servlet.http.HttpServletRequest;
 import com.auth.service.web.dto.user.UserAssignRoleRequest;
 import com.auth.service.web.dto.user.UserCreateRequest;
 import com.auth.service.web.dto.user.UserResponse;
 import com.auth.service.web.dto.user.UserUpdateRequest;
 import com.auth.service.web.dto.user.UserUpdateRolesRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class UserService {
@@ -60,8 +60,7 @@ public class UserService {
             SessionRepository sessionRepository,
             UserRoleRepository userRoleRepository,
             RolePermissionRepository rolePermissionRepository,
-            AuditLogRepository auditLogRepository
-    ) {
+            AuditLogRepository auditLogRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.sessionRepository = sessionRepository;
@@ -85,8 +84,7 @@ public class UserService {
                         role.getDescription(),
                         role.getTenant().getId(),
                         role.getCreatedAt(),
-                        List.of()
-                ))
+                        List.of()))
                 .toList();
     }
 
@@ -95,10 +93,10 @@ public class UserService {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanReadUsers(currentUser);
         return (tenantId != null && isSuperAdmin(currentUser)
-                        ? userRepository.findByTenant_Id(tenantId)
-                        : isSuperAdmin(currentUser)
-                                ? userRepository.findAll()
-                                : userRepository.findByTenant_Id(currentUser.getTenant().getId()))
+                ? userRepository.findByTenant_Id(tenantId)
+                : isSuperAdmin(currentUser)
+                        ? userRepository.findAll()
+                        : userRepository.findByTenant_Id(currentUser.getTenant().getId()))
                 .stream()
                 .filter(user -> isSuperAdmin(currentUser) || !hasSuperAdminRole(user))
                 .map(this::toResponse)
@@ -147,7 +145,7 @@ public class UserService {
 
         userRepository.findByTenant_IdAndEmail(currentUser.getTenant().getId(), email)
                 .ifPresent(existing -> {
-                    throw new ConflictException("User email already exists in this tenant");
+                    throw new ConflictException("User email already exists in this tenant!");
                 });
 
         User user = new User();
@@ -302,7 +300,8 @@ public class UserService {
     }
 
     @Transactional
-    public List<RoleResponse> replaceUserRoles(String authorizationHeader, UUID userId, UserUpdateRolesRequest request) {
+    public List<RoleResponse> replaceUserRoles(String authorizationHeader, UUID userId,
+            UserUpdateRolesRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
         ensureCanManageUserRoles(currentUser);
 
@@ -473,10 +472,9 @@ public class UserService {
                 .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
                 .flatMap(List::stream)
                 .map(RolePermission::getPermission)
-                .anyMatch(permission -> permission.getName() != null && (
-                        permission.getName().trim().equalsIgnoreCase("USER_MANAGE")
-                                || permission.getName().trim().equalsIgnoreCase("ROLE_MANAGE")
-                ));
+                .anyMatch(permission -> permission.getName() != null
+                        && (permission.getName().trim().equalsIgnoreCase("USER_MANAGE")
+                                || permission.getName().trim().equalsIgnoreCase("ROLE_MANAGE")));
 
         if (!canManageUserRoles) {
             throw new ForbiddenException("User role management permission required");
@@ -509,8 +507,7 @@ public class UserService {
                 user.getTenant().getId(),
                 user.getTenant().getName(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
-        );
+                user.getUpdatedAt());
     }
 
     private void writeAudit(User currentUser, String action, String details, String resourceId) {
@@ -527,7 +524,8 @@ public class UserService {
 
     private String resolveClientIp() {
         try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
+                    .getRequest();
             String forwardedFor = request.getHeader("X-Forwarded-For");
             if (forwardedFor != null && !forwardedFor.isBlank()) {
                 return forwardedFor.split(",")[0].trim();

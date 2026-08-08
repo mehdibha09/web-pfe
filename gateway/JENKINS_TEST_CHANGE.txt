@@ -1,2 +1,2 @@
 TEST JENKINS - detection de changement gateway
-Si ce fichier est pousse, CHANGED_GATEWAY=true et l'image gateway est reconstruite.
+Si ce fichier est pousse, CHANGED_GATEWAY=true et l'image gateway est reconstruite..

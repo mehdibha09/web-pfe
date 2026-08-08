@@ -1,2 +1,2 @@
 TEST JENKINS - detection de changement k8s
-Si ce fichier est pousse, CHANGED_K8S=true et le deploiement K8s est re-applique.
+Si ce fichier est pousse, CHANGED_K8S=true et le deploiement K8s est re-applique..

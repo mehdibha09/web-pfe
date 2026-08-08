@@ -1,2 +1,2 @@
 TEST JENKINS - detection de changement authService
-Si ce fichier est pousse, CHANGED_AUTH=true et l'image auth-service est reconstruite.
+Si ce fichier est pousse, CHANGED_AUTH=true et l'image auth-service est reconstruite..
