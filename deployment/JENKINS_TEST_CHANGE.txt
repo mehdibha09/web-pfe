@@ -1,7 +1,2 @@
 TEST JENKINS - detection de changement deployment
 Si ce fichier est pousse, CHANGED_DEPLOYMENT=true et l'image deployment-service est reconstruite..
-Modifié pour test 01:41:29
-
-Test jenkins deployment
-
-Detection run 02c022:22

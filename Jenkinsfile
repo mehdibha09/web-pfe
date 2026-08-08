@@ -37,11 +37,11 @@ pipeline {
         // ═══════════════════════════════════════════════════════════
         // Détection des changements
         // ═══════════════════════════════════════════════════════════
+
+
 stage('Detect Changes') {
     steps {
         script {
-            // Récupération complète de l'historique
-            // (une seule fois — suppression du doublon)
             sh 'git fetch --unshallow origin 2>/dev/null || true'
 
             def changedFiles = sh(
@@ -69,29 +69,48 @@ stage('Detect Changes') {
             echo "Fichiers modifiés :\n${changedFiles}"
 
             // ─────────────────────────────────────────────
-            // CORRECTION : split par ligne + startsWith
-            // au lieu de contains() sur toute la chaîne
+            // Construction explicite de la liste (sans closures problématiques)
             // ─────────────────────────────────────────────
-            def changedList = changedFiles
-                .split('\n')
-                .collect { it.trim() }
-                .findAll  { it }   // supprimer les lignes vides
-
-            // Vérifie qu'AU MOINS UNE ligne commence
-            // par le nom du dossier + '/'
-            // → évite les faux positifs cross-modules
-            def folderChanged = { String folder ->
-                changedList.any { String line ->
-                    line.startsWith(folder + '/')
+            String[] lines = changedFiles.split('\n')
+            List<String> changedList = new ArrayList<>()
+            for (String line : lines) {
+                String trimmed = line.trim()
+                if (trimmed.length() > 0) {
+                    changedList.add(trimmed)
                 }
             }
 
-            env.CHANGED_AUTH       = folderChanged('authService')  ? 'true' : 'false'
-            env.CHANGED_PRICER     = folderChanged('cloudPricer')  ? 'true' : 'false'
-            env.CHANGED_GATEWAY    = folderChanged('gateway')      ? 'true' : 'false'
-            env.CHANGED_FRONTEND   = folderChanged('frontend')     ? 'true' : 'false'
-            env.CHANGED_K8S        = folderChanged('k8s')          ? 'true' : 'false'
-            env.CHANGED_DEPLOYMENT = folderChanged('deployment')   ? 'true' : 'false'
+            echo "📋 changedList contient ${changedList.size()} fichier(s)"
+
+            // ─────────────────────────────────────────────
+            // Détection avec boucle FOR explicite
+            // (évite complètement le problème des closures CPS)
+            // ─────────────────────────────────────────────
+            boolean authChanged       = false
+            boolean pricerChanged     = false
+            boolean gatewayChanged    = false
+            boolean frontendChanged  = false
+            boolean k8sChanged        = false
+            boolean deploymentChanged = false
+
+            for (String line : changedList) {
+                if (line.startsWith('authService/'))  authChanged       = true
+                if (line.startsWith('cloudPricer/'))  pricerChanged     = true
+                if (line.startsWith('gateway/'))      gatewayChanged    = true
+                if (line.startsWith('frontend/'))     frontendChanged   = true
+                if (line.startsWith('k8s/'))          k8sChanged        = true
+                if (line.startsWith('deployment/'))   deploymentChanged = true
+            }
+
+            // ─────────────────────────────────────────────
+            // Affectation aux variables d'environnement
+            // ─────────────────────────────────────────────
+            env.CHANGED_AUTH       = authChanged       ? 'true' : 'false'
+            env.CHANGED_PRICER     = pricerChanged     ? 'true' : 'false'
+            env.CHANGED_GATEWAY    = gatewayChanged    ? 'true' : 'false'
+            env.CHANGED_FRONTEND   = frontendChanged   ? 'true' : 'false'
+            env.CHANGED_K8S        = k8sChanged        ? 'true' : 'false'
+            env.CHANGED_DEPLOYMENT = deploymentChanged ? 'true' : 'false'
 
             env.CHANGED_BACKEND = (
                 env.CHANGED_AUTH       == 'true' ||
@@ -114,10 +133,8 @@ stage('Detect Changes') {
             ) ? 'true' : 'false'
 
             // ─────────────────────────────────────────────
-            // LOG CLAIR des flags pour debug facile
+            // LOG CLAIR
             // ─────────────────────────────────────────────
-            echo "DETECT_VERSION=v3"
-
             echo """
 ╔══════════════════════════════════════╗
 ║       DÉTECTION DES CHANGEMENTS      ║
@@ -137,7 +154,6 @@ stage('Detect Changes') {
         }
     }
 }
-        // ─────────────────────────────────────────────
 stage('Build') {
             steps {
                 script {
