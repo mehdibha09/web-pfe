@@ -1,0 +1,2 @@
+TEST JENKINS - detection de changement deployment
+Si ce fichier est pousse, CHANGED_DEPLOYMENT=true et l'image deployment-service est reconstruite.
