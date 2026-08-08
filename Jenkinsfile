@@ -37,70 +37,104 @@ pipeline {
         // ═══════════════════════════════════════════════════════════
         // Détection des changements
         // ═══════════════════════════════════════════════════════════
-        stage('Detect Changes') {
-            steps {
-                script {
-                    // Récupère l'historique complet (le checkout Jenkins peut être shallow depth=1,
-                    // ce qui rend HEAD~1 indisponible et viderait le diff => tous les stages sautés).
-                    sh 'git fetch --unshallow origin 2>/dev/null || true'
+stage('Detect Changes') {
+    steps {
+        script {
+            // Récupération complète de l'historique
+            // (une seule fois — suppression du doublon)
+            sh 'git fetch --unshallow origin 2>/dev/null || true'
 
-                    def changedFiles = sh(
-                        script: '''
-                            # 1) Historique complet requis (un checkout shallow rend HEAD~1 indisponible)
-                            git fetch --unshallow origin 2>/dev/null || true
+            def changedFiles = sh(
+                script: '''
+                    BASE=""
+                    if [ -n "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ] \
+                       && git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" 2>/dev/null; then
+                        BASE="$GIT_PREVIOUS_SUCCESSFUL_COMMIT"
+                    elif [ -n "$GIT_PREVIOUS_COMMIT" ] \
+                         && git cat-file -e "$GIT_PREVIOUS_COMMIT" 2>/dev/null; then
+                        BASE="$GIT_PREVIOUS_COMMIT"
+                    elif git rev-parse HEAD~1 >/dev/null 2>&1; then
+                        BASE="HEAD~1"
+                    fi
 
-                            # 2) Base de comparaison : le dernier build (couvre tout le push, même multi-commits),
-                            #    sinon le dernier commit poussé, sinon tout le dépôt (1er build / shallow).
-                            BASE=""
-                            if [ -n "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ] && git cat-file -e $GIT_PREVIOUS_SUCCESSFUL_COMMIT 2>/dev/null; then
-                                BASE="$GIT_PREVIOUS_SUCCESSFUL_COMMIT"
-                            elif [ -n "$GIT_PREVIOUS_COMMIT" ] && git cat-file -e "$GIT_PREVIOUS_COMMIT" 2>/dev/null; then
-                                BASE="$GIT_PREVIOUS_COMMIT"
-                            elif git rev-parse HEAD~1 >/dev/null 2>&1; then
-                                BASE="HEAD~1"
-                            fi
+                    if [ -n "$BASE" ]; then
+                        git diff --name-only "$BASE" HEAD
+                    else
+                        git ls-files
+                    fi
+                ''',
+                returnStdout: true
+            ).trim()
 
-                            if [ -n "$BASE" ]; then
-                                git diff --name-only $BASE HEAD
-                            else
-                                git ls-files
-                            fi
-                        ''',
-                        returnStdout: true
-                    ).trim()
+            echo "Fichiers modifiés :\n${changedFiles}"
 
-                    echo "Fichiers modifiés :\n${changedFiles}"
+            // ─────────────────────────────────────────────
+            // CORRECTION : split par ligne + startsWith
+            // au lieu de contains() sur toute la chaîne
+            // ─────────────────────────────────────────────
+            def changedList = changedFiles
+                .split('\n')
+                .collect { it.trim() }
+                .findAll  { it }   // supprimer les lignes vides
 
-                    env.CHANGED_AUTH       = changedFiles.contains('authService/')   ? 'true' : 'false'
-                    env.CHANGED_PRICER     = changedFiles.contains('cloudPricer/')   ? 'true' : 'false'
-                    env.CHANGED_GATEWAY    = changedFiles.contains('gateway/')       ? 'true' : 'false'
-                    env.CHANGED_FRONTEND   = changedFiles.contains('frontend/')      ? 'true' : 'false'
-                    env.CHANGED_K8S        = changedFiles.contains('k8s/')           ? 'true' : 'false'
-                    env.CHANGED_DEPLOYMENT = changedFiles.contains('deployment/') ? 'true' : 'false'
-
-                    env.CHANGED_BACKEND = (
-                        env.CHANGED_AUTH       == 'true' ||
-                        env.CHANGED_PRICER     == 'true' ||
-                        env.CHANGED_GATEWAY    == 'true' ||
-                        env.CHANGED_DEPLOYMENT == 'true'
-                    ) ? 'true' : 'false'
-
-                    env.CHANGED_ANY_IMAGE = (
-                        env.CHANGED_AUTH       == 'true' ||
-                        env.CHANGED_PRICER     == 'true' ||
-                        env.CHANGED_GATEWAY    == 'true' ||
-                        env.CHANGED_DEPLOYMENT == 'true' ||
-                        env.CHANGED_FRONTEND   == 'true'
-                    ) ? 'true' : 'false'
-
-                    env.CHANGED_DEPLOY = (
-                        env.CHANGED_ANY_IMAGE == 'true' ||
-                        env.CHANGED_K8S       == 'true'
-                    ) ? 'true' : 'false'
+            // Vérifie qu'AU MOINS UNE ligne commence
+            // par le nom du dossier + '/'
+            // → évite les faux positifs cross-modules
+            def folderChanged = { String folder ->
+                changedList.any { String line ->
+                    line.startsWith(folder + '/')
                 }
             }
-        }
 
+            env.CHANGED_AUTH       = folderChanged('authService')  ? 'true' : 'false'
+            env.CHANGED_PRICER     = folderChanged('cloudPricer')  ? 'true' : 'false'
+            env.CHANGED_GATEWAY    = folderChanged('gateway')      ? 'true' : 'false'
+            env.CHANGED_FRONTEND   = folderChanged('frontend')     ? 'true' : 'false'
+            env.CHANGED_K8S        = folderChanged('k8s')          ? 'true' : 'false'
+            env.CHANGED_DEPLOYMENT = folderChanged('deployment')   ? 'true' : 'false'
+
+            env.CHANGED_BACKEND = (
+                env.CHANGED_AUTH       == 'true' ||
+                env.CHANGED_PRICER     == 'true' ||
+                env.CHANGED_GATEWAY    == 'true' ||
+                env.CHANGED_DEPLOYMENT == 'true'
+            ) ? 'true' : 'false'
+
+            env.CHANGED_ANY_IMAGE = (
+                env.CHANGED_AUTH       == 'true' ||
+                env.CHANGED_PRICER     == 'true' ||
+                env.CHANGED_GATEWAY    == 'true' ||
+                env.CHANGED_DEPLOYMENT == 'true' ||
+                env.CHANGED_FRONTEND   == 'true'
+            ) ? 'true' : 'false'
+
+            env.CHANGED_DEPLOY = (
+                env.CHANGED_ANY_IMAGE == 'true' ||
+                env.CHANGED_K8S       == 'true'
+            ) ? 'true' : 'false'
+
+            // ─────────────────────────────────────────────
+            // LOG CLAIR des flags pour debug facile
+            // ─────────────────────────────────────────────
+            echo """
+╔══════════════════════════════════════╗
+║       DÉTECTION DES CHANGEMENTS      ║
+╠══════════════════════════════════════╣
+║ authService  : ${env.CHANGED_AUTH}
+║ cloudPricer  : ${env.CHANGED_PRICER}
+║ gateway      : ${env.CHANGED_GATEWAY}
+║ deployment   : ${env.CHANGED_DEPLOYMENT}
+║ frontend     : ${env.CHANGED_FRONTEND}
+║ k8s          : ${env.CHANGED_K8S}
+╠══════════════════════════════════════╣
+║ BACKEND      : ${env.CHANGED_BACKEND}
+║ ANY_IMAGE    : ${env.CHANGED_ANY_IMAGE}
+║ DEPLOY       : ${env.CHANGED_DEPLOY}
+╚══════════════════════════════════════╝
+            """
+        }
+    }
+}
         // ─────────────────────────────────────────────
 stage('Build') {
             steps {
@@ -182,6 +216,7 @@ stage('Build') {
         // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
+
 
             stages {
                 stage('Sonar authService') {

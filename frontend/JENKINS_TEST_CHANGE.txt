@@ -1,3 +1,5 @@
 TEST JENKINS - detection de changement frontend
 Si ce fichier est pousse, CHANGED_FRONTEND=true et l'image frontend est reconstruite.
 Modifié pour test 01:41:29
+
+Test jenkins frontend
