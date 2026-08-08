@@ -67,12 +67,13 @@ stage('Detect Changes') {
 
             echo "Fichiers modifiés :\n${changedFiles}"
 
-            boolean authChanged       = false
-            boolean pricerChanged     = false
-            boolean gatewayChanged    = false
-            boolean frontendChanged   = false
-            boolean k8sChanged        = false
-            boolean deploymentChanged = false
+            // Reset
+            env.CHANGED_AUTH       = 'false'
+            env.CHANGED_PRICER     = 'false'
+            env.CHANGED_GATEWAY    = 'false'
+            env.CHANGED_FRONTEND   = 'false'
+            env.CHANGED_K8S        = 'false'
+            env.CHANGED_DEPLOYMENT = 'false'
 
             if (changedFiles) {
 
@@ -80,58 +81,53 @@ stage('Detect Changes') {
 
                 echo "Nombre de fichiers : ${changedList.size()}"
 
-                for (String line : changedList) {
+                for (String file : changedList) {
 
-                    line = line.trim()
+                    file = file.trim()
 
-                    echo "Analyse fichier : [${line}]"
+                    echo "Analyse fichier : [${file}]"
 
-                    if (line.startsWith('authService/')) {
-                        authChanged = true
+                    if (file.startsWith('authService/')) {
+                        env.CHANGED_AUTH = 'true'
                     }
 
-                    if (line.startsWith('cloudPricer/')) {
-                        pricerChanged = true
+                    if (file.startsWith('cloudPricer/')) {
+                        env.CHANGED_PRICER = 'true'
                     }
 
-                    if (line.startsWith('gateway/')) {
-                        gatewayChanged = true
+                    if (file.startsWith('gateway/')) {
+                        env.CHANGED_GATEWAY = 'true'
+                        echo ">>> GATEWAY MODIFIE"
                     }
 
-                    if (line.startsWith('frontend/')) {
-                        frontendChanged = true
+                    if (file.startsWith('frontend/')) {
+                        env.CHANGED_FRONTEND = 'true'
                     }
 
-                    if (line.startsWith('k8s/')) {
-                        k8sChanged = true
+                    if (file.startsWith('k8s/')) {
+                        env.CHANGED_K8S = 'true'
                     }
 
-                    if (line.startsWith('deployment/')) {
-                        deploymentChanged = true
+                    if (file.startsWith('deployment/')) {
+                        env.CHANGED_DEPLOYMENT = 'true'
                     }
                 }
             }
 
-            env.CHANGED_AUTH       = authChanged ? 'true' : 'false'
-            env.CHANGED_PRICER     = pricerChanged ? 'true' : 'false'
-            env.CHANGED_GATEWAY    = gatewayChanged ? 'true' : 'false'
-            env.CHANGED_FRONTEND   = frontendChanged ? 'true' : 'false'
-            env.CHANGED_K8S        = k8sChanged ? 'true' : 'false'
-            env.CHANGED_DEPLOYMENT = deploymentChanged ? 'true' : 'false'
-
+            // Calcul des groupes
             env.CHANGED_BACKEND = (
-                authChanged ||
-                pricerChanged ||
-                gatewayChanged ||
-                deploymentChanged
+                env.CHANGED_AUTH == 'true' ||
+                env.CHANGED_PRICER == 'true' ||
+                env.CHANGED_GATEWAY == 'true' ||
+                env.CHANGED_DEPLOYMENT == 'true'
             ) ? 'true' : 'false'
 
             env.CHANGED_ANY_IMAGE = (
-                authChanged ||
-                pricerChanged ||
-                gatewayChanged ||
-                deploymentChanged ||
-                frontendChanged
+                env.CHANGED_AUTH == 'true' ||
+                env.CHANGED_PRICER == 'true' ||
+                env.CHANGED_GATEWAY == 'true' ||
+                env.CHANGED_DEPLOYMENT == 'true' ||
+                env.CHANGED_FRONTEND == 'true'
             ) ? 'true' : 'false'
 
             env.CHANGED_DEPLOY = (
