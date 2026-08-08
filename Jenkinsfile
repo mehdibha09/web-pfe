@@ -693,7 +693,7 @@ SQL
                                             ${svc.container}=192.168.56.30/${svc.image}:${BUILD_NUMBER}
 
                                         kubectl -n app-pfe rollout status \
-                                            deployment/${svc.deployment} --timeout=${env.K8S_ROLLOUT_TIMEOUT}
+                                            deployment/${svc.deployment} 
                                     """
                                 } else {
                                     echo "→ Déploiement ignoré pour ${svc.deployment} (aucun changement)"
