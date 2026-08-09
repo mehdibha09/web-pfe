@@ -47,7 +47,8 @@ public class K8sRoleController {
         if (cluster) {
             all = kubernetesClient.listClusterRoles();
         } else {
-            all = kubernetesClient.listRoles(TenantNamespaceResolver.resolveList(namespace));
+            all = TenantNamespaceResolver.applyBlacklist(
+            kubernetesClient.listRoles(TenantNamespaceResolver.resolveList(namespace)), K8sRoleResponse::namespace);
         }
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());

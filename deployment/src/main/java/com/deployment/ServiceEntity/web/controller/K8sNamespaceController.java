@@ -34,16 +34,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class K8sNamespaceController {
 
-    private static final List<String> SYSTEM_NAMESPACES = List.of(
-        "kube-system",
-        "kube-public",
-        "kube-node-lease",
-        "calico-system",
-        "tigera-operator",
-        "local-path-storage",
-        "monitoring"
-    );
-
     private final KubernetesClient kubernetesClient;
     private final AuditService auditService;
 
@@ -54,7 +44,7 @@ public class K8sNamespaceController {
         List<K8sNamespaceResponse> all = kubernetesClient.listNamespaces();
 
         List<K8sNamespaceResponse> filtered = all.stream()
-            .filter(ns -> !SYSTEM_NAMESPACES.contains(ns.name()))
+            .filter(ns -> !TenantNamespaceResolver.isSystemNamespace(ns.name()))
             .filter(ns -> {
                 if (UserContext.isSuperAdmin()) {
                     return true;

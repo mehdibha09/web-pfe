@@ -42,7 +42,8 @@ public class K8sIngressController {
             @RequestParam(required = false) String namespace,
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
-        List<K8sIngressResponse> all = kubernetesClient.listIngresses(TenantNamespaceResolver.resolveList(namespace));
+        List<K8sIngressResponse> all = TenantNamespaceResolver.applyBlacklist(
+            kubernetesClient.listIngresses(TenantNamespaceResolver.resolveList(namespace)), K8sIngressResponse::namespace);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sIngressResponse> content = start < all.size() ? all.subList(start, end) : List.of();

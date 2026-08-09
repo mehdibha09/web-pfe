@@ -959,7 +959,9 @@ public class KubernetesClient {
 public List<K8sIngressResponse> listIngresses(String namespace) {
         if (!available()) return List.of();
         try {
-            var list = client().network().v1().ingresses().inAnyNamespace().list();
+            var list = namespace == null || namespace.isBlank()
+                    ? client().network().v1().ingresses().inAnyNamespace().list()
+                    : client().network().v1().ingresses().inNamespace(namespace).list();
             return K8sIngressResponse.fromK8sList(asJsonMap(list));
         } catch (Exception e) {
             log.warn("Failed to list Ingresses: {}", e.getMessage());

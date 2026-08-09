@@ -42,7 +42,8 @@ public class K8sNetworkPolicyController {
             @RequestParam(required = false) String namespace,
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
-        List<K8sNetworkPolicyResponse> all = kubernetesClient.listNetworkPolicies(TenantNamespaceResolver.resolveList(namespace));
+        List<K8sNetworkPolicyResponse> all = TenantNamespaceResolver.applyBlacklist(
+            kubernetesClient.listNetworkPolicies(TenantNamespaceResolver.resolveList(namespace)), K8sNetworkPolicyResponse::namespace);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sNetworkPolicyResponse> content = start < all.size() ? all.subList(start, end) : List.of();

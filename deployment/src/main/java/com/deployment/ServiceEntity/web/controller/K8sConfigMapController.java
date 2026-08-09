@@ -44,7 +44,8 @@ public class K8sConfigMapController {
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
         String ns = TenantNamespaceResolver.resolveList(namespace);
-        List<K8sConfigMapResponse> all = kubernetesClient.listConfigMaps(ns);
+        List<K8sConfigMapResponse> all = TenantNamespaceResolver.applyBlacklist(
+            kubernetesClient.listConfigMaps(ns), K8sConfigMapResponse::namespace);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sConfigMapResponse> content = start < all.size() ? all.subList(start, end) : List.of();

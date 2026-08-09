@@ -42,7 +42,8 @@ public class K8sServiceAccountController {
             @RequestParam(required = false) String namespace,
             @PageableDefault(size = 10) Pageable pageable) {
         UserContext.requirePermission("K8S_READ");
-        List<K8sServiceAccountResponse> all = kubernetesClient.listServiceAccounts(TenantNamespaceResolver.resolveList(namespace));
+        List<K8sServiceAccountResponse> all = TenantNamespaceResolver.applyBlacklist(
+            kubernetesClient.listServiceAccounts(TenantNamespaceResolver.resolveList(namespace)), K8sServiceAccountResponse::namespace);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<K8sServiceAccountResponse> content = start < all.size() ? all.subList(start, end) : List.of();
