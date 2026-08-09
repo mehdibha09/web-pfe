@@ -260,7 +260,7 @@ const CostsPage = () => {
                 <ModeComparisonCard costs={periodAllCosts} />
             )}
 
-            {!loading && filteredCosts.length > 0 && (
+            {!loading && periodAllCosts.length > 0 && (
                 <CostCharts
                     costs={periodAllCosts}
                     totals={totals}

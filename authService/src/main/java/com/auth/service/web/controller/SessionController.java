@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -33,7 +34,7 @@ public class SessionController {
     @GetMapping
     public ResponseEntity<Page<SessionResponse>> listSessions(
             @RequestHeader("Authorization") String authorizationHeader,
-            @PageableDefault(size = 10) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<SessionResponse> page = sessionService.listSessions(authorizationHeader, pageable);
         return ResponseEntity.ok(page);

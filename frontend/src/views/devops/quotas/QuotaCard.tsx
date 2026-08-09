@@ -148,6 +148,32 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
         );
     };
 
+    const renderUnlimited = (label: string) => {
+        const labelT = t(label);
+        return (
+            <Box sx={{ mb: 1.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: C.subtle, fontWeight: 600 }}>
+                        {labelT}
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: C.subtle }}>
+                        ∞
+                    </Typography>
+                </Box>
+                <LinearProgress
+                    variant="determinate"
+                    value={100}
+                    sx={{
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: '#E6E4EA',
+                        '& .MuiLinearProgress-bar': { borderRadius: 5, background: '#C9C5D4' }
+                    }}
+                />
+            </Box>
+        );
+    };
+
     const renderStaticValue = (label: string, value: number, unit: string) => {
         const labelT = t(label);
         return (
@@ -175,10 +201,13 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                     borderRadius: 3,
                     border: isNearLimit ? '2px solid #C95B6E' : `1px solid ${C.border}`,
                     transition: '0.2s',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                     '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }
                 }}
             >
-                <CardContent sx={{ pb: 1 }}>
+                <CardContent sx={{ pb: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                             {isNearLimit && (
@@ -227,14 +256,16 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             {renderProgressBar('quotas.cpuLabel', m.cpu, q.maxCpu, t('quotas.cores'))}
                             {renderProgressBar('quotas.ramLabel', m.ram, q.maxRam, t('quotas.mb'))}
                             {renderProgressBar('quotas.storageLabel', m.storage, q.maxStorage, t('quotas.gb'))}
-                            {q.maxPods > 0 && renderProgressBar('quotas.podsLabel', m.pods, q.maxPods, '')}
+                            {q.maxPods > 0
+                                ? renderProgressBar('quotas.podsLabel', m.pods, q.maxPods, '')
+                                : renderUnlimited('quotas.podsLabel')}
                         </Box>
                     ) : (
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
                             {renderStaticValue('quotas.cpuLabel', q.maxCpu, t('quotas.cores'))}
                             {renderStaticValue('quotas.ramLabel', q.maxRam, t('quotas.mb'))}
                             {renderStaticValue('quotas.storageLabel', q.maxStorage, t('quotas.gb'))}
-                            {q.maxPods > 0 && renderStaticValue('quotas.podsLabel', q.maxPods, '')}
+                            {renderStaticValue('quotas.podsLabel', q.maxPods, '')}
                             {renderStaticValue('quotas.budgetLabel', q.maxBudget, '$')}
                         </Box>
                     )}
@@ -247,6 +278,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
+                            marginTop: 'auto',
                         }}
                     >
                         <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600 }}>

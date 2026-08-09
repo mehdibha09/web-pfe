@@ -12,8 +12,8 @@ import axiosInstance from '../axiosInstance';
 
 // ── Cost Records ─────────────────────────────────────────────────────────────
 export const listCosts = async (): Promise<import('../interfaces/cloudPricer').CostRecordResponse[]> => {
-  const { data } = await axiosInstance.get('/costs');
-  return data;
+  const { data, pagination } = await axiosInstance.get('/costs?page=0&size=1000');
+  return data || [];
 };
 
 export const listCostsPaginated = async (page: number, size: number): Promise<{ items: import('../interfaces/cloudPricer').CostRecordResponse[]; total: number }> => {
