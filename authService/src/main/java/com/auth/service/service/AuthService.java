@@ -976,6 +976,9 @@ public class AuthService {
                 throw new BadRequestException("SSO token exchange failed");
             }
             return objectMapper.readTree(response.body());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("SSO token exchange failed");
         } catch (Exception exception) {
             throw new BadRequestException("SSO token exchange failed");
         }
@@ -1002,6 +1005,9 @@ public class AuthService {
                 throw new BadRequestException("SSO profile is missing subject or email");
             }
             return new SsoUserProfile(subject, email, name);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("Unable to read SSO user profile");
         } catch (Exception exception) {
             throw new BadRequestException("Unable to read SSO user profile");
         }

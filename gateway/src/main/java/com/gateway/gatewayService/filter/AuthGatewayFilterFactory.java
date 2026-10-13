@@ -28,6 +28,11 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
 
     private static final Logger log = LoggerFactory.getLogger(AuthGatewayFilterFactory.class);
 
+    private static final String AUTHORIZATION = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String USER_ID_FIELD = "userId";
+    private static final String TENANT_ID_FIELD = "tenantId";
+
     private final WebClient webClient;
     private final ObjectMapper mapper = new ObjectMapper();
     private final IdentitySigner identitySigner;
@@ -64,8 +69,8 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
     }
 
     private static String resolveToken(ServerWebExchange exchange) {
-        String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+        String authHeader = exchange.getRequest().getHeaders().getFirst(AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
             return authHeader.substring(7);
         }
         String queryToken = exchange.getRequest().getQueryParams().getFirst("token");
@@ -81,7 +86,7 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
 
     private static ServerWebExchange injectAuthHeader(ServerWebExchange exchange, String token) {
         return exchange.mutate()
-                .request(r -> r.header("Authorization", "Bearer " + token))
+                .request(r -> r.header(AUTHORIZATION, BEARER_PREFIX + token))
                 .build();
     }
 
@@ -123,17 +128,17 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
     private Mono<Void> resolveAndInjectContext(ServerWebExchange exchange, GatewayFilterChain chain, String token) {
         return webClient.get()
                 .uri("/api/v1/auth/me")
-                .header("Authorization", "Bearer " + token)
+                .header(AUTHORIZATION, BEARER_PREFIX + token)
                 .retrieve()
                 .bodyToMono(String.class)
                 .flatMap(body -> {
                     try {
                         JsonNode node = mapper.readTree(body);
-                        String userId = node.has("userId") && !node.get("userId").isNull()
-                                ? node.get("userId").asText()
+                        String userId = node.has(USER_ID_FIELD) && !node.get(USER_ID_FIELD).isNull()
+                                ? node.get(USER_ID_FIELD).asText()
                                 : null;
-                        String tenantId = node.has("tenantId") && !node.get("tenantId").isNull()
-                                ? node.get("tenantId").asText()
+                        String tenantId = node.has(TENANT_ID_FIELD) && !node.get(TENANT_ID_FIELD).isNull()
+                                ? node.get(TENANT_ID_FIELD).asText()
                                 : null;
                         JsonNode rolesNode = node.has("roles") ? node.get("roles") : null;
                         String rolesJson = (rolesNode != null && rolesNode.isArray() && rolesNode.size() > 0)

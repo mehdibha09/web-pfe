@@ -318,6 +318,9 @@ public class TenantService {
                 log.warn("Failed to create K8s namespace '{}' for tenant '{}': HTTP {} - {}",
                         namespaceName, tenant.getName(), response.statusCode(), response.body());
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while creating K8s namespace for tenant '{}'", tenant.getName());
         } catch (Exception e) {
             log.warn("Could not create K8s namespace for tenant '{}': {}", tenant.getName(), e.getMessage());
         }
