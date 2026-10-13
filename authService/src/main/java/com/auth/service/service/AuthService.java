@@ -438,11 +438,6 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public AuthSsoRedirectResponse ssoRedirect(String provider) {
-        return ssoRedirect(provider, null, null);
-    }
-
-    @Transactional(readOnly = true)
     public AuthSsoRedirectResponse ssoRedirect(String provider, UUID tenantId, String tenantName) {
         String normalizedProvider = normalizeProvider(provider);
         resolveSsoProviderSettings(normalizedProvider);

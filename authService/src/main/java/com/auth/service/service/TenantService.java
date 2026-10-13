@@ -243,7 +243,7 @@ public class TenantService {
     }
 
     @Transactional
-    protected User createAdminUserForTenant(Tenant tenant, String adminEmail, String adminPassword, String authorizationHeader) {
+    public User createAdminUserForTenant(Tenant tenant, String adminEmail, String adminPassword, String authorizationHeader) {
         String email = adminEmail.trim().toLowerCase();
 
         userRepository.findByEmail(email).stream().findFirst().ifPresent(existing -> {
@@ -638,6 +638,10 @@ public class TenantService {
     }
 
     private void writeAudit(User currentUser, String action, String details, String resourceId) {
+        if (currentUser == null) {
+            // Pas d'utilisateur authentifié (ex. appel système) : rien à auditer ni à rattacher.
+            return;
+        }
         AuditLog auditLog = new AuditLog();
         auditLog.setUser(currentUser);
         auditLog.setTenant(currentUser.getTenant());

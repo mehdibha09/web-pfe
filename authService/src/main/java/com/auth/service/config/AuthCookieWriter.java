@@ -17,8 +17,8 @@ public class AuthCookieWriter {
     public static final String ACCESS_COOKIE = "access_token";
     public static final String REFRESH_COOKIE = "refresh_token";
 
-    private static final long ACCESS_COOKIE_TTL_SECONDS = 7 * 24 * 3600;
-    private static final long REFRESH_COOKIE_TTL_SECONDS = 7 * 24 * 3600;
+    private static final long ACCESS_COOKIE_TTL_SECONDS = 7L * 24 * 3600;
+    private static final long REFRESH_COOKIE_TTL_SECONDS = 7L * 24 * 3600;
 
     @Value("${app.cookie.secure:true}")
     private boolean secureCookies;
