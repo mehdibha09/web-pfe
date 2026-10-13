@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import type { ElementType } from 'react';
+import { memo, type ElementType } from 'react';
 import { NavLink } from 'react-router-dom';
 import { C} from '../../../theme/tokens';
 
@@ -116,4 +116,4 @@ const Module = ({
   );
 };
 
-export default Module;
+export default memo(Module);

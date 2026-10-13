@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.config.AuthCookieWriter;
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.service.AuthService;
 import com.auth.service.web.dto.auth.AuthActionResponse;
 import com.auth.service.web.dto.auth.AuthChangePasswordRequest;
@@ -44,17 +45,19 @@ import jakarta.validation.Valid;
 public class AuthController {
     private final AuthService authService;
     private final AuthCookieWriter authCookieWriter;
+    private final ClientIpResolver clientIpResolver;
 
-    public AuthController(AuthService authService, AuthCookieWriter authCookieWriter) {
+    public AuthController(AuthService authService, AuthCookieWriter authCookieWriter, ClientIpResolver clientIpResolver) {
         this.authService = authService;
         this.authCookieWriter = authCookieWriter;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @PostMapping(ApiRoutes.Auth.LOGIN)
     public ResponseEntity<AuthLoginResponse> login(@Valid @RequestBody AuthLoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         AuthLoginResponse body = authService.login(
                 request,
-                resolveClientIp(httpRequest),
+                clientIpResolver.resolve(),
                 normalizeHeader(httpRequest.getHeader("User-Agent")),
                 normalizeHeader(httpRequest.getHeader("Accept-Language")),
                 normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
@@ -73,7 +76,7 @@ public class AuthController {
     ) {
         AuthLoginResponse body = authService.verifyEmailTwoFa(
             request,
-            resolveClientIp(httpRequest),
+            clientIpResolver.resolve(),
             normalizeHeader(httpRequest.getHeader("User-Agent")),
             normalizeHeader(httpRequest.getHeader("Accept-Language")),
             normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
@@ -98,7 +101,7 @@ public class AuthController {
         String refreshToken = resolveRefreshToken(request, httpRequest);
         AuthTokensResponse tokens = authService.refresh(
                 refreshToken,
-                resolveClientIp(httpRequest),
+                clientIpResolver.resolve(),
                 normalizeHeader(httpRequest.getHeader("User-Agent")),
                 normalizeHeader(httpRequest.getHeader("Accept-Language")),
                 normalizeHeader(httpRequest.getHeader("X-Client-Timezone"))
@@ -121,20 +124,6 @@ public class AuthController {
             }
         }
         return request == null ? null : request.refreshToken();
-    }
-
-    private String resolveClientIp(HttpServletRequest httpRequest) {
-        String forwardedFor = normalizeHeader(httpRequest.getHeader("X-Forwarded-For"));
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",")[0].trim();
-        }
-
-        String realIp = normalizeHeader(httpRequest.getHeader("X-Real-IP"));
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp;
-        }
-
-        return httpRequest.getRemoteAddr();
     }
 
     private String normalizeHeader(String value) {

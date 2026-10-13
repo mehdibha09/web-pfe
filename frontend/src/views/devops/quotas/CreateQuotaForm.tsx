@@ -26,6 +26,7 @@ import type {
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { numericFieldValue } from '../../../utils/numeric';
+import { currencySymbol } from '../../../utils/format';
 import MyCustomButton from '../../../components/MyCustomButton';
 import { seLabel } from './helpers';
 import { PERIODS } from './types';
@@ -50,6 +51,7 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
     const [budget, setBudget] = useState<number>(0);
     const [period, setPeriod] = useState<string>('monthly');
     const [active, setActive] = useState(true);
+    const [autoStop, setAutoStop] = useState(false);
     const [creating, setCreating] = useState(false);
     const [serverError, setServerError] = useState('');
     const { errors, setFieldError, clearFieldError, clearErrors } = useInlineErrors();
@@ -81,7 +83,8 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
                 maxPods: pods,
                 maxBudget: budget,
                 period,
-                isActive: active
+                isActive: active,
+                autoStopOnExceed: autoStop
             };
             await createQuota(request);
             toast.success(t('quotas.createSuccess'));
@@ -154,7 +157,7 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
                         <TextField fullWidth type="number" label={t('quotas.maxPods')} value={pods} onChange={(e) => setPods(Number(numericFieldValue(e.target.value)))}
                             helperText="Nombre max de pods" slotProps={{ htmlInput: { min: 0 } }} />
                         <TextField fullWidth type="number" label={t('quotas.maxBudget')} value={budget} onChange={(e) => setBudget(Number(numericFieldValue(e.target.value)))}
-                            helperText="Budget max ($)" slotProps={{ htmlInput: { min: 0 } }} />
+                            helperText={`Budget max (${currencySymbol()})`} slotProps={{ htmlInput: { min: 0 } }} />
                         <TextField fullWidth select label={t('quotas.period')} value={period} onChange={(e) => setPeriod(e.target.value)}
                             helperText="Période de la quota">
                             {PERIODS.map((p) => (
@@ -170,6 +173,17 @@ const CreateQuotaForm = ({ open, onClose, onCreated, serviceEnvironments, servic
                             </Typography>
                             <Typography variant="caption" sx={{ color: C.muted }}>
                                 {active ? 'La quota est appliquée activement' : 'La quota est désactivée'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
+                        <Switch color="error" checked={autoStop} onChange={(e) => setAutoStop(e.target.checked)} />
+                        <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: autoStop ? '#B00020' : C.text }}>
+                                {t('quotas.autoStopTitle')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: C.muted }}>
+                                {t('quotas.autoStopHint')}
                             </Typography>
                         </Box>
                     </Box>

@@ -9,6 +9,7 @@ import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import TableSkeleton from '../../../components/TableSkeleton';
 import PaginationBar from '../../../components/PaginationBar';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -71,15 +72,15 @@ import {
     YAxis
 } from 'recharts';
 
-import api from '../../../services/axiosInstance';
+import api from '../../../services/core/axiosInstance';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { vmService } from '../../../services/VmService';
+import { vmService } from '../../../services/vmService';
 import type { Vm, VmStatus, VmMetrics } from '../../../services/interfaces/vm';
 import CreateVmDialog from './CreateVmDialog';
 import SshTerminal from './SshTerminal';
-import { C } from '../../../theme/tokens';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageVMs } from '../../../services/authorization';
+import { C, PAGE_BG, R } from '../../../theme/tokens';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageVMs } from '../../../services/core/authorization';
 
 const STATUS_META: Record<VmStatus, { labelKey: string; color: string; bg: string; icon: React.ReactNode }> = {
     RUNNING: { labelKey: 'vms.running', color: '#065F46', bg: '#D1FAE5', icon: <CheckCircleIcon sx={{ fontSize: 14 }} /> },
@@ -187,7 +188,7 @@ const GaugeCard = memo(({ item, latestMetric }: { item: { labelKey: string; valu
                     {t(item.labelKey)}
                 </Typography>
             </Stack>
-            <Typography variant="h4" sx={{ fontWeight: 900, color: '#1F2937', lineHeight: 1.1, mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: C.text, lineHeight: 1.1, mb: 0.5 }}>
                 {isNetwork ? formatBps(value) : value.toFixed(1)}
                 {item.unit && <Typography component="span" sx={{ fontSize: 14, fontWeight: 600, color: '#9CA3AF', ml: 0.5 }}>{item.unit}</Typography>}
             </Typography>
@@ -241,6 +242,7 @@ const VmsPage = () => {
     const [sshTarget, setSshTarget] = useState<Vm | null>(null);
     const [sshInfo, setSshInfo] = useState<{ host: string; port: number; user: string; privateKeyPath: string } | null>(null);
     const [totalElements, setTotalElements] = useState(0);
+    const [allVms, setAllVms] = useState<Vm[]>([]); // liste complète pour les KPI (page courante = seulement 10 items)
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
     const [sshInfoOpen, setSshInfoOpen] = useState(false);
@@ -262,6 +264,21 @@ const VmsPage = () => {
     }, [page]);
 
     useEffect(() => { loadVms(true); }, [loadVms]);
+
+    // Charge la liste complète une fois pour que les KPI (running/stopped/failed)
+    // ne soient pas biaisés par la pagination (page = 10 items seulement).
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const all = await vmService.getAll();
+                if (active) setAllVms(all);
+            } catch {
+                // KPI restent sur la page courante en cas d'échec (non bloquant)
+            }
+        })();
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => { if (page >= vmPageCount && page > 0) setPage(vmPageCount - 1); }, [totalElements]);
 
@@ -450,10 +467,10 @@ const VmsPage = () => {
 
     const kpis = useMemo(() => ({
         total: totalElements,
-        running: vms.filter((v) => v.status === 'RUNNING').length,
-        stopped: vms.filter((v) => v.status === 'STOPPED').length,
-        failed: vms.filter((v) => v.status === 'FAILED').length,
-    }), [vms]);
+        running: (allVms.length ? allVms : vms).filter((v) => v.status === 'RUNNING').length,
+        stopped: (allVms.length ? allVms : vms).filter((v) => v.status === 'STOPPED').length,
+        failed: (allVms.length ? allVms : vms).filter((v) => v.status === 'FAILED').length,
+    }), [allVms, vms, totalElements]);
 
     const kpiCards = [
         { label: t('vms.total'), value: kpis.total, bg: '#F5F3FF', color: '#5B21B6' },
@@ -463,7 +480,7 @@ const VmsPage = () => {
     ];
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, background: PAGE_BG, minHeight: '100%' }}>
 
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
                 <Box>
@@ -503,13 +520,13 @@ const VmsPage = () => {
                 ))}
             </Box>
 
-            <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+            <Paper elevation={0} sx={{ borderRadius: R.card, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
                 <TableContainer>
-                    <Table>
+                    <Table sx={{ minWidth: 820 }}>
                         <TableHead>
                             <TableRow>
                                 {[t('common.name'), t('common.status'), t('vms.cpu'), t('vms.ram'), t('vms.disk'), t('vms.ip'), t('common.actions')].map((h) => (
-                                    <TableCell key={h} sx={{ fontWeight: 700, color: C.subtle, textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>
+                                    <TableCell key={h}>
                                         {h}
                                     </TableCell>
                                 ))}
@@ -517,11 +534,7 @@ const VmsPage = () => {
                         </TableHead>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                        <LoadingSpinner size={28} variant="block" />
-                                    </TableCell>
-                                </TableRow>
+                                <TableSkeleton columns={7} />
                             ) : vms.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
@@ -655,7 +668,7 @@ const VmsPage = () => {
                         </Paper>
                     )}
                     <Box sx={{ flex: 1, minHeight: 0 }}>
-                        {sshTarget && <SshTerminal key={sshTarget.id} vmId={sshTarget.id} vmName={sshTarget.name} sshInfo={sshInfo} />}
+                        {sshTarget && <SshTerminal key={sshTarget.id} vmId={sshTarget.id} vmName={sshTarget.name} />}
                     </Box>
                 </Box>
             </Dialog>
@@ -841,7 +854,7 @@ const VmsPage = () => {
                                     <TableHead>
                                         <TableRow>
                                             {[t('vms.timestamp'), t('vms.cpu'), t('vms.ram'), t('vms.network'), t('vms.disk')].map((h) => (
-                                                <TableCell key={h} sx={{ fontWeight: 700, color: C.subtle, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5, backgroundColor: '#FAFAFF' }}>
+                                                <TableCell key={h}>
                                                     {h}
                                                 </TableCell>
                                             ))}
@@ -899,8 +912,8 @@ const VmsPage = () => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setDeleteTarget(null)} variant="outlined" sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>{t('common.cancel')}</Button>
-                    <Button onClick={confirmDelete} variant="contained" sx={{ color: '#fff', background: '#DC2626', borderRadius: 2, textTransform: 'capitalize', fontWeight: 700, '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
+                    <Button onClick={() => setDeleteTarget(null)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>{t('common.cancel')}</Button>
+                    <Button onClick={confirmDelete} variant="contained" color="error">{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
 

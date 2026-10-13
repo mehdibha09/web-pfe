@@ -2,10 +2,13 @@ package com.cloud_pricer.config;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,6 +20,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class IdentitySigner {
 
+    private static final Logger log = LoggerFactory.getLogger(IdentitySigner.class);
+
+    /** Sentinel value used only to detect an unconfigured (insecure) secret. */
+    private static final String DEFAULT_INSECURE_SECRET =
+            "change-me-please-define-security.internal-signing-secret";
+
     public static final String ID_HEADER_USER_ID = "X-User-Id";
     public static final String ID_HEADER_TENANT_ID = "X-Tenant-Id";
     public static final String ID_HEADER_ROLES = "X-User-Roles";
@@ -26,8 +35,21 @@ public class IdentitySigner {
     private final byte[] secret;
 
     public IdentitySigner(org.springframework.core.env.Environment env) {
-        String configured = env.getProperty("security.internal-signing-secret",
-                "change-me-please-define-security.internal-signing-secret");
+        String configured = env.getProperty("security.internal-signing-secret", DEFAULT_INSECURE_SECRET);
+        if (configured == null || configured.isBlank()) {
+            throw new IllegalStateException("SECURITY_INTERNAL_SIGNING_SECRET must be configured");
+        }
+        boolean isDefault = DEFAULT_INSECURE_SECRET.equals(configured);
+        if (isDefault) {
+            boolean prod = Arrays.asList(env.getActiveProfiles()).contains("prod");
+            if (prod) {
+                throw new IllegalStateException(
+                        "SECURITY_INTERNAL_SIGNING_SECRET must be configured: refusing to start "
+                                + "with the insecure default signing secret in the 'prod' profile");
+            }
+            log.warn("Using the insecure default identity signing secret. "
+                    + "Set security.internal-signing-secret (SECURITY_INTERNAL_SIGNING_SECRET) before deploying.");
+        }
         this.secret = configured.getBytes(StandardCharsets.UTF_8);
     }
 

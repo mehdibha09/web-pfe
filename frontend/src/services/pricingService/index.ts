@@ -1,4 +1,4 @@
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 import type { PriceConfigRequest, PriceConfigResponse, CalculateCostResponse } from '../interfaces/cloudPricer';
 
 export const listPricing = async (mode?: string): Promise<PriceConfigResponse[]> => {

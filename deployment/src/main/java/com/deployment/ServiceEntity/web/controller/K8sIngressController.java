@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressResponse;
@@ -112,7 +112,7 @@ public class K8sIngressController {
             }
         }
 
-        kubernetesClient.createOrUpdateIngress(dto.name(), ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateIngress(dto.name(), ns, yamlSpec.toString(), dto.labels());
         K8sIngressResponse result = kubernetesClient.getIngress(dto.name(), ns);
         if (result == null) {
             String host = dto.rules() != null && !dto.rules().isEmpty() ? dto.rules().get(0).host() : "";
@@ -173,7 +173,7 @@ public class K8sIngressController {
             }
         }
 
-        kubernetesClient.createOrUpdateIngress(name, ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateIngress(name, ns, yamlSpec.toString(), dto.labels());
         K8sIngressResponse result = kubernetesClient.getIngress(name, ns);
         if (result == null) {
             result = K8sIngressResponse.fromSimulated(name, ns, "", "", 80);

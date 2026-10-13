@@ -14,8 +14,8 @@ import { toast } from 'react-toastify';
 import type { K8sNetworkPolicyRequest, K8sNetworkPolicyResponse, NetworkPolicyRule } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
@@ -27,6 +27,72 @@ const TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
     Egress: { bg: '#E9E6F6', fg: '#5E4B9E' }
 };
 
+type RuleForm = { ipBlocks: string; namespaceSelector: string; podSelector: string; ports: string };
+
+const emptyRule = (): RuleForm => ({ ipBlocks: '', namespaceSelector: '', podSelector: '', ports: '' });
+
+const ruleFieldLabels = (t: (k: string) => string) => ({
+    ipBlocks: t('k8s.networkpolicies.ruleIpBlocks'),
+    namespaceSelector: t('k8s.networkpolicies.ruleNamespaceSelector'),
+    podSelector: t('k8s.networkpolicies.rulePodSelector'),
+    ports: t('k8s.networkpolicies.allowedPorts')
+});
+
+const ruleFieldHints = (t: (k: string) => string) => ({
+    ipBlocks: t('k8s.networkpolicies.ruleIpBlocksHint'),
+    namespaceSelector: t('k8s.networkpolicies.ruleNamespaceSelectorHint'),
+    podSelector: t('k8s.networkpolicies.rulePodSelectorHint'),
+    ports: t('k8s.networkpolicies.allowedPortsHint')
+});
+
+type RuleSectionProps = {
+    title: string;
+    color: string;
+    rules: RuleForm[];
+    emptyHint: string;
+    addLabel: string;
+    onChange: (rules: RuleForm[]) => void;
+    t: (k: string) => string;
+};
+
+const RuleSection = ({ title, color, rules, emptyHint, addLabel, onChange, t }: RuleSectionProps) => {
+    const labels = ruleFieldLabels(t);
+    const hints = ruleFieldHints(t);
+    const update = (idx: number, field: keyof RuleForm, value: string) => {
+        onChange(rules.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+    };
+    return (
+        <Paper sx={{ p: 2, borderRadius: 2.5, border: `1px solid ${color}33`, backgroundColor: C.surfaceAlt, boxShadow: 'none' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <ShieldIcon sx={{ fontSize: 15 }} /> {title}
+            </Typography>
+            {(rules.length === 0 || (!rules[0].ipBlocks && !rules[0].namespaceSelector && !rules[0].podSelector && !rules[0].ports)) && rules.length === 1
+                ? (
+                    <Typography sx={{ color: C.muted, fontSize: 12, mb: 1 }}>{emptyHint} — {t('k8s.networkpolicies.commaSeparated').replace(',', '')} {addLabel}</Typography>
+                ) : null}
+            {rules.map((rule, idx) => (
+                <Box key={idx} sx={{ mb: 1.5, p: 1.5, borderRadius: 2, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{t('k8s.networkpolicies.rule')} {idx + 1}</Typography>
+                        {rules.length > 1 && (
+                            <Tooltip title={t('k8s.networkpolicies.removeRule')}>
+                                <IconButton size="small" onClick={() => onChange(rules.filter((_, i) => i !== idx))} sx={{ color: C.danger }}><CloseIcon sx={{ fontSize: 14 }} /></IconButton>
+                            </Tooltip>
+                        )}
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                        <TextField size="small" label={labels.ipBlocks} value={rule.ipBlocks} onChange={(e) => update(idx, 'ipBlocks', e.target.value)} helperText={hints.ipBlocks} />
+                        <TextField size="small" label={labels.ports} value={rule.ports} onChange={(e) => update(idx, 'ports', e.target.value)} helperText={hints.ports} />
+                        <TextField size="small" label={labels.namespaceSelector} value={rule.namespaceSelector} onChange={(e) => update(idx, 'namespaceSelector', e.target.value)} helperText={hints.namespaceSelector} />
+                        <TextField size="small" label={labels.podSelector} value={rule.podSelector} onChange={(e) => update(idx, 'podSelector', e.target.value)} helperText={hints.podSelector} />
+                    </Box>
+                </Box>
+            ))}
+            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => onChange([...rules, emptyRule()])} sx={{ color, fontWeight: 700, textTransform: 'none' }}>{addLabel}</Button>
+        </Paper>
+    );
+};
+
 const NetworkPoliciesPage = () => {
     const { t } = useTranslation();
     const [policies, setPolicies] = useState<K8sNetworkPolicyResponse[]>([]);
@@ -35,7 +101,14 @@ const NetworkPoliciesPage = () => {
     const [search, setSearch] = useState('');
 
     const [createOpen, setCreateOpen] = useState(false);
-    const [form, setForm] = useState({ name: '', podSelector: '', types: ['Ingress'] as string[], ports: '', ipBlocks: '' });
+    type FormState = {
+        name: string;
+        podSelector: string;
+        types: string[];
+        ingress: RuleForm[];
+        egress: RuleForm[];
+    };
+    const [form, setForm] = useState<FormState>({ name: '', podSelector: '', types: ['Ingress'], ingress: [emptyRule()], egress: [emptyRule()] });
     const [saving, setSaving] = useState(false);
 
     const [deleteTarget, setDeleteTarget] = useState<K8sNetworkPolicyResponse | null>(null);
@@ -80,7 +153,31 @@ const NetworkPoliciesPage = () => {
         return { total, ingressOnly, egressOnly, both };
     }, [policies, totalElements]);
 
-    const resetForm = () => setForm({ name: '', podSelector: '', types: ['Ingress'], ports: '', ipBlocks: '' });
+    const resetForm = () => setForm({ name: '', podSelector: '', types: ['Ingress'], ingress: [emptyRule()], egress: [emptyRule()] });
+
+    const toCsvParts = (v: string): string[] | undefined => {
+        const parts = v.split(',').map((s) => s.trim()).filter(Boolean);
+        return parts.length > 0 ? parts : undefined;
+    };
+
+    const buildRules = (rules: RuleForm[]): NetworkPolicyRule[] | undefined => {
+        const built: NetworkPolicyRule[] = rules
+            .map((r): NetworkPolicyRule | null => {
+                const ipBlocks = toCsvParts(r.ipBlocks);
+                const namespaceSelectorLabels = toCsvParts(r.namespaceSelector);
+                const podSelectorLabels = toCsvParts(r.podSelector);
+                const ports = toCsvParts(r.ports);
+                if (!ipBlocks && !namespaceSelectorLabels && !podSelectorLabels && !ports) return null;
+                return {
+                    ipBlocks,
+                    namespaceSelectorLabels,
+                    podSelectorLabels,
+                    ports
+                };
+            })
+            .filter((r): r is NetworkPolicyRule => r !== null);
+        return built.length > 0 ? built : undefined;
+    };
 
     const handleCreate = async () => {
         if (!form.name.trim()) {
@@ -89,24 +186,17 @@ const NetworkPoliciesPage = () => {
         }
         setSaving(true);
         try {
-            const hasRules = form.ports.trim() || form.ipBlocks.trim();
-            const ingressRule: NetworkPolicyRule[] = hasRules && form.types.includes('Ingress') ? [{
-                ipBlocks: form.ipBlocks.trim() ? form.ipBlocks.split(',').map((s) => s.trim()) : undefined,
-                ports: form.ports.trim() ? form.ports.split(',').map((s) => s.trim()) : undefined
-            }] : [];
-            const egressRule: NetworkPolicyRule[] = hasRules && form.types.includes('Egress') ? [{
-                ipBlocks: form.ipBlocks.trim() ? form.ipBlocks.split(',').map((s) => s.trim()) : undefined,
-                ports: form.ports.trim() ? form.ports.split(',').map((s) => s.trim()) : undefined
-            }] : [];
+            const ingressRules = form.types.includes('Ingress') ? buildRules(form.ingress) : undefined;
+            const egressRules = form.types.includes('Egress') ? buildRules(form.egress) : undefined;
 
-            await k8sService.createNetworkPolicy({
+            const res = await k8sService.createNetworkPolicy({
                 name: form.name.trim(),
                 podSelectorLabels: form.podSelector.trim() || undefined,
                 policyTypes: form.types,
-                ingressRules: ingressRule.length > 0 ? ingressRule : undefined,
-                egressRules: egressRule.length > 0 ? egressRule : undefined
+                ingressRules,
+                egressRules
             });
-            toast.success(t('k8s.networkpolicies.createdToast'));
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.networkpolicies.createdToast'));
             setCreateOpen(false);
             resetForm();
             clearFieldError('name');
@@ -129,7 +219,7 @@ const NetworkPoliciesPage = () => {
     };
 
     const KpiCard = ({ label, value, bg, fg, icon }: { label: string; value: number; bg: string; fg: string; icon: React.ReactNode }) => (
-        <Paper sx={{ p: 2, borderRadius: 3, bg, border: `1px solid ${fg}22`, display: 'flex', alignItems: 'center', gap: 1.5, boxShadow: 'none' }}>
+        <Paper sx={{ p: 2, borderRadius: 3, backgroundColor: bg, border: `1px solid ${fg}22`, display: 'flex', alignItems: 'center', gap: 1.5, boxShadow: 'none' }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 2, background: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>{icon}</Box>
             <Box><Typography sx={{ color: fg, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</Typography><Typography sx={{ color: fg, fontSize: 22, fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography></Box>
         </Paper>
@@ -148,7 +238,7 @@ const NetworkPoliciesPage = () => {
 
             {/* KPIs */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5, mb: 3 }}>
-                <KpiCard label={t('k8s.networkpolicies.total')} value={kpis.total} bg="#F8FAFC" fg="#475569" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
+                <KpiCard label={t('k8s.networkpolicies.total')} value={kpis.total} bg={C.surfaceAlt} fg={C.muted} icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
                 <KpiCard label={t('k8s.networkpolicies.ingressOnly')} value={kpis.ingressOnly} bg="#FCE7F3" fg="#BE185D" icon={<ArrowDownIcon sx={{ fontSize: 16 }} />} />
                 <KpiCard label={t('k8s.networkpolicies.egressOnly')} value={kpis.egressOnly} bg="#FAF5FF" fg="#9D174D" icon={<ArrowUpIcon sx={{ fontSize: 16 }} />} />
                 <KpiCard label={t('k8s.networkpolicies.both')} value={kpis.both} bg="#F0FDF4" fg="#16A34A" icon={<ShieldIcon sx={{ fontSize: 16 }} />} />
@@ -185,7 +275,7 @@ const NetworkPoliciesPage = () => {
                     {filtered.map((p) => {
                         const isExpanded = detailPolicy?.name === p.name && detailPolicy?.namespace === p.namespace;
                         return (
-                            <Card key={p.name + p.namespace} sx={{ borderRadius: 3, border: `1px solid ${C.border}`, backgroundColor: '#fff', transition: 'all 0.15s ease', '&:hover': { borderColor: '#C8D0DC' } }}>
+                            <Card key={p.name + p.namespace} sx={{ borderRadius: 3, border: `1px solid ${C.border}`, backgroundColor: C.surface, transition: 'all 0.15s ease', '&:hover': { borderColor: C.brand } }}>
                                 <Box sx={{ height: 3, background: `linear-gradient(90deg, ${TYPE_COLORS.Ingress.fg}, ${p.policyTypes.includes('Egress') ? TYPE_COLORS.Egress.fg : TYPE_COLORS.Ingress.fg})` }} />
                                 <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
@@ -209,16 +299,16 @@ const NetworkPoliciesPage = () => {
                                     <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                                         {/* Ingress rules */}
                                         {p.ingressRules.length > 0 ? (
-                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#F8FAFC', border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, backgroundColor: C.surfaceAlt, border: `1px solid ${C.border}`, boxShadow: 'none' }}>
                                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#BE185D', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowDownIcon sx={{ fontSize: 12 }} /> {t('k8s.networkpolicies.ingressRules')}
                                                 </Typography>
                                                 {p.ingressRules.map((r, i) => (
-                                                    <Typography key={i} sx={{ fontSize: 11, color: '#475569', fontFamily: 'monospace', lineHeight: 1.5 }}>{r || `(${t('k8s.networkpolicies.allowAll')})`}</Typography>
+                                                    <Typography key={i} sx={{ fontSize: 11, color: C.muted, fontFamily: 'monospace', lineHeight: 1.5 }}>{r || `(${t('k8s.networkpolicies.allowAll')})`}</Typography>
                                                 ))}
                                             </Paper>
                                         ) : p.policyTypes.includes('Ingress') && (
-                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: 'none' }}>
+                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, backgroundColor: C.brandLight, border: `1px solid ${C.border}`, boxShadow: 'none' }}>
                                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowDownIcon sx={{ fontSize: 12 }} /> {t('k8s.networkpolicies.ingressBlocked')}
                                                 </Typography>
@@ -227,16 +317,16 @@ const NetworkPoliciesPage = () => {
 
                                         {/* Egress rules */}
                                         {p.egressRules.length > 0 ? (
-                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#F8FAFC', border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, backgroundColor: C.surfaceAlt, border: `1px solid ${C.border}`, boxShadow: 'none' }}>
                                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#9D174D', textTransform: 'uppercase', mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowUpIcon sx={{ fontSize: 12 }} /> {t('k8s.networkpolicies.egressRules')}
                                                 </Typography>
                                                 {p.egressRules.map((r, i) => (
-                                                    <Typography key={i} sx={{ fontSize: 11, color: '#475569', fontFamily: 'monospace', lineHeight: 1.5 }}>{r || `(${t('k8s.networkpolicies.allowAll')})`}</Typography>
+                                                    <Typography key={i} sx={{ fontSize: 11, color: C.muted, fontFamily: 'monospace', lineHeight: 1.5 }}>{r || `(${t('k8s.networkpolicies.allowAll')})`}</Typography>
                                                 ))}
                                             </Paper>
                                         ) : p.policyTypes.includes('Egress') && (
-                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, bg: '#FFF7ED', border: '1px solid #FED7AA', boxShadow: 'none' }}>
+                                            <Paper sx={{ flex: 1, minWidth: 200, p: 1.25, borderRadius: 2, backgroundColor: C.brandLight, border: `1px solid ${C.border}`, boxShadow: 'none' }}>
                                                 <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <ArrowUpIcon sx={{ fontSize: 12 }} /> {t('k8s.networkpolicies.egressBlocked')}
                                                 </Typography>
@@ -246,7 +336,7 @@ const NetworkPoliciesPage = () => {
 
                                     {p.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 1.5 }}>{t('k8s.networkpolicies.created')} {fmtDate(p.createdAt)}</Typography>}
                                 </CardContent>
-                                <CardActions sx={{ px: 2.5, py: 1, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, bg: '#FAFAFA', gap: 0.5 }}>
+                                <CardActions sx={{ px: 2.5, py: 1, justifyContent: 'flex-end', borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceAlt, gap: 0.5 }}>
                                     {allowManage && <Tooltip title={t('common.delete')}><IconButton size="small" onClick={() => setDeleteTarget(p)} sx={{ color: C.danger }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>}
                                 </CardActions>
                             </Card>
@@ -275,14 +365,35 @@ const NetworkPoliciesPage = () => {
                     <Box sx={{ display: 'grid', gap: 2 }}>
                         <TextField size="small" label={t('k8s.networkpolicies.name')} value={form.name} onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); clearFieldError('name'); }} required error={Boolean(errors.name)} helperText={errors.name} />
                         <TextField size="small" label={t('k8s.networkpolicies.podSelector')} value={form.podSelector} onChange={(e) => setForm((p) => ({ ...p, podSelector: e.target.value }))} placeholder="app=web,version=v1" helperText={t('k8s.networkpolicies.podSelectorHint')} />
-                        <TextField size="small" select label={t('k8s.networkpolicies.policyTypes')} value={form.types} onChange={(e) => setForm((p) => ({ ...p, types: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))} slotProps={{ select: { multiple: true } }}>
+                        <TextField size="small" select label={t('k8s.networkpolicies.policyTypes')} value={form.types} onChange={(e) => setForm((p) => ({ ...p, types: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))} slotProps={{ select: { multiple: true } }} helperText={t('k8s.networkpolicies.policyTypesHint')}>
                             <MenuItem value="Ingress">{t('k8s.networkpolicies.ingressTraffic')}</MenuItem>
                             <MenuItem value="Egress">{t('k8s.networkpolicies.egressTraffic')}</MenuItem>
                         </TextField>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                            <TextField size="small" label={t('k8s.networkpolicies.allowedPorts')} value={form.ports} onChange={(e) => setForm((p) => ({ ...p, ports: e.target.value }))} placeholder="80,443,8080" helperText={t('k8s.networkpolicies.commaSeparated')} />
-                            <TextField size="small" label={t('k8s.networkpolicies.allowedCidrs')} value={form.ipBlocks} onChange={(e) => setForm((p) => ({ ...p, ipBlocks: e.target.value }))} placeholder="10.0.0.0/8" helperText={t('k8s.networkpolicies.commaSeparated')} />
-                        </Box>
+
+                        {form.types.includes('Ingress') && (
+                            <RuleSection
+                                title={t('k8s.networkpolicies.ingressSection')}
+                                color="#BE185D"
+                                rules={form.ingress}
+                                emptyHint={t('k8s.networkpolicies.noIngressRules')}
+                                addLabel={t('k8s.networkpolicies.addIngressRule')}
+                                onChange={(rules) => setForm((p) => ({ ...p, ingress: rules }))}
+                                t={t}
+                            />
+                        )}
+                        {form.types.includes('Egress') && (
+                            <RuleSection
+                                title={t('k8s.networkpolicies.egressSection')}
+                                color="#7C3AED"
+                                rules={form.egress}
+                                emptyHint={t('k8s.networkpolicies.noEgressRules')}
+                                addLabel={t('k8s.networkpolicies.addEgressRule')}
+                                onChange={(rules) => setForm((p) => ({ ...p, egress: rules }))}
+                                t={t}
+                            />
+                        )}
+
+                        {form.types.length === 0 && <Typography sx={{ color: C.muted, fontSize: 13 }}>{t('k8s.networkpolicies.policyTypesHint')}</Typography>}
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>

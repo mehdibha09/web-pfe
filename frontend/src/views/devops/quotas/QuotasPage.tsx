@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloudIcon from '@mui/icons-material/Cloud';
 import SearchIcon from '@mui/icons-material/Search';
 import {
     Box,
@@ -15,7 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
-import { listQuotasPaginated } from '../../../services/cloudPricerService';
+import { listQuotas, listQuotasPaginated } from '../../../services/cloudPricerService';
 import type {
     EnvironmentResponse,
     ServiceEnvironmentResponse,
@@ -29,6 +30,7 @@ import {
 import { C, PAGE_BG } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import MyCustomButton from '../../../components/MyCustomButton';
+import EmptyState from '../../../components/EmptyState';
 import PaginationBar from '../../../components/PaginationBar';
 import CreateQuotaForm from './CreateQuotaForm';
 import QuotaCard from './QuotaCard';
@@ -39,6 +41,10 @@ import type { QuotaWithMetrics } from './types';
 const QuotasPage = () => {
     const { t } = useTranslation();
     const [quotas, setQuotas] = useState<QuotaWithMetrics[]>([]);
+    // All quotas of the tenant (non-paginated) used to compute the summary
+    // totals (total/active/near-limit/total budget) — the current page (10 items)
+    // alone would give misleading partial totals when the tenant has >10 quotas.
+    const [allQuotas, setAllQuotas] = useState<QuotaWithMetrics[]>([]);
     const [serviceEnvironments, setServiceEnvironments] = useState<ServiceEnvironmentResponse[]>([]);
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [environments, setEnvironments] = useState<EnvironmentResponse[]>([]);
@@ -60,6 +66,13 @@ const QuotasPage = () => {
             }));
             setQuotas(withMetrics);
             setTotalElements(result.total);
+            // Load the full (non-paginated) quota list for the summary (real tenant totals).
+            try {
+                const all = await listQuotas();
+                setAllQuotas(all.map((q) => ({ ...q, usage: q.usage ?? null })));
+            } catch {
+                // Non-blocking: summary falls back to the current page if the full list fails.
+            }
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, 'Failed to load quotas'));
         } finally {
@@ -120,7 +133,7 @@ const QuotasPage = () => {
                 </MyCustomButton>
             </Box>
 
-            {!loading && quotas.length > 0 && <QuotasSummary quotas={quotas} />}
+            {!loading && quotas.length > 0 && <QuotasSummary quotas={allQuotas.length > 0 ? allQuotas : quotas} />}
 
             <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
                 <TextField
@@ -137,7 +150,7 @@ const QuotasPage = () => {
                             )
                         }
                     }}
-                    sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
+                    sx={{ width: { xs: '100%', sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Chip
@@ -177,21 +190,13 @@ const QuotasPage = () => {
                     ))}
                 </Grid>
             ) : filtered.length === 0 ? (
-                <Card sx={{ borderRadius: 3, textAlign: 'center', py: 6 }}>
-                    <CardContent>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 1 }}>
-                            {quotas.length === 0 ? t('quotas.noQuotas') : t('quotas.noResults')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
-                            {quotas.length === 0 ? t('quotas.createFirst') : t('quotas.adjustSearch')}
-                        </Typography>
-                        {quotas.length === 0 && (
-                            <MyCustomButton startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-                                {t('quotas.newQuota')}
-                            </MyCustomButton>
-                        )}
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<CloudIcon />}
+                    title={quotas.length === 0 ? t('quotas.noQuotas') : t('quotas.noResults')}
+                    message={quotas.length === 0 ? t('quotas.createFirst') : t('quotas.adjustSearch')}
+                    actionLabel={quotas.length === 0 ? t('quotas.newQuota') : undefined}
+                    onAction={quotas.length === 0 ? () => setCreateOpen(true) : undefined}
+                />
             ) : (
                 <>
                     <Grid container spacing={2}>

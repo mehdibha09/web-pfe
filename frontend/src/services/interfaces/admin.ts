@@ -40,8 +40,6 @@ export interface SessionResponse {
   id: string;
   userId: string;
   userEmail: string;
-  accessToken: string;
-  refreshToken: string;
   expirationDate: string;
   createdAt: string;
   ipAddress: string;

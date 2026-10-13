@@ -8,8 +8,6 @@ public record SessionResponse(
         UUID id,
         UUID userId,
         String userEmail,
-        String accessToken,
-        String refreshToken,
         Instant expirationDate,
         Instant createdAt,
         String ipAddress,

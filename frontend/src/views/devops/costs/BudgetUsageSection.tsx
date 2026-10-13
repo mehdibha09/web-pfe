@@ -25,6 +25,7 @@ import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { seLabel } from '../common/seLabel';
 import { formatMoney, currencySymbol } from '../../../utils/format';
+import { getPeriodRange } from './constants';
 
 const getPct = (used: number, max: number): number =>
     max > 0 ? Math.min((used / max) * 100, 100) : 0;
@@ -75,10 +76,17 @@ const BudgetUsageSection = () => {
         load();
     }, []);
 
-    // Sum of all cost records per SE -> "used this month to date"
+    // Sum of the CURRENT month's cost records per SE -> "used this month to date".
+    // The budget quota is MONTHLY, so comparing it against the full history would
+    // falsely show an over-budget state. We restrict the sum to the current
+    // calendar month (same period logic as CostsPage's "month" filter).
     const totalCostBySe = useMemo(() => {
+        const { start } = getPeriodRange('month');
+        const end = new Date();
         const map: Record<string, number> = {};
         for (const c of costs) {
+            const pStart = new Date(c.periodStart);
+            if (pStart < start || pStart > end) continue;
             map[c.serviceEnvironmentId] = (map[c.serviceEnvironmentId] ?? 0) + c.totalCost;
         }
         return map;

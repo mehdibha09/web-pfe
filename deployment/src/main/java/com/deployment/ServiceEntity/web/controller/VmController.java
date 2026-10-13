@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
-import com.deployment.ServiceEntity.domain.VagrantSshConfig;
-import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.infra.VagrantSshConfig;
+import com.deployment.ServiceEntity.infra.VmClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.VmService;
 import com.deployment.ServiceEntity.web.dto.ssh.SshExecuteRequest;

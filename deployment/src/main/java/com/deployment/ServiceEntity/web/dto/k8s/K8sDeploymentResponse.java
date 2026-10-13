@@ -54,8 +54,8 @@ public record K8sDeploymentResponse(
                 entity.getServiceType(),
                 entity.getRestartPolicy(),
                 entity.getLabels(),
-                entity.getSecrets(),
-                entity.getEnvVars(),
+                maskPairs(entity.getSecrets()),
+                maskPairs(entity.getEnvVars()),
                 parseProbe(entity.getLivenessProbe()),
                 parseProbe(entity.getReadinessProbe()),
                 parseProbe(entity.getStartupProbe()),
@@ -70,5 +70,26 @@ public record K8sDeploymentResponse(
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * Masque les valeurs de paires KEY=value (liste CSV) avant toute réponse :
+     * on ne ré-émet que les NOMS de variables/secrets, jamais les valeurs en
+     * clair (fuite cross-tenant / exposition des secrets stockés en base).
+     */
+    private static String maskPairs(String csv) {
+        if (csv == null || csv.isBlank()) return csv;
+        java.util.StringJoiner sj = new java.util.StringJoiner(",");
+        for (String pair : csv.split(",")) {
+            String p = pair.trim();
+            if (p.isEmpty()) continue;
+            int eq = p.indexOf('=');
+            if (eq > 0) {
+                sj.add(p.substring(0, eq) + "=********");
+            } else {
+                sj.add(p);
+            }
+        }
+        return sj.toString();
     }
 }

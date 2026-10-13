@@ -84,5 +84,6 @@ public final class ApiRoutes {
         public static final String BY_ID = "/{tenantId}";
         public static final String USERS = "/{tenantId}/users";
         public static final String ROLES = "/{tenantId}/roles";
+        public static final String HARD_DELETE = "/{tenantId}/hard";
     }
 }

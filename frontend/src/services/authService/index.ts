@@ -13,7 +13,7 @@ export type {
   TwoFaActionResponse,
 } from '../interfaces/auth';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 import type { AuthUser, AuthTokens, LoginResponse, TwoFaSetupResponse, TwoFaActionResponse } from '../interfaces/auth';
 import type { ForgotPasswordPayload, ResetPasswordPayload, LoginPayload, ChangePasswordPayload, UpdateEmailPayload, TwoFaEnablePayload, TwoFaEmailVerifyPayload } from '../interfaces/auth';
 

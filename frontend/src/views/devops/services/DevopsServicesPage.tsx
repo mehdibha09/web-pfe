@@ -1,22 +1,21 @@
 import CloudQueueIcon from '@mui/icons-material/CloudQueue';
-import SearchIcon from '@mui/icons-material/Search';
-import { Alert, Box, Card, CardContent, Typography } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import type { ServiceResponse } from '../../../services/devopsService';
 import { listServicesPaginated } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canAccessAuditLogs, canManageDeployments } from '../../../services/authorization';
-import { cardSx, pageBg } from './constants';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canAccessAuditLogs, canManageDeployments } from '../../../services/core/authorization';
+import { pageBg } from './constants';
 import CreateServiceCard from './CreateServiceCard';
 import HeaderCard from './HeaderCard';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import PaginationBar from '../../../components/PaginationBar';
 import SearchCard from './SearchCard';
 import ServiceCard from './ServiceCard';
-import { C } from '../../../theme/tokens';
 
 const ServicesPage = () => {
     const { t } = useTranslation();
@@ -67,19 +66,11 @@ const ServicesPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filtered.length === 0 ? (
-                <Card sx={cardSx}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, background: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <CloudQueueIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('services.noServices')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('services.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<CloudQueueIcon />}
+                    title={t('services.noServices')}
+                    message={t('services.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                 <Box

@@ -10,9 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Permission;
 import com.auth.service.domain.RolePermission;
@@ -30,8 +29,6 @@ import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.web.dto.permission.PermissionResponse;
 import com.auth.service.web.dto.permission.PermissionUpdateRequest;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 @Service
 public class PermissionService {
     private static final String TOKEN_TYPE = "Bearer";
@@ -41,18 +38,21 @@ public class PermissionService {
     private final UserRoleRepository userRoleRepository;
     private final SessionRepository sessionRepository;
     private final AuditLogRepository auditLogRepository;
+    private final ClientIpResolver clientIpResolver;
 
     public PermissionService(
             PermissionRepository permissionRepository,
             RolePermissionRepository rolePermissionRepository,
             UserRoleRepository userRoleRepository,
             SessionRepository sessionRepository,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            ClientIpResolver clientIpResolver) {
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.userRoleRepository = userRoleRepository;
         this.sessionRepository = sessionRepository;
         this.auditLogRepository = auditLogRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional(readOnly = true)
@@ -155,31 +155,10 @@ public class PermissionService {
     }
 
     private void ensureCanManagePermissions(User currentUser) {
-        if (isSuperAdmin(currentUser) || (isPlatformTenantUser(currentUser) && hasManagePermission(currentUser))) {
+        if (isSuperAdmin(currentUser)) {
             return;
         }
-        throw new ForbiddenException("Only super-admins or platform-tenant admins can manage permissions");
-    }
-
-    private boolean hasManagePermission(User currentUser) {
-        return userRoleRepository.findByUser_Id(currentUser.getId())
-                .stream()
-                .map(UserRole::getRole)
-                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
-                .flatMap(List::stream)
-                .map(RolePermission::getPermission)
-                .anyMatch(permission -> permission.getName() != null
-                        && (permission.getName().trim().equalsIgnoreCase("PERMISSION_MANAGE")
-                                || permission.getName().trim().equalsIgnoreCase("USER_MANAGE")));
-    }
-
-    private boolean isPlatformTenantUser(User currentUser) {
-        UUID platformTenantId = userRoleRepository.findByRole_NameIgnoreCase("super-admin")
-                .stream()
-                .findFirst()
-                .map(userRole -> userRole.getUser().getTenant().getId())
-                .orElse(null);
-        return platformTenantId != null && platformTenantId.equals(currentUser.getTenant().getId());
+        throw new ForbiddenException("Only super-admins can manage permissions");
     }
 
     private boolean isSuperAdmin(User currentUser) {
@@ -202,20 +181,6 @@ public class PermissionService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
-                    .getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
-        }
+        return clientIpResolver.resolve();
     }
 }

@@ -79,6 +79,10 @@ public class AgentRegistry {
         try {
             // Check if it's a shell_output — decode base64 and send as binary
             var node = MAPPER.readTree(jsonPayload);
+            if (!node.has("type")) {
+                log.warn("Dropping frontend payload without 'type' field for {}", vmId);
+                return false;
+            }
             String type = node.get("type").asText();
             if ("shell_output".equals(type)) {
                 String base64 = node.get("data").asText();

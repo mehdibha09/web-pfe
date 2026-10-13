@@ -1,6 +1,7 @@
 package com.deployment.ServiceEntity.repository;
 
 import com.deployment.ServiceEntity.domain.Backup;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,8 @@ public interface BackupRepository extends JpaRepository<Backup, UUID> {
     Page<Backup> findByServiceEnvironmentId(UUID serviceEnvironmentId, Pageable pageable);
 
     List<Backup> findByVmIdOrderByCreatedAtDesc(UUID vmId);
+
+    List<Backup> findByCreatedAtBefore(Instant cutoff);
 
     void deleteByVmId(UUID vmId);
 

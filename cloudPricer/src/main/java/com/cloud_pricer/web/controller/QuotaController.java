@@ -64,6 +64,7 @@ public class QuotaController {
     quota.setMaxBudget(dto.maxBudget());
     quota.setPeriod(dto.period());
     quota.setActive(dto.isActive());
+    quota.setAutoStopOnExceed(dto.autoStopOnExceed());
     quota.setTenantId(UserContext.getTenantId());
 
     Quota created = quotaService.create(quota);
@@ -85,6 +86,7 @@ public class QuotaController {
     quota.setMaxBudget(dto.maxBudget());
     quota.setPeriod(dto.period());
     quota.setActive(dto.isActive());
+    quota.setAutoStopOnExceed(dto.autoStopOnExceed());
 
     Quota updated = quotaService.update(id, quota);
     auditService.record("QUOTA_UPDATE", "quota", updated.getId().toString(), "Quota updated (id=" + updated.getId() + ")");
@@ -110,6 +112,7 @@ public class QuotaController {
         quota.getMaxBudget(),
         quota.getPeriod(),
         quota.isActive(),
+        quota.isAutoStopOnExceed(),
         quota.getCreatedAt(),
         quota.getUpdatedAt(),
         quotaService.usageFor(quota.getServiceEnvironmentId()));

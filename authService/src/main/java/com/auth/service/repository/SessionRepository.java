@@ -1,5 +1,6 @@
 package com.auth.service.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,4 +28,8 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     Optional<Session> findByRefreshToken(String refreshToken);
     Optional<Session> findByAccessToken(String accessToken);
+
+    /** Purge des sessions expirées non révoquées (évite un findAll() en mémoire). */
+    @Query("DELETE FROM Session s WHERE s.revokedAt IS NULL AND s.expirationDate < :now")
+    int deleteExpiredUnrevoked(@Param("now") Instant now);
 }

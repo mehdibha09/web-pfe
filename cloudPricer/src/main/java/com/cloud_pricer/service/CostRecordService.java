@@ -52,8 +52,13 @@ public class CostRecordService {
     }
 
     public CostRecord getById(UUID id) {
-        return costRecordRepository.findById(id)
+        CostRecord record = costRecordRepository.findById(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Cost record not found"));
+        // Scoping tenant : on ne lit que les records du tenant courant.
+        if (!record.getTenantId().equals(UserContext.getTenantId())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Cost record not found");
+        }
+        return record;
     }
 
     public List<CostRecord> getAll() {
@@ -84,14 +89,6 @@ public class CostRecordService {
 
     public List<Object[]> aggregateByTenant(UUID tenantId) {
         return costRecordRepository.aggregateByTenantForTenant(tenantId);
-    }
-
-    public List<Object[]> aggregateByServiceEnvironment(UUID tenantId) {
-        return costRecordRepository.aggregateByServiceEnvironmentForTenant(tenantId);
-    }
-
-    public List<Object[]> aggregateByPeriod(UUID tenantId) {
-        return costRecordRepository.aggregateByPeriodForTenant(tenantId);
     }
 
     public List<Object[]> aggregateByPeriodForTenant(UUID tenantId) {

@@ -44,6 +44,7 @@ export interface QuotaResponse {
   maxBudget: number;
   period: string;
   isActive: boolean;
+  autoStopOnExceed: boolean;
   createdAt: string;
   updatedAt: string;
   usage?: QuotaUsage | null;
@@ -58,6 +59,7 @@ export interface QuotaRequest {
   maxBudget: number;
   period: string;
   isActive: boolean;
+  autoStopOnExceed: boolean;
 }
 
 export interface AlertResponse {

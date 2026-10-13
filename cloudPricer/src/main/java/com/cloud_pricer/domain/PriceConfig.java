@@ -53,9 +53,6 @@ public class PriceConfig {
             createdAt = Instant.now();
             updatedAt = createdAt;
         }
-        if (!isActive) {
-            isActive = true;
-        }
     }
 
     @PreUpdate

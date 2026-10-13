@@ -1,4 +1,4 @@
-package com.deployment.ServiceEntity.domain;
+package com.deployment.ServiceEntity.infra;
 
 public class VagrantSshConfig {
 

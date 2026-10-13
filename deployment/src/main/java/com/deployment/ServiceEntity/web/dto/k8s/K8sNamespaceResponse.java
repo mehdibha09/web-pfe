@@ -10,7 +10,8 @@ public record K8sNamespaceResponse(
     String status,
     Map<String, String> labels,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sNamespaceResponse fromK8sJson(Map<String, Object> json) {
@@ -30,7 +31,7 @@ public record K8sNamespaceResponse(
             Map<String, Object> status = (Map<String, Object>) json.get("status");
             String phase = status != null ? (String) status.get("phase") : "Active";
 
-            return new K8sNamespaceResponse(name, phase, labels, creationTimestamp, "v1");
+            return new K8sNamespaceResponse(name, phase, labels, creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -53,6 +54,6 @@ public record K8sNamespaceResponse(
 
     public static K8sNamespaceResponse fromSimulated(String name) {
         return new K8sNamespaceResponse(name, "Active", Map.of(),
-            java.time.Instant.now().toString(), "v1");
+            java.time.Instant.now().toString(), "v1",true);
     }
 }

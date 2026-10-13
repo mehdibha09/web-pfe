@@ -8,141 +8,130 @@ pipeline {
         nodejs 'node'
     }
 
-
-
     stages {
-
-        // ─────────────────────────────────────────────
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/mehdibha09/web-pfe.git'
             }
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // Détection des changements
-        // ═══════════════════════════════════════════════════════════
-
-stage('Detect Changes') {
-    steps {
-        script {
-
-            sh '''
-                git fetch origin +refs/heads/*:refs/remotes/origin/* --prune
-            '''
-
-            def changedFiles = sh(
-                script: '''
-                    CURRENT=$(git rev-parse HEAD)
-
-                    if git rev-parse HEAD~1 >/dev/null 2>&1; then
-                        BASE=$(git rev-parse HEAD~1)
-
-                        echo "Commit actuel : $CURRENT" >&2
-                        echo "Commit précédent : $BASE" >&2
-
-                        git diff --name-only "$BASE" "$CURRENT"
-                    else
-                        echo "Premier commit détecté" >&2
-                        git diff-tree --no-commit-id --name-only -r "$CURRENT"
-                    fi
-                ''',
-                returnStdout: true
-            ).trim()
-
-            echo "Fichiers modifiés :\n${changedFiles}"
-
-            // Reset
-            env.CHANGED_AUTH       = 'false'
-            env.CHANGED_PRICER     = 'false'
-            env.CHANGED_GATEWAY    = 'false'
-            env.CHANGED_FRONTEND   = 'false'
-            env.CHANGED_K8S        = 'false'
-            env.CHANGED_DEPLOYMENT = 'false'
-
-            if (changedFiles) {
-
-                def changedList = changedFiles.readLines()
-
-                echo "Nombre de fichiers : ${changedList.size()}"
-
-                for (String file : changedList) {
-
-                    file = file.trim()
-
-                    echo "Analyse fichier : [${file}]"
-
-                    if (file.startsWith('authService/')) {
-                        env.CHANGED_AUTH = 'true'
-                    }
-
-                    if (file.startsWith('cloudPricer/')) {
-                        env.CHANGED_PRICER = 'true'
-                    }
-
-                    if (file.startsWith('gateway/')) {
-                        env.CHANGED_GATEWAY = 'true'
-                        echo ">>> GATEWAY MODIFIE"
-                    }
-
-                    if (file.startsWith('frontend/')) {
-                        env.CHANGED_FRONTEND = 'true'
-                    }
-
-                    if (file.startsWith('k8s/')) {
-                        env.CHANGED_K8S = 'true'
-                    }
-
-                    if (file.startsWith('deployment/')) {
-                        env.CHANGED_DEPLOYMENT = 'true'
-                    }
-                }
-            }
-
-            // Calcul des groupes
-            env.CHANGED_BACKEND = (
-                env.CHANGED_AUTH == 'true' ||
-                env.CHANGED_PRICER == 'true' ||
-                env.CHANGED_GATEWAY == 'true' ||
-                env.CHANGED_DEPLOYMENT == 'true'
-            ) ? 'true' : 'false'
-
-            env.CHANGED_ANY_IMAGE = (
-                env.CHANGED_AUTH == 'true' ||
-                env.CHANGED_PRICER == 'true' ||
-                env.CHANGED_GATEWAY == 'true' ||
-                env.CHANGED_DEPLOYMENT == 'true' ||
-                env.CHANGED_FRONTEND == 'true'
-            ) ? 'true' : 'false'
-
-            env.CHANGED_DEPLOY = (
-                env.CHANGED_ANY_IMAGE == 'true' ||
-                env.CHANGED_K8S == 'true'
-            ) ? 'true' : 'false'
-
-            echo """
-╔══════════════════════════════════════════════╗
-║          DÉTECTION DES CHANGEMENTS           ║
-╠══════════════════════════════════════════════╣
-║ authService  : ${env.CHANGED_AUTH}
-║ cloudPricer  : ${env.CHANGED_PRICER}
-║ gateway      : ${env.CHANGED_GATEWAY}
-║ deployment   : ${env.CHANGED_DEPLOYMENT}
-║ frontend     : ${env.CHANGED_FRONTEND}
-║ k8s          : ${env.CHANGED_K8S}
-╠══════════════════════════════════════════════╣
-║ BACKEND      : ${env.CHANGED_BACKEND}
-║ ANY_IMAGE    : ${env.CHANGED_ANY_IMAGE}
-║ DEPLOY       : ${env.CHANGED_DEPLOY}
-╚══════════════════════════════════════════════╝
-"""
-        }
-    }
-}
-stage('Build') {
+        stage('Detect Changes') {
             steps {
                 script {
+                    sh '''
+                        git fetch origin +refs/heads/*:refs/remotes/origin/* --prune
+                    '''
 
+                    def changedFiles = sh(
+                        script: '''
+                            CURRENT=$(git rev-parse HEAD)
+
+                            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+                                BASE=$(git rev-parse HEAD~1)
+
+                                echo "Commit actuel : $CURRENT" >&2
+                                echo "Commit précédent : $BASE" >&2
+
+                                git diff --name-only "$BASE" "$CURRENT"
+                            else
+                                echo "Premier commit détecté" >&2
+                                git diff-tree --no-commit-id --name-only -r "$CURRENT"
+                            fi
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Fichiers modifiés :\n${changedFiles}"
+
+                    // Reset
+                    env.CHANGED_AUTH       = 'false'
+                    env.CHANGED_PRICER     = 'false'
+                    env.CHANGED_GATEWAY    = 'false'
+                    env.CHANGED_FRONTEND   = 'false'
+                    env.CHANGED_K8S        = 'false'
+                    env.CHANGED_DEPLOYMENT = 'false'
+
+                    if (changedFiles) {
+                        def changedList = changedFiles.readLines()
+
+                        echo "Nombre de fichiers : ${changedList.size()}"
+
+                        for (String file : changedList) {
+                            file = file.trim()
+
+                            echo "Analyse fichier : [${file}]"
+
+                            if (file.startsWith('authService/')) {
+                                env.CHANGED_AUTH = 'true'
+                            }
+
+                            if (file.startsWith('cloudPricer/')) {
+                                env.CHANGED_PRICER = 'true'
+                            }
+
+                            if (file.startsWith('gateway/')) {
+                                env.CHANGED_GATEWAY = 'true'
+                                echo ">>> GATEWAY MODIFIE"
+                            }
+
+                            if (file.startsWith('frontend/')) {
+                                env.CHANGED_FRONTEND = 'true'
+                            }
+
+                            if (file.startsWith('k8s/')) {
+                                env.CHANGED_K8S = 'true'
+                            }
+
+                            if (file.startsWith('deployment/')) {
+                                env.CHANGED_DEPLOYMENT = 'true'
+                            }
+                        }
+                    }
+
+                    // Calcul des groupes
+                    env.CHANGED_BACKEND = (
+                        env.CHANGED_AUTH == 'true' ||
+                        env.CHANGED_PRICER == 'true' ||
+                        env.CHANGED_GATEWAY == 'true' ||
+                        env.CHANGED_DEPLOYMENT == 'true'
+                    ) ? 'true' : 'false'
+
+                    env.CHANGED_ANY_IMAGE = (
+                        env.CHANGED_AUTH == 'true' ||
+                        env.CHANGED_PRICER == 'true' ||
+                        env.CHANGED_GATEWAY == 'true' ||
+                        env.CHANGED_DEPLOYMENT == 'true' ||
+                        env.CHANGED_FRONTEND == 'true'
+                    ) ? 'true' : 'false'
+
+                    env.CHANGED_DEPLOY = (
+                        env.CHANGED_ANY_IMAGE == 'true' ||
+                        env.CHANGED_K8S == 'true'
+                    ) ? 'true' : 'false'
+
+                    echo """
+                    ╔══════════════════════════════════════════════╗
+                    ║          DÉTECTION DES CHANGEMENTS           ║
+                    ╠══════════════════════════════════════════════╣
+                    ║ authService  : ${env.CHANGED_AUTH}
+                    ║ cloudPricer  : ${env.CHANGED_PRICER}
+                    ║ gateway      : ${env.CHANGED_GATEWAY}
+                    ║ deployment   : ${env.CHANGED_DEPLOYMENT}
+                    ║ frontend     : ${env.CHANGED_FRONTEND}
+                    ║ k8s          : ${env.CHANGED_K8S}
+                    ╠══════════════════════════════════════════════╣
+                    ║ BACKEND      : ${env.CHANGED_BACKEND}
+                    ║ ANY_IMAGE    : ${env.CHANGED_ANY_IMAGE}
+                    ║ DEPLOY       : ${env.CHANGED_DEPLOY}
+                    ╚══════════════════════════════════════════════╝
+                    """
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
                     if (env.CHANGED_AUTH == 'true') {
                         dir('authService') {
                             sh 'mvn clean install -DskipTests'
@@ -184,7 +173,6 @@ stage('Build') {
         stage('Test') {
             steps {
                 script {
-
                     if (env.CHANGED_AUTH == 'true') {
                         dir('authService') {
                             sh 'mvn test'
@@ -212,14 +200,8 @@ stage('Build') {
             }
         }
 
-        
-
-
-
-        // ─────────────────────────────────────────────
         stage('Sonar Analysis') {
             when { expression { env.CHANGED_BACKEND == 'true' } }
-
 
             stages {
                 stage('Sonar authService') {
@@ -273,6 +255,7 @@ stage('Build') {
                         failure { echo "Sonar cloudPricer : échec d'exécution." }
                     }
                 }
+
                 stage('Sonar deployment') {
                     when { expression { env.CHANGED_DEPLOYMENT == 'true' } }
                     steps {
@@ -327,13 +310,12 @@ stage('Build') {
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Build and Push Docker Images to Nexus') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
 
             steps {
-                git branch: 'main',  url: 'https://github.com/mehdibha09/web-pfe'
+                git branch: 'main', url: 'https://github.com/mehdibha09/web-pfe'
 
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-creds',
@@ -344,11 +326,11 @@ stage('Build') {
                         sh "echo \$NEXUS_PASSWORD | docker login 192.168.56.30 -u \$NEXUS_USER --password-stdin"
 
                         def services = [
-                            [folder: 'authService',  image: 'auth-service',       changed: env.CHANGED_AUTH],
-                            [folder: 'cloudPricer',  image: 'cloud-pricer',       changed: env.CHANGED_PRICER],
-                            [folder: 'gateway',      image: 'gateway',            changed: env.CHANGED_GATEWAY],
-                            [folder: 'deployment',   image: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
-                            [folder: 'frontend',     image: 'frontend',           changed: env.CHANGED_FRONTEND],
+                            [folder: 'authService', image: 'auth-service',       changed: env.CHANGED_AUTH],
+                            [folder: 'cloudPricer', image: 'cloud-pricer',       changed: env.CHANGED_PRICER],
+                            [folder: 'gateway',     image: 'gateway',            changed: env.CHANGED_GATEWAY],
+                            [folder: 'deployment',  image: 'deployment-service', changed: env.CHANGED_DEPLOYMENT],
+                            [folder: 'frontend',    image: 'frontend',           changed: env.CHANGED_FRONTEND],
                         ]
 
                         services.each { svc ->
@@ -375,7 +357,6 @@ stage('Build') {
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Create DBs') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_BACKEND == 'true' } }
@@ -393,7 +374,7 @@ stage('Build') {
                     script {
                         withEnv(["PGPASSWORD=${DB_PASSWORD}"]) {
                             // Create only databases that are actually used by microservices
-                            def databases = ['auth_service', 'deployment_service']  // authService + deployment/cloudPricer
+                            def databases = ['auth_service', 'deployment_service', 'cloud_pricer_service']  // authService + deployment/cloudPricer
                             databases.each { dbName ->
                                 sh """
                                     psql -h ${DB_HOST} -U ${DB_USER} -d postgres \
@@ -406,127 +387,127 @@ stage('Build') {
 
                             // Safety net for schema drift: ensure full auth_service schema exists
                             sh '''
-psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
-CREATE TABLE IF NOT EXISTS tenants (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL,
-    contact_email text,
-    mode_deployment text,
-    status text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT tenants_name_uk UNIQUE (name)
-);
+                            psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d auth_service <<'SQL'
+                            CREATE TABLE IF NOT EXISTS tenants (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                name text NOT NULL,
+                                contact_email text,
+                                mode_deployment text,
+                                status text NOT NULL,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                updated_at timestamptz NOT NULL DEFAULT now(),
+                                CONSTRAINT tenants_name_uk UNIQUE (name)
+                            );
 
-CREATE TABLE IF NOT EXISTS permissions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text NOT NULL,
-    description text,
-    CONSTRAINT permissions_name_uk UNIQUE (name)
-);
+                            CREATE TABLE IF NOT EXISTS permissions (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                name text NOT NULL,
+                                description text,
+                                CONSTRAINT permissions_name_uk UNIQUE (name)
+                            );
 
-CREATE TABLE IF NOT EXISTS roles (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    description text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT roles_tenant_name_uk UNIQUE (tenant_id, name)
-);
+                            CREATE TABLE IF NOT EXISTS roles (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                                name text NOT NULL,
+                                description text,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                CONSTRAINT roles_tenant_name_uk UNIQUE (tenant_id, name)
+                            );
 
-CREATE TABLE IF NOT EXISTS users (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    email text NOT NULL,
-    password text NOT NULL,
-    status text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT users_tenant_email_uk UNIQUE (tenant_id, email)
-);
+                            CREATE TABLE IF NOT EXISTS users (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                                email text NOT NULL,
+                                password text NOT NULL,
+                                status text NOT NULL,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                updated_at timestamptz NOT NULL DEFAULT now(),
+                                CONSTRAINT users_tenant_email_uk UNIQUE (tenant_id, email)
+                            );
 
-CREATE TABLE IF NOT EXISTS user_roles (
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    assigned_at timestamptz NOT NULL DEFAULT now(),
-    assigned_by uuid,
-    PRIMARY KEY (user_id, role_id)
-);
+                            CREATE TABLE IF NOT EXISTS user_roles (
+                                user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                                assigned_at timestamptz NOT NULL DEFAULT now(),
+                                assigned_by uuid,
+                                PRIMARY KEY (user_id, role_id)
+                            );
 
-CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    assigned_at timestamptz NOT NULL DEFAULT now(),
-    assigned_by uuid,
-    PRIMARY KEY (role_id, permission_id)
-);
+                            CREATE TABLE IF NOT EXISTS role_permissions (
+                                role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                                permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+                                assigned_at timestamptz NOT NULL DEFAULT now(),
+                                assigned_by uuid,
+                                PRIMARY KEY (role_id, permission_id)
+                            );
 
-CREATE TABLE IF NOT EXISTS sessions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    access_token text NOT NULL,
-    refresh_token text NOT NULL,
-    expiration_date timestamptz NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    ip_address text,
-    revoked_at timestamptz,
-    browser text,
-    os text,
-    localization text,
-    CONSTRAINT sessions_access_token_uk UNIQUE (access_token),
-    CONSTRAINT sessions_refresh_token_uk UNIQUE (refresh_token)
-);
+                            CREATE TABLE IF NOT EXISTS sessions (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                access_token text NOT NULL,
+                                refresh_token text NOT NULL,
+                                expiration_date timestamptz NOT NULL,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                ip_address text,
+                                revoked_at timestamptz,
+                                browser text,
+                                os text,
+                                localization text,
+                                CONSTRAINT sessions_access_token_uk UNIQUE (access_token),
+                                CONSTRAINT sessions_refresh_token_uk UNIQUE (refresh_token)
+                            );
 
-CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+                            CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
 
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid REFERENCES users(id) ON DELETE SET NULL,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    action text NOT NULL,
-    timestamp timestamptz NOT NULL DEFAULT now(),
-    details text,
-    resource text,
-    resource_id text
-);
+                            CREATE TABLE IF NOT EXISTS audit_logs (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+                                tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                                action text NOT NULL,
+                                timestamp timestamptz NOT NULL DEFAULT now(),
+                                details text,
+                                resource text,
+                                resource_id text
+                            );
 
-CREATE INDEX IF NOT EXISTS audit_logs_tenant_ts_idx ON audit_logs(tenant_id, timestamp);
+                            CREATE INDEX IF NOT EXISTS audit_logs_tenant_ts_idx ON audit_logs(tenant_id, timestamp);
 
-CREATE TABLE IF NOT EXISTS user_two_factor (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    secret text NOT NULL,
-    enabled boolean NOT NULL DEFAULT false,
-    backup_codes_json text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
+                            CREATE TABLE IF NOT EXISTS user_two_factor (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                                secret text NOT NULL,
+                                enabled boolean NOT NULL DEFAULT false,
+                                backup_codes_json text,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                updated_at timestamptz NOT NULL DEFAULT now()
+                            );
 
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash text NOT NULL UNIQUE,
-    expires_at timestamptz NOT NULL,
-    used_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
+                            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                token_hash text NOT NULL UNIQUE,
+                                expires_at timestamptz NOT NULL,
+                                used_at timestamptz,
+                                created_at timestamptz NOT NULL DEFAULT now()
+                            );
 
-CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens(user_id);
+                            CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens(user_id);
 
-CREATE TABLE IF NOT EXISTS sso_identities (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider text NOT NULL,
-    subject text NOT NULL,
-    email text NOT NULL,
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT sso_identities_provider_subject_uk UNIQUE (provider, subject)
-);
+                            CREATE TABLE IF NOT EXISTS sso_identities (
+                                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                                provider text NOT NULL,
+                                subject text NOT NULL,
+                                email text NOT NULL,
+                                user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                                created_at timestamptz NOT NULL DEFAULT now(),
+                                updated_at timestamptz NOT NULL DEFAULT now(),
+                                CONSTRAINT sso_identities_provider_subject_uk UNIQUE (provider, subject)
+                            );
 
-CREATE INDEX IF NOT EXISTS sso_identities_provider_email_idx ON sso_identities(provider, email);
-SQL
+                            CREATE INDEX IF NOT EXISTS sso_identities_provider_email_idx ON sso_identities(provider, email);
+                            SQL
                             '''
                         }
                     }
@@ -534,7 +515,6 @@ SQL
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Security Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -582,7 +562,7 @@ SQL
                 }
             }
         }
-        // ─────────────────────────────────────────────
+
         stage('Publish Security Reports trivy') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -639,7 +619,6 @@ SQL
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Deploy to Kubernetes') {
             agent { label 'k8s-agent' }
             when { expression { env.CHANGED_DEPLOY == 'true' } }
@@ -693,7 +672,7 @@ SQL
                                             ${svc.container}=192.168.56.30/${svc.image}:${BUILD_NUMBER}
 
                                         kubectl -n app-pfe rollout status \
-                                            deployment/${svc.deployment} 
+                                            deployment/${svc.deployment}
                                     """
                                 } else {
                                     echo "→ Déploiement ignoré pour ${svc.deployment} (aucun changement)"
@@ -705,7 +684,6 @@ SQL
             }
         }
 
-// ─────────────────────────────────────────────
         stage('OWASP ZAP Full Scan') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -737,7 +715,7 @@ SQL
                 }
             }
         }
-        // ─────────────────────────────────────────────
+
         stage('Publish Security Reports owasp zap') {
             agent { label 'security' }
             when { expression { env.CHANGED_ANY_IMAGE == 'true' } }
@@ -771,9 +749,6 @@ SQL
                 }
             }
         }
-
-        // ─────────────────────────────────────────────
-
 
     }
 

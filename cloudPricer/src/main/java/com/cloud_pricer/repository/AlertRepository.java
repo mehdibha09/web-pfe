@@ -13,8 +13,11 @@ public interface AlertRepository extends JpaRepository<Alert, UUID> {
     List<Alert> findByTenantId(UUID tenantId);
     Page<Alert> findByTenantId(UUID tenantId, Pageable pageable);
     List<Alert> findByStatus(String status);
+    List<Alert> findByStatusAndNotifiedAtIsNull(String status);
     List<Alert> findBySeverity(String severity);
     List<Alert> findByServiceEnvironmentId(UUID serviceEnvironmentId);
     List<Alert> findByTenantIdAndStatus(UUID tenantId, String status);
     List<Alert> findByTenantIdAndSeverity(UUID tenantId, String severity);
+    Alert findFirstByServiceEnvironmentIdAndMetricAndSeverityAndNotifiedAtNotNullOrderByNotifiedAtDesc(
+            UUID serviceEnvironmentId, String metric, String severity);
 }

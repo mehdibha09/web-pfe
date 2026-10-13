@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceResponse;
@@ -82,14 +82,7 @@ public class K8sServiceController {
         yamlSpec.append("      port: ").append(dto.port()).append("\n");
         yamlSpec.append("      targetPort: ").append(targetPort).append("\n");
 
-        if (dto.labels() != null && !dto.labels().isEmpty()) {
-            yamlSpec.append("  metadata:\n    labels:\n");
-            for (var entry : dto.labels().entrySet()) {
-                yamlSpec.append("      ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-            }
-        }
-
-        kubernetesClient.createOrUpdateService(dto.name(), ns, yamlSpec.toString());
+kubernetesClient.createOrUpdateService(dto.name(), ns, yamlSpec.toString(), dto.labels());
         K8sServiceResponse result = kubernetesClient.getService(dto.name(), ns);
         if (result == null) {
             result = K8sServiceResponse.fromSimulated(dto.name(), ns, svcType, dto.port(), targetPort, selector);
@@ -119,7 +112,7 @@ public class K8sServiceController {
         yamlSpec.append("      port: ").append(dto.port()).append("\n");
         yamlSpec.append("      targetPort: ").append(dto.targetPort() != null ? dto.targetPort() : dto.port()).append("\n");
 
-        kubernetesClient.createOrUpdateService(name, ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateService(name, ns, yamlSpec.toString(), dto.labels());
         K8sServiceResponse result = kubernetesClient.getService(name, ns);
         if (result == null) {
             Map<String, String> sel = dto.selector() != null ? dto.selector() : Map.of("app", name);

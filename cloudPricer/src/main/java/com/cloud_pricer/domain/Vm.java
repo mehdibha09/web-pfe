@@ -52,6 +52,11 @@ public class Vm {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
+  /** Dernier passage à l'état RUNNING (nullable). Les VMs créées avant ce
+   *  champ ont startedAt null → la facturation retombe sur createdAt. */
+  @Column(name = "started_at")
+  private Instant startedAt;
+
   public UUID getId() { return id; }
   public String getName() { return name; }
   public int getCpu() { return cpu; }
@@ -63,4 +68,5 @@ public class Vm {
   public UUID getServiceEnvironmentId() { return serviceEnvironmentId; }
   public boolean isBackupEnabled() { return backupEnabled; }
   public Instant getCreatedAt() { return createdAt; }
+  public Instant getStartedAt() { return startedAt; }
 }

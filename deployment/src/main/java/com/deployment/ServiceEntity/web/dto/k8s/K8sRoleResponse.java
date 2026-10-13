@@ -11,7 +11,8 @@ public record K8sRoleResponse(
     List<String> rulesSummary,
     int rulesCount,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sRoleResponse fromK8sJson(Map<String, Object> json, boolean isClusterRole) {
@@ -38,7 +39,7 @@ public record K8sRoleResponse(
 
             return new K8sRoleResponse(name, namespace != null ? namespace : "", isClusterRole,
                 rulesSummary, rulesCount, creationTimestamp,
-                isClusterRole ? "rbac.authorization.k8s.io/v1" : "rbac.authorization.k8s.io/v1");
+                isClusterRole ? "rbac.authorization.k8s.io/v1" : "rbac.authorization.k8s.io/v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -61,6 +62,6 @@ public record K8sRoleResponse(
 
     public static K8sRoleResponse fromSimulated(String name, String namespace, boolean isClusterRole) {
         return new K8sRoleResponse(name, namespace, isClusterRole, List.of(), 0,
-            java.time.Instant.now().toString(), "rbac.authorization.k8s.io/v1");
+            java.time.Instant.now().toString(), "rbac.authorization.k8s.io/v1",true);
     }
 }

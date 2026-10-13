@@ -12,7 +12,8 @@ public record K8sSecretResponse(
     int dataEntries,
     Map<String, String> labels,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sSecretResponse fromK8sJson(Map<String, Object> json) {
@@ -39,7 +40,7 @@ public record K8sSecretResponse(
                 : Map.of();
 
             return new K8sSecretResponse(name, namespace != null ? namespace : "default",
-                type, dataKeys, dataEntries, labels, creationTimestamp, "v1");
+                type, dataKeys, dataEntries, labels, creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -62,6 +63,6 @@ public record K8sSecretResponse(
 
     public static K8sSecretResponse fromSimulated(String name, String namespace, String type) {
         return new K8sSecretResponse(name, namespace, type != null ? type : "Opaque",
-            List.of(), 0, Map.of(), java.time.Instant.now().toString(), "v1");
+            List.of(), 0, Map.of(), java.time.Instant.now().toString(), "v1",true);
     }
 }

@@ -4,15 +4,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
+import com.auth.service.config.CacheConfig;
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Role;
 import com.auth.service.domain.RolePermission;
@@ -40,8 +41,6 @@ import com.auth.service.web.dto.user.UserResponse;
 import com.auth.service.web.dto.user.UserUpdateRequest;
 import com.auth.service.web.dto.user.UserUpdateRolesRequest;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 @Service
 public class UserService {
     private static final String TOKEN_TYPE = "Bearer";
@@ -52,6 +51,7 @@ public class UserService {
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final AuditLogRepository auditLogRepository;
+    private final ClientIpResolver clientIpResolver;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public UserService(
@@ -60,13 +60,15 @@ public class UserService {
             SessionRepository sessionRepository,
             UserRoleRepository userRoleRepository,
             RolePermissionRepository rolePermissionRepository,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            ClientIpResolver clientIpResolver) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.sessionRepository = sessionRepository;
         this.userRoleRepository = userRoleRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.auditLogRepository = auditLogRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional(readOnly = true)
@@ -165,6 +167,10 @@ public class UserService {
         ensureCanManageUsers(currentUser);
         User user = requireUserInAllowedScope(userId, currentUser);
 
+        if (hasSuperAdminRole(user)) {
+            throw new ForbiddenException("A super-administrator account cannot be modified");
+        }
+
         if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
             throw new ForbiddenException("Only a super administrator can modify an administrator account");
         }
@@ -184,11 +190,22 @@ public class UserService {
         }
 
         if (request.password() != null && !request.password().isBlank()) {
+            if (!isStrongPassword(request.password())) {
+                throw new BadRequestException(
+                        "Password must be 8-128 characters with uppercase, lowercase, digit, and special character");
+            }
             user.setPassword(passwordEncoder.encode(request.password()));
         }
 
         if (request.status() != null && !request.status().isBlank()) {
-            user.setStatus(parseStatusOrDefault(request.status(), user.getStatus()));
+            UserStatus previousStatus = user.getStatus();
+            UserStatus newStatus = parseStatusOrDefault(request.status(), user.getStatus());
+            user.setStatus(newStatus);
+            // Revoke active sessions when a user transitions from ACTIVE to a
+            // non-ACTIVE status (deactivated/suspended) so access is cut off.
+            if (previousStatus == UserStatus.ACTIVE && newStatus != UserStatus.ACTIVE) {
+                revokeUserSessions(user.getId());
+            }
         }
 
         User savedUser = userRepository.save(user);
@@ -204,6 +221,10 @@ public class UserService {
 
         if (user.getId().equals(currentUser.getId())) {
             throw new BadRequestException("You cannot delete your own account");
+        }
+
+        if (hasSuperAdminRole(user)) {
+            throw new ForbiddenException("A super-administrator account cannot be deleted");
         }
 
         if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
@@ -226,6 +247,17 @@ public class UserService {
         return new AuthActionResponse("User deleted successfully");
     }
 
+    /** Revokes all active (non-revoked) sessions belonging to the given user. */
+    private void revokeUserSessions(UUID userId) {
+        List<Session> sessions = sessionRepository.findByUser_Id(userId);
+        for (Session session : sessions) {
+            if (session.getRevokedAt() == null) {
+                session.setRevokedAt(Instant.now());
+                sessionRepository.save(session);
+            }
+        }
+    }
+
     @Transactional
     public AuthActionResponse assignRoleToUser(String authorizationHeader, UUID userId, UserAssignRoleRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
@@ -234,6 +266,9 @@ public class UserService {
         User user = requireUserInAllowedScope(userId, currentUser);
         if (user.getId().equals(currentUser.getId())) {
             throw new ForbiddenException("You cannot change your own role");
+        }
+        if (hasSuperAdminRole(user)) {
+            throw new ForbiddenException("A super-administrator account cannot be modified");
         }
         if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
             throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
@@ -281,6 +316,9 @@ public class UserService {
         if (user.getId().equals(currentUser.getId())) {
             throw new ForbiddenException("You cannot change your own role");
         }
+        if (hasSuperAdminRole(user)) {
+            throw new ForbiddenException("A super-administrator account cannot be modified");
+        }
         if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
             throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
         }
@@ -308,6 +346,9 @@ public class UserService {
         User user = requireUserInAllowedScope(userId, currentUser);
         if (user.getId().equals(currentUser.getId())) {
             throw new ForbiddenException("You cannot change your own role");
+        }
+        if (hasSuperAdminRole(user)) {
+            throw new ForbiddenException("A super-administrator account cannot be modified");
         }
         if (!isSuperAdmin(currentUser) && hasAdminRole(user)) {
             throw new ForbiddenException("Only a super administrator can modify roles of an administrator account");
@@ -523,20 +564,21 @@ public class UserService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes())
-                    .getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
+        return clientIpResolver.resolve();
+    }
+
+    /**
+     * Politique de force du mot de passe, cohérente avec le validateur @Password
+     * (UserCreateRequest) : 8-128 caractères, majuscule, minuscule, chiffre et
+     * caractère spécial.
+     */
+    private boolean isStrongPassword(String password) {
+        if (password == null || password.length() < 8 || password.length() > 128) {
+            return false;
         }
+        return password.matches(".*[A-Z].*")
+                && password.matches(".*[a-z].*")
+                && password.matches(".*\\d.*")
+                && password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*");
     }
 }

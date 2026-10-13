@@ -36,8 +36,13 @@ public class QuotaService {
     }
 
     public Quota getById(UUID id) {
-        return quotaRepository.findById(id)
+        Quota quota = quotaRepository.findById(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Quota not found"));
+        // Scoping tenant : un utilisateur ne lit que les quotas de son tenant.
+        if (!quota.getTenantId().equals(UserContext.getTenantId())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Quota not found");
+        }
+        return quota;
     }
 
     public List<Quota> getAll() {
@@ -54,6 +59,9 @@ public class QuotaService {
 
     public Quota update(UUID id, Quota updated) {
         Quota existing = getById(id);
+        // The controller validates ownership of the (possibly changed)
+        // serviceEnvironmentId before calling update, so apply it here.
+        existing.setServiceEnvironmentId(updated.getServiceEnvironmentId());
         existing.setMaxCpu(updated.getMaxCpu());
         existing.setMaxRam(updated.getMaxRam());
         existing.setMaxStorage(updated.getMaxStorage());
@@ -61,6 +69,7 @@ public class QuotaService {
         existing.setMaxBudget(updated.getMaxBudget());
         existing.setPeriod(updated.getPeriod());
         existing.setActive(updated.isActive());
+        existing.setAutoStopOnExceed(updated.isAutoStopOnExceed());
         validateLimitsNotBelowUsage(existing);
         Quota saved = quotaRepository.save(existing);
         log.info("Updated quota {}", id);
@@ -94,6 +103,8 @@ public class QuotaService {
     }
 
     public void delete(UUID id) {
+        // getById vérifie déjà l'appartenance au tenant courant.
+        getById(id);
         quotaRepository.deleteById(id);
         log.info("Deleted quota {}", id);
     }

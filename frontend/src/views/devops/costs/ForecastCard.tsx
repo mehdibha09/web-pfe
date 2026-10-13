@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 
 import { generateForecast } from '../../../services/cloudPricerService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import { listServiceEnvironments, listServices, listEnvironments } from '../../../services/devopsService';
 import type { ServiceEnvironmentResponse, ServiceResponse, EnvironmentResponse } from '../../../services/devopsService';
 import { seLabel } from '../common/seLabel';

@@ -25,7 +25,7 @@ export type {
   ProbeConfig,
 } from '../interfaces/k8s';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 
 export const k8sService = {
   async getAll(tenantId?: string): Promise<import('../interfaces/k8s').K8sDeployment[]> {
@@ -143,7 +143,7 @@ export const k8sService = {
   },
 
   async deleteNetworkPoliciesBatch(names: string[], namespace?: string): Promise<void> {
-    await axiosInstance.delete('/k8s/network-policies/batch', { data: { names, namespace: namespace ? [namespace] : ['default'] } });
+    await axiosInstance.delete('/k8s/network-policies/batch', { names, namespace: namespace ? [namespace] : ['default'] });
   },
 
   async listConfigMaps(namespace?: string): Promise<import('../interfaces/k8s').K8sConfigMapResponse[]> {
@@ -185,7 +185,7 @@ export const k8sService = {
   },
 
   async deleteConfigMapsBatch(names: string[], namespace?: string): Promise<void> {
-    await axiosInstance.delete('/k8s/configmaps/batch', { data: { names, namespace: namespace ? [namespace] : ['default'] } });
+    await axiosInstance.delete('/k8s/configmaps/batch', { names, namespace: namespace ? [namespace] : ['default'] });
   },
 
   // ── Secrets ──
@@ -229,7 +229,7 @@ export const k8sService = {
   },
 
   async deleteSecretsBatch(names: string[], namespace?: string): Promise<void> {
-    await axiosInstance.delete('/k8s/secrets/batch', { data: { names, namespace: namespace ? [namespace] : ['default'] } });
+    await axiosInstance.delete('/k8s/secrets/batch', { names, namespace: namespace ? [namespace] : ['default'] });
   },
 
   async listTemplates(tenantId?: string): Promise<import('../interfaces/k8s').DeploymentTemplate[]> {

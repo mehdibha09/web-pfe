@@ -3,7 +3,7 @@ import { Box, Button, Card, CardContent, Chip, TextField, Fade, Typography } fro
 import { useTranslation } from 'react-i18next';
 import type { EnvironmentResponse } from '../../../services/devopsService';
 import MyCustomButton from '../../../components/MyCustomButton';
-import { C, BTN } from '../../../theme/tokens';
+import { C, BTN, R } from '../../../theme/tokens';
 import { envChipColor, fmtDate } from './constants';
 
 type EnvCardProps = {
@@ -81,14 +81,14 @@ const EnvCard = ({
                 <Box sx={{ px: 3, py: 1.5, display: 'flex', justifyContent: 'flex-end', gap: 1, borderTop: `1px solid ${C.border}`, background: '#FAFAFA' }}>
                     {isEditing ? (
                         <>
-                            <Button variant="outlined" size="small" onClick={cancelEdit} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.muted }}>{t('common.cancel')}</Button>
+                            <Button variant="outlined" size="small" onClick={cancelEdit} sx={{ borderRadius: R.control, fontWeight: 'bold', borderColor: C.border, color: C.muted }}>{t('common.cancel')}</Button>
                             <MyCustomButton size="small" onClick={() => onSave(env.id)} disabled={saving}>{saving ? t('environments.saving') : t('environments.saveChanges')}</MyCustomButton>
                         </>
                     ) : (
                         allowManage && (
                             <>
-                                <Button size="small" startIcon={<EditIcon sx={{ fontSize: 14 }} />} onClick={() => startEdit(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
-                                <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
+                                <Button size="small" startIcon={<EditIcon sx={{ fontSize: 14 }} />} onClick={() => startEdit(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5, '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
+                                <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(env)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5, '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
                             </>
                         )
                     )}

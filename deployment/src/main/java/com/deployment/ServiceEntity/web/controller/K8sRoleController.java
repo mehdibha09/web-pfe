@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleResponse;
@@ -75,6 +75,12 @@ public class K8sRoleController {
     @PostMapping
     public ResponseEntity<K8sRoleResponse> create(@Valid @RequestBody K8sRoleRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
+        // La création/modification de ClusterRole (global cluster) est réservée
+        // au superadmin : un tenant ne doit pas altérer les rôles du cluster.
+        if (dto.isClusterRole() && !UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "ClusterRole management requires super-admin privileges");
+        }
         String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
@@ -94,7 +100,9 @@ public class K8sRoleController {
                         yamlSpec.append("      - ").append(r).append("\n");
                     }
                 } else {
-                    yamlSpec.append("      - \"*\"\n");
+                    throw new com.deployment.ServiceEntity.exception.ApiException(
+                            HttpStatus.BAD_REQUEST, "INVALID_RULE",
+                            "Role rule 'resources' must not be empty");
                 }
                 yamlSpec.append("    verbs:\n");
                 if (rule.verbs() != null && !rule.verbs().isEmpty()) {
@@ -102,7 +110,9 @@ public class K8sRoleController {
                         yamlSpec.append("      - ").append(v).append("\n");
                     }
                 } else {
-                    yamlSpec.append("      - \"*\"\n");
+                    throw new com.deployment.ServiceEntity.exception.ApiException(
+                            HttpStatus.BAD_REQUEST, "INVALID_RULE",
+                            "Role rule 'verbs' must not be empty");
                 }
                 if (rule.resourceNames() != null && !rule.resourceNames().isEmpty()) {
                     yamlSpec.append("    resourceNames:\n");
@@ -134,6 +144,10 @@ public class K8sRoleController {
             @RequestParam(required = false) String namespace,
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
+        if (cluster && !UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "ClusterRole management requires super-admin privileges");
+        }
         kubernetesClient.deleteRole(name, TenantNamespaceResolver.resolve(namespace), cluster);
         auditService.record("K8S_ROLE_DELETE", "k8s-role", name, "Role deleted (name='" + name + "', cluster=" + cluster + ")");
         return ResponseEntity.noContent().build();

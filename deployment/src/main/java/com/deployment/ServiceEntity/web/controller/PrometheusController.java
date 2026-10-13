@@ -38,6 +38,12 @@ public class PrometheusController {
     @GetMapping("/query")
     public ResponseEntity<Map<String, Object>> instantQuery(@RequestParam String query) {
         UserContext.requirePermission("METRIC_READ");
+        // Les requêtes PromQL arbitraires sont globales (tous tenants / cluster) :
+        // réservées au superadmin pour éviter qu'un tenant lise les métriques système.
+        if (!UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "PromQL queries are restricted to super-admin");
+        }
         log.info("Prometheus instant query by user={} tenant={}: {}", UserContext.getUserId(), UserContext.getTenantId(), query);
         Map<String, Object> data = prometheusService.instantQuery(query);
         return ResponseEntity.ok(data);
@@ -50,6 +56,10 @@ public class PrometheusController {
             @RequestParam String end,
             @RequestParam(defaultValue = "15s") String step) {
         UserContext.requirePermission("METRIC_READ");
+        if (!UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "PromQL queries are restricted to super-admin");
+        }
         log.info("Prometheus range query by user={} tenant={}: {} [{}, {}]", UserContext.getUserId(), UserContext.getTenantId(), query, start, end);
         Map<String, Object> data = prometheusService.rangeQuery(query, start, end, step);
         return ResponseEntity.ok(data);

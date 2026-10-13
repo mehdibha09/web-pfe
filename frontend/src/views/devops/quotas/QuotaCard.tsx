@@ -33,8 +33,9 @@ import type {
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { numericFieldValue } from '../../../utils/numeric';
+import { currencySymbol } from '../../../utils/format';
 import MyCustomButton from '../../../components/MyCustomButton';
-import { getBarBg, getBarColor, getUsagePercent, seLabel } from './helpers';
+import { getBarBg, getBarColor, getUsagePercent, getUsagePercentRaw, isQuotaExhausted, seLabel } from './helpers';
 import { PERIODS } from './types';
 import type { QuotaWithMetrics } from './types';
 import { C } from '../../../theme/tokens';
@@ -55,7 +56,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
     const ramPct = m ? getUsagePercent(m.ram, q.maxRam) : 0;
     const storagePct = m ? getUsagePercent(m.storage, q.maxStorage) : 0;
     const podsPct = m ? getUsagePercent(m.pods, q.maxPods) : 0;
-    const isNearLimit = cpuPct >= 90 || ramPct >= 90;
+    const isNearLimit = cpuPct >= 90 || ramPct >= 90 || storagePct >= 90 || podsPct >= 90;
 
     const matchedSe = serviceEnvironments.find((se) => se.id === q.serviceEnvironmentId);
 
@@ -69,6 +70,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
     const [budget, setBudget] = useState<number>(q.maxBudget);
     const [period, setPeriod] = useState<string>(q.period);
     const [active, setActive] = useState(q.isActive);
+    const [autoStop, setAutoStop] = useState(q.autoStopOnExceed ?? false);
     const [saving, setSaving] = useState(false);
 
     const buildRequest = (): QuotaRequest => ({
@@ -79,7 +81,8 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
         maxPods: pods,
         maxBudget: budget,
         period,
-        isActive: active
+        isActive: active,
+        autoStopOnExceed: autoStop
     });
 
     const handleUpdate = async () => {
@@ -111,9 +114,11 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
     const renderProgressBar = (label: string, used: number, max: number, unit: string) => {
         const labelT = t(label);
         const pct = getUsagePercent(used, max);
+        const rawPct = getUsagePercentRaw(used, max);
         const color = getBarColor(pct);
         const bg = getBarBg(pct);
         const nearLimit = pct >= 90;
+        const exhausted = isQuotaExhausted(used, max);
 
         return (
             <Box sx={{ mb: 1.5 }}>
@@ -128,9 +133,15 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             sx={{ fontWeight: 700, color: nearLimit ? '#C95B6E' : C.text }}
                         >
                             {used.toLocaleString()} / {max.toLocaleString()} {unit}
+                            {rawPct > 100 && <span> ({Math.round(rawPct)}%)</span>}
                         </Typography>
                     </Box>
                 </Box>
+                {exhausted && (
+                    <Typography variant="caption" sx={{ color: '#B00020', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                        {t('quotas.quotaExhaustedWarning')}
+                    </Typography>
+                )}
                 <LinearProgress
                     variant="determinate"
                     value={pct}
@@ -266,7 +277,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             {renderStaticValue('quotas.ramLabel', q.maxRam, t('quotas.mb'))}
                             {renderStaticValue('quotas.storageLabel', q.maxStorage, t('quotas.gb'))}
                             {renderStaticValue('quotas.podsLabel', q.maxPods, '')}
-                            {renderStaticValue('quotas.budgetLabel', q.maxBudget, '$')}
+                            {renderStaticValue('quotas.budgetLabel', q.maxBudget, currencySymbol())}
                         </Box>
                     )}
 
@@ -282,7 +293,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                         }}
                     >
                         <Typography variant="caption" sx={{ color: C.muted, fontWeight: 600 }}>
-                            {t('quotas.budgetLabel')}: <strong>${q.maxBudget.toLocaleString()}</strong>
+                            {t('quotas.budgetLabel')}: <strong>{currencySymbol()}{q.maxBudget.toLocaleString()}</strong>
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 0.75 }}>
                             <Button
@@ -295,11 +306,9 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                                     fontWeight: 700,
                                     textTransform: 'none',
                                     fontSize: 12,
-                                    background: 'linear-gradient(135deg, #E4477D, #BE185D)',
                                     boxShadow: '0 2px 6px rgba(228,71,125,0.3)',
                                     px: 1.5,
-                                    color: '#FFFFFF',
-                                    '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)', boxShadow: '0 4px 12px rgba(228,71,125,0.4)' }
+                                    color: '#FFFFFF'
                                 }}
                             >
                                 {t('common.edit')}
@@ -338,7 +347,7 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
                     <Button onClick={() => setDeleteOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#BE185D', borderColor: '#F2B8CC' }}>{t('common.cancel')}</Button>
-                    <Button onClick={handleDelete} variant="contained" sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>{t('common.delete')}</Button>
+                    <Button onClick={handleDelete} variant="contained" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
 
@@ -392,6 +401,12 @@ const QuotaCard = ({ quota, onSaved, serviceEnvironments, services, environments
                             <Switch checked={active} onChange={(e) => setActive(e.target.checked)} />
                             <Typography variant="body2" sx={{ color: C.muted }}>
                                 {active ? t('quotas.active') : t('quotas.inactive')}
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Switch color="error" checked={autoStop} onChange={(e) => setAutoStop(e.target.checked)} />
+                            <Typography variant="body2" sx={{ color: autoStop ? '#B00020' : C.muted }}>
+                                {t('quotas.autoStopTitle')}
                             </Typography>
                         </Box>
                     </Box>

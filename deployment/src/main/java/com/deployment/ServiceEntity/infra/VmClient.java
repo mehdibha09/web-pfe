@@ -1,5 +1,6 @@
-package com.deployment.ServiceEntity.domain;
+package com.deployment.ServiceEntity.infra;
 
+import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.web.dto.vm.VmMetricsSnapshot;
 
 public interface VmClient {

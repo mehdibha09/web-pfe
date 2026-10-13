@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,8 +73,23 @@ import jakarta.servlet.http.HttpServletRequest;
 @Service
 public class AuthService {
     private static final Duration ACCESS_TOKEN_TTL = Duration.ofDays(7);
-    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
+    // Refresh token must outlive the access token so a user can obtain a new
+    // access token after the access token has expired (createdAt + this TTL).
+    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
     private static final String TOKEN_TYPE = "Bearer";
+
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
+    private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
+
+    private static final int MAX_TWO_FA_ATTEMPTS = 5;
+    private static final Duration TWO_FA_WINDOW = Duration.ofMinutes(10);
+    private static final Duration TWO_FA_LOCK_DURATION = Duration.ofMinutes(10);
+
+    private static final String LOGIN_LOCKED_MESSAGE = "Too many attempts. Please try again later.";
+
+    // SSO CSRF state tokens expire after this delay if the callback never arrives.
+    private static final Duration SSO_STATE_TTL = Duration.ofMinutes(10);
 
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
@@ -98,10 +114,21 @@ public class AuthService {
     private final Map<String, PendingEmailTwoFaContext> pendingEmailTwoFaChallenges = new ConcurrentHashMap<>();
     private final Map<UUID, PendingEmailTwoFaContext> pendingTwoFaSetupChallenges = new ConcurrentHashMap<>();
 
-    private record PendingSsoContext(UUID tenantId, String tenantName) {
+    private final Map<String, Attempts> loginAttempts = new ConcurrentHashMap<>();
+    private final Map<String, Attempts> emailTwoFaAttempts = new ConcurrentHashMap<>();
+    private final Map<String, Attempts> setupTwoFaAttempts = new ConcurrentHashMap<>();
+
+    private record PendingSsoContext(UUID tenantId, String tenantName, Instant expiresAt) {
     }
 
     private record PendingEmailTwoFaContext(UUID userId, String codeHash, Instant expiresAt) {
+    }
+
+    /** In-memory brute-force protection state for a single key. */
+    private record Attempts(int count, Instant windowStart, Instant lockedUntil) {
+        Attempts withCount(int newCount) {
+            return new Attempts(newCount, windowStart, lockedUntil);
+        }
     }
 
     public AuthService(
@@ -142,14 +169,45 @@ public class AuthService {
             String userAgent,
             String acceptLanguage,
             String clientTimezone) {
+        String rawEmail = request.email() == null ? null : request.email().trim().toLowerCase();
+        if (rawEmail == null || rawEmail.isBlank()) {
+            return attemptLogin(request, ipAddress, userAgent, acceptLanguage, clientTimezone);
+        }
+
+        String lockKey = "login:" + rawEmail;
+        ensureNotLocked(loginAttempts, lockKey, Instant.now(), LOGIN_LOCKED_MESSAGE);
+        try {
+            AuthLoginResponse response = attemptLogin(request, ipAddress, userAgent, acceptLanguage, clientTimezone);
+            resetAttempts(loginAttempts, lockKey);
+            return response;
+        } catch (InvalidCredentialsException e) {
+            registerFailure(loginAttempts, lockKey, MAX_LOGIN_ATTEMPTS, LOGIN_WINDOW, LOGIN_LOCK_DURATION);
+            throw e;
+        }
+    }
+
+    private AuthLoginResponse attemptLogin(
+            AuthLoginRequest request,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone) {
         User user = resolveUserForLogin(request);
 
         if (!passwordMatches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
+        // Upgrade-on-login: if the stored password is not BCrypt, re-encode and persist
+        // so cleartext credentials are removed after the first successful authentication.
+        if (!isBcryptHash(user.getPassword())) {
+            user.setPassword(passwordEncoder.encode(request.password()));
+            user = userRepository.save(user);
+        }
+
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new InvalidCredentialsException("User is inactive");
+            // Generic message: do not reveal that the account exists but is inactive.
+            throw new InvalidCredentialsException("Invalid credentials");
         }
 
         if (user.getTenant() != null && user.getTenant().getStatus() != TenantStatus.ACTIVE) {
@@ -179,6 +237,31 @@ public class AuthService {
 
     @Transactional
     public AuthLoginResponse verifyEmailTwoFa(
+            AuthTwoFaEmailVerifyRequest request,
+            String ipAddress,
+            String userAgent,
+            String acceptLanguage,
+            String clientTimezone) {
+        String rawEmail = request.email() == null ? null : request.email().trim().toLowerCase();
+        if (rawEmail == null || rawEmail.isBlank()) {
+            return attemptVerifyEmailTwoFa(request, ipAddress, userAgent, acceptLanguage,
+                    clientTimezone);
+        }
+
+        String lockKey = "email2fa:" + rawEmail;
+        ensureNotLocked(emailTwoFaAttempts, lockKey, Instant.now(), LOGIN_LOCKED_MESSAGE);
+        try {
+            AuthLoginResponse response = attemptVerifyEmailTwoFa(request, ipAddress, userAgent, acceptLanguage,
+                    clientTimezone);
+            resetAttempts(emailTwoFaAttempts, lockKey);
+            return response;
+        } catch (UnauthorizedException e) {
+            registerFailure(emailTwoFaAttempts, lockKey, MAX_TWO_FA_ATTEMPTS, TWO_FA_WINDOW, TWO_FA_LOCK_DURATION);
+            throw e;
+        }
+    }
+
+    private AuthLoginResponse attemptVerifyEmailTwoFa(
             AuthTwoFaEmailVerifyRequest request,
             String ipAddress,
             String userAgent,
@@ -306,6 +389,26 @@ public class AuthService {
         return toTokens(rotatedSession);
     }
 
+    /**
+     * Purge périodique des challenges 2FA et compteurs de tentatives expirés,
+     * stockés en mémoire (évite une fuite mémoire lente pour des flux initiés
+     * jamais complétés).
+     */
+    @Scheduled(fixedDelay = 600000, initialDelay = 120000)
+    public void purgeExpiredInMemory() {
+        Instant now = Instant.now();
+        pendingSsoStates.entrySet().removeIf(e -> e.getValue().expiresAt() == null
+                || e.getValue().expiresAt().isBefore(now));
+        pendingEmailTwoFaChallenges.entrySet().removeIf(e -> e.getValue().expiresAt() == null
+                || e.getValue().expiresAt().isBefore(now));
+        pendingTwoFaSetupChallenges.entrySet().removeIf(e -> e.getValue().expiresAt() == null
+                || e.getValue().expiresAt().isBefore(now));
+        // Compteurs de tentatives inactifs depuis plus de 30 minutes : purge.
+        loginAttempts.entrySet().removeIf(e -> e.getValue().windowStart().isBefore(now.minusSeconds(1800)));
+        emailTwoFaAttempts.entrySet().removeIf(e -> e.getValue().windowStart().isBefore(now.minusSeconds(1800)));
+        setupTwoFaAttempts.entrySet().removeIf(e -> e.getValue().windowStart().isBefore(now.minusSeconds(1800)));
+    }
+
     @Transactional
     public AuthActionResponse logout(String refreshToken, String authorizationHeader) {
         Session session = null;
@@ -344,7 +447,7 @@ public class AuthService {
         String normalizedProvider = normalizeProvider(provider);
         resolveSsoProviderSettings(normalizedProvider);
         String state = UUID.randomUUID().toString();
-        pendingSsoStates.put(state, new PendingSsoContext(tenantId, tenantName));
+        pendingSsoStates.put(state, new PendingSsoContext(tenantId, tenantName, Instant.now().plus(SSO_STATE_TTL)));
 
         String redirectUrl = buildAuthorizationUrl(normalizedProvider, state);
         return new AuthSsoRedirectResponse(normalizedProvider, redirectUrl, state);
@@ -359,14 +462,20 @@ public class AuthService {
             throw new BadRequestException("Missing authorization code");
         }
 
-        PendingSsoContext flowContext = pendingSsoStates.remove(state);
-        if (flowContext != null) {
-            if (tenantId == null) {
-                tenantId = flowContext.tenantId();
-            }
-            if (tenantName == null) {
-                tenantName = flowContext.tenantName();
-            }
+        // Validate the CSRF state: it must match a state we issued and must not
+        // have expired. An unknown/forged/expired state is rejected outright.
+        PendingSsoContext flowContext = state == null ? null : pendingSsoStates.remove(state);
+        if (flowContext == null) {
+            throw new UnauthorizedException("Invalid or expired SSO state");
+        }
+        if (flowContext.expiresAt() == null || flowContext.expiresAt().isBefore(Instant.now())) {
+            throw new UnauthorizedException("Invalid or expired SSO state");
+        }
+        if (tenantId == null) {
+            tenantId = flowContext.tenantId();
+        }
+        if (tenantName == null) {
+            tenantName = flowContext.tenantName();
         }
 
         Tenant tenant = resolveTenantForScope(tenantId, tenantName);
@@ -421,6 +530,19 @@ public class AuthService {
     @Transactional
     public AuthActionResponse verifyTwoFa(String authorizationHeader, AuthTwoFaVerifyRequest request) {
         User user = getValidSessionFromAuthorization(authorizationHeader).getUser();
+        String lockKey = "setup2fa:" + user.getId();
+        ensureNotLocked(setupTwoFaAttempts, lockKey, Instant.now(), LOGIN_LOCKED_MESSAGE);
+        try {
+            AuthActionResponse response = attemptVerifyTwoFa(user, request);
+            resetAttempts(setupTwoFaAttempts, lockKey);
+            return response;
+        } catch (UnauthorizedException e) {
+            registerFailure(setupTwoFaAttempts, lockKey, MAX_TWO_FA_ATTEMPTS, TWO_FA_WINDOW, TWO_FA_LOCK_DURATION);
+            throw e;
+        }
+    }
+
+    private AuthActionResponse attemptVerifyTwoFa(User user, AuthTwoFaVerifyRequest request) {
         UserTwoFactor userTwoFactor = userTwoFactorRepository.findByUser_Id(user.getId())
                 .orElseThrow(() -> new BadRequestException("2FA not set up. Generate a setup first."));
 
@@ -466,12 +588,9 @@ public class AuthService {
             }
         }
 
-        if (!userTwoFactor.isEnabled()) {
-            throw new UnauthorizedException("Invalid or expired verification challenge");
-        }
-
-        writeAudit(user, user.getTenant(), "AUTH_2FA_VERIFY", "2FA verified");
-        return new AuthActionResponse("2FA verification successful");
+        // No valid setup challenge nor a matching backup code was accepted above.
+        // A success must always be backed by an actually validated code.
+        throw new UnauthorizedException("Code 2FA invalide ou expiré");
     }
 
     @Transactional
@@ -948,11 +1067,16 @@ public class AuthService {
         if (rawPassword == null || storedPassword == null) {
             return false;
         }
-        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")
-                || storedPassword.startsWith("$2y$")) {
+        if (isBcryptHash(storedPassword)) {
             return passwordEncoder.matches(rawPassword, storedPassword);
         }
         return storedPassword.equals(rawPassword);
+    }
+
+    private boolean isBcryptHash(String storedPassword) {
+        return storedPassword != null
+                && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")
+                        || storedPassword.startsWith("$2y$"));
     }
 
     private String generateAccessToken() {
@@ -1009,6 +1133,43 @@ public class AuthService {
         auditLog.setResourceId(user.getId().toString());
         auditLog.setIpAddress(resolveClientIp());
         auditLogRepository.save(auditLog);
+    }
+
+    /** Throws the generic locked-out error when the key is currently locked. */
+    private void ensureNotLocked(Map<String, Attempts> map, String key, Instant now, String message) {
+        Attempts attempts = map.get(key);
+        if (attempts != null && attempts.lockedUntil() != null && attempts.lockedUntil().isAfter(now)) {
+            throw new InvalidCredentialsException(message);
+        }
+    }
+
+    /**
+     * Records a failed attempt for the given key. Once the failure count reaches maxAttempts within
+     * the window, the key is locked for lockDuration (the counter is reset so a fresh window starts
+     * once the lock expires). Expired windows and expired locks are purged lazily.
+     */
+    private void registerFailure(Map<String, Attempts> map, String key, int maxAttempts,
+                                 Duration window, Duration lockDuration) {
+        Instant now = Instant.now();
+        map.compute(key, (k, attempts) -> {
+            if (attempts == null || isWindowExpired(attempts, now, window)
+                    || (attempts.lockedUntil() != null && !attempts.lockedUntil().isAfter(now))) {
+                return new Attempts(1, now, null);
+            }
+            int newCount = attempts.count() + 1;
+            if (newCount >= maxAttempts) {
+                return new Attempts(0, now, now.plus(lockDuration));
+            }
+            return attempts.withCount(newCount);
+        });
+    }
+
+    private boolean isWindowExpired(Attempts attempts, Instant now, Duration window) {
+        return attempts.windowStart() == null || attempts.windowStart().plus(window).isBefore(now);
+    }
+
+    private void resetAttempts(Map<String, Attempts> map, String key) {
+        map.remove(key);
     }
 
     private String resolveClientIp() {

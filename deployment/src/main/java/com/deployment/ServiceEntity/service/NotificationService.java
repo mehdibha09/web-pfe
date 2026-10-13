@@ -13,6 +13,7 @@ import com.deployment.ServiceEntity.repository.NotificationRepository;
 import com.deployment.ServiceEntity.web.dto.notification.NotificationCreateDto;
 import com.deployment.ServiceEntity.web.dto.notification.NotificationResponseDto;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -55,7 +56,13 @@ public class NotificationService {
 
     public NotificationResponseDto markAsRead(UUID id) {
         Notification n = notificationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Notification not found"));
+        // Scoping : le marquage lu n'est autorisé que sur les notifications de
+        // l'utilisateur courant (et de son tenant).
+        if (!n.getUserId().equals(UserContext.getUserId())
+                || !n.getTenantId().equals(UserContext.getTenantId())) {
+            throw new EntityNotFoundException("Notification not found");
+        }
         n.setRead(true);
         return map(notificationRepository.save(n));
     }
@@ -69,7 +76,14 @@ public class NotificationService {
     }
 
     public void delete(UUID id) {
-        notificationRepository.deleteById(id);
+        Notification n = notificationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Notification not found"));
+        // Scoping tenant : suppression réservée au propriétaire de la notification.
+        if (!n.getTenantId().equals(UserContext.getTenantId())
+                || !n.getUserId().equals(UserContext.getUserId())) {
+            throw new EntityNotFoundException("Notification not found");
+        }
+        notificationRepository.delete(n);
     }
 
     public void deleteByUserId(UUID userId) {

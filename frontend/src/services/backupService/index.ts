@@ -8,7 +8,7 @@ export type {
   SshInfoResponse,
 } from '../interfaces/backup';
 
-import api from '../axiosInstance';
+import api from '../core/axiosInstance';
 import type { Backup, CreateBackupRequest } from '../interfaces/backup';
 
 const BASE = '/backups';

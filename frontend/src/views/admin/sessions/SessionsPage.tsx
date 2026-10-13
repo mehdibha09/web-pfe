@@ -14,12 +14,13 @@ import SmartphoneIcon from '@mui/icons-material/Smartphone';
 import TabletIcon from '@mui/icons-material/Tablet';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import Button from '../../../components/MyCustomButton';
+import EmptyState from '../../../components/EmptyState';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
-import { listSessions, listSessionsPaginated, revokeSession } from '../../../services/adminService';
-import { canRevokeSession } from '../../../services/authorization';
-import { getStoredUser } from '../../../services/authStorage';
-import { C} from '../../../theme/tokens';
+import { listSessionsPaginated, revokeSession } from '../../../services/adminService';
+import { canRevokeSession } from '../../../services/core/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { C, PAGE_BG, R } from '../../../theme/tokens';
 
 type SessionItem = {
     id: string;
@@ -158,9 +159,9 @@ const SessionsPage = () => {
     };
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
-                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', mb: 2 }} />
+                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(135deg, #E4477D, #BE185D)', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>
                     {t('admin.sessions.title')}
                 </Typography>
@@ -175,7 +176,7 @@ const SessionsPage = () => {
                     { label: t('admin.sessions.revokedSessions'), value: sessions.filter((s) => s.status === 'REVOKED').length, icon: <BlockIcon />, gradient: 'linear-gradient(135deg, #EF4444, #F87171)' },
                     { label: t('admin.sessions.visibleSessions'), value: filteredSessions.length, icon: <VisibilityIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' }
                 ].map((stat) => (
-                    <Card key={stat.label} sx={{ borderRadius: 3, position: 'relative', overflow: 'visible' }}>
+                    <Card key={stat.label} sx={{ borderRadius: R.card, position: 'relative', overflow: 'visible' }}>
                         <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: stat.gradient, borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, pt: 3 }}>
                             <Box sx={{ width: 44, height: 44, borderRadius: 2, background: stat.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
@@ -194,7 +195,7 @@ const SessionsPage = () => {
                 ))}
             </Box>
 
-            <Card sx={{ borderRadius: 3, mb: 3, position: 'relative', overflow: 'visible' }}>
+            <Card sx={{ borderRadius: R.card, mb: 3, position: 'relative', overflow: 'visible' }}>
                 <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0EA5E9, #38BDF8)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                 <CardContent sx={{ pt: 3 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -234,19 +235,11 @@ const SessionsPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filteredSessions.length === 0 ? (
-                <Card sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, background: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <DeviceHubIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.sessions.noSessionsFound')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('admin.sessions.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<DeviceHubIcon />}
+                    title={t('admin.sessions.noSessionsFound')}
+                    message={t('admin.sessions.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -368,7 +361,8 @@ const SessionsPage = () => {
                             if (revokeDialogId) await handleRevokeSession(revokeDialogId);
                             setRevokeDialogId(null);
                         }}
-                        sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}
+                        variant="contained"
+                        color="error"
                     >
                         {t('admin.sessions.revoke')}
                     </Button>

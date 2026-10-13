@@ -3,7 +3,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import LinkIcon from '@mui/icons-material/Link';
 import { Box, Chip, IconButton, InputAdornment, TextField, Tooltip, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { P } from './palette';
+import { P } from '../../../theme/palette';
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {

@@ -18,9 +18,9 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import com.deployment.ServiceEntity.domain.RemoteVagrantVmClient;
-import com.deployment.ServiceEntity.domain.VmClient;
-import com.deployment.ServiceEntity.domain.VagrantSshConfig;
+import com.deployment.ServiceEntity.infra.RemoteVagrantVmClient;
+import com.deployment.ServiceEntity.infra.VmClient;
+import com.deployment.ServiceEntity.infra.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.repository.VmRepository;
 
@@ -49,10 +49,13 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
     @Value("${vm.host.key-path:/etc/ssh-deploy/id_ed25519}")
     private String remoteKeyPath;
 
-    private Session jschSession;
-    private Session jumpSession;
-    private ChannelShell channel;
-    private Thread outputThread;
+    // Per-connection SSH state is stored in session.getAttributes() (see keys below)
+    // rather than instance fields, because this handler is a shared singleton and
+    // concurrent WebSocket sessions would otherwise clobber each other's SSH state.
+    private static final String ATTR_JSCH_SESSION = "jschSession";
+    private static final String ATTR_JUMP_SESSION = "jumpSession";
+    private static final String ATTR_CHANNEL = "channel";
+    private static final String ATTR_OUTPUT_THREAD = "outputThread";
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -114,6 +117,10 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         VagrantSshConfig sshConfig = vagrantClient.getSshConfig(vm.getVagrantPath());
         JSch jsch = new JSch();
 
+        Session jumpSession = null;
+        Session jschSession;
+        ChannelShell channel;
+
         if (vagrantClient instanceof RemoteVagrantVmClient rvc) {
             // Connect to remote host
             jsch.addIdentity(remoteKeyPath);
@@ -164,14 +171,19 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
 
         channel.connect(10_000);
 
+        // Store per-connection SSH state on the specific session (not instance fields)
+        session.getAttributes().put(ATTR_JUMP_SESSION, jumpSession);
+        session.getAttributes().put(ATTR_JSCH_SESSION, jschSession);
+        session.getAttributes().put(ATTR_CHANNEL, channel);
         session.getAttributes().put("channelOut", channelOut);
 
         log.info("SSH connected to VM {} ({})", vm.getName(), sshConfig.getHost());
 
-        outputThread = new Thread(() -> {
+        final ChannelShell channelRef = channel;
+        Thread outputThread = new Thread(() -> {
             try {
                 byte[] buffer = new byte[8192];
-                while (!Thread.currentThread().isInterrupted() && channel.isConnected() && session.isOpen()) {
+                while (!Thread.currentThread().isInterrupted() && channelRef.isConnected() && session.isOpen()) {
                     int len = channelIn.read(buffer);
                     if (len < 0) break;
                     if (len > 0 && session.isOpen()) {
@@ -186,6 +198,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         }, "ssh-output-" + vm.getId());
         outputThread.setDaemon(true);
         outputThread.start();
+        session.getAttributes().put(ATTR_OUTPUT_THREAD, outputThread);
     }
 
     @Override
@@ -197,14 +210,17 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         if (payload.startsWith("{") && payload.contains("\"type\":\"resize\"")) {
             if (agentRegistry.hasAgent(vmId)) {
                 agentRegistry.forwardToAgent(vmId, payload);
-            } else if (channel != null && channel.isConnected()) {
-                try {
-                    var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
-                    int cols = node.get("cols").asInt(120);
-                    int rows = node.get("rows").asInt(40);
-                    channel.setPtySize(cols, rows, 0, 0);
-                } catch (Exception e) {
-                    log.debug("Resize parse error: {}", e.getMessage());
+            } else {
+                ChannelShell channel = (ChannelShell) session.getAttributes().get(ATTR_CHANNEL);
+                if (channel != null && channel.isConnected()) {
+                    try {
+                        var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
+                        int cols = node.get("cols").asInt(120);
+                        int rows = node.get("rows").asInt(40);
+                        channel.setPtySize(cols, rows, 0, 0);
+                    } catch (Exception e) {
+                        log.debug("Resize parse error: {}", e.getMessage());
+                    }
                 }
             }
             return;
@@ -229,7 +245,7 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
             agentRegistry.forwardToAgent(vmId, "{\"type\":\"stop_shell\"}");
             agentRegistry.unregisterFrontend(vmId);
         }
-        cleanup();
+        cleanup(session);
     }
 
     @Override
@@ -237,10 +253,16 @@ public class SshWebSocketHandler extends TextWebSocketHandler {
         log.error("SSH WebSocket transport error: {}", exception.getMessage());
         String vmId = extractVmId(session);
         agentRegistry.unregisterFrontend(vmId);
-        cleanup();
+        cleanup(session);
     }
 
-    private void cleanup() {
+    private void cleanup(WebSocketSession session) {
+        var attrs = session.getAttributes();
+        ChannelShell channel = (ChannelShell) attrs.remove(ATTR_CHANNEL);
+        Session jschSession = (Session) attrs.remove(ATTR_JSCH_SESSION);
+        Session jumpSession = (Session) attrs.remove(ATTR_JUMP_SESSION);
+        Thread outputThread = (Thread) attrs.remove(ATTR_OUTPUT_THREAD);
+        attrs.remove("channelOut");
         try {
             if (channel != null && channel.isConnected()) {
                 channel.disconnect();

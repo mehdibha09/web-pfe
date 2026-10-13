@@ -12,7 +12,8 @@ public record K8sRoleBindingResponse(
     String roleRefName,
     List<String> subjectsSummary,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sRoleBindingResponse fromK8sJson(Map<String, Object> json, boolean isClusterBinding) {
@@ -42,7 +43,7 @@ public record K8sRoleBindingResponse(
             String apiVersion = isClusterBinding ? "rbac.authorization.k8s.io/v1" : "rbac.authorization.k8s.io/v1";
             return new K8sRoleBindingResponse(name, namespace != null ? namespace : "",
                 isClusterBinding, roleRefKind, roleRefName, subjectsSummary,
-                creationTimestamp, apiVersion);
+                creationTimestamp, apiVersion,false);
         } catch (Exception e) {
             return null;
         }
@@ -66,6 +67,6 @@ public record K8sRoleBindingResponse(
     public static K8sRoleBindingResponse fromSimulated(String name, String namespace, boolean isClusterBinding,
             String roleKind, String roleName) {
         return new K8sRoleBindingResponse(name, namespace, isClusterBinding, roleKind, roleName,
-            List.of(), java.time.Instant.now().toString(), "rbac.authorization.k8s.io/v1");
+            List.of(), java.time.Instant.now().toString(), "rbac.authorization.k8s.io/v1",true);
     }
 }

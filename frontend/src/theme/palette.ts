@@ -1,4 +1,4 @@
-import { C } from '../../../theme/tokens';
+import { C } from './tokens';
 
 export const P = {
     ...C,

@@ -33,10 +33,10 @@ const DeleteEnvDialog = ({ open, name, onConfirm, onCancel }: DeleteEnvDialogPro
             </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-            <Button variant="outlined" onClick={onCancel} sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>
+            <Button variant="outlined" onClick={onCancel} sx={{ borderRadius: 2, fontWeight: 700 }}>
                 {t('common.cancel')}
             </Button>
-            <Button variant="contained" color="error" onClick={onConfirm} sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>
+            <Button variant="contained" color="error" onClick={onConfirm} sx={{ borderRadius: 2, fontWeight: 700 }}>
                 {t('common.delete')}
             </Button>
         </DialogActions>

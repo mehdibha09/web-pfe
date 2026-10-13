@@ -21,12 +21,6 @@ public class AlertService {
 
     private final AlertRepository alertRepository;
 
-    public Alert create(Alert alert) {
-        Alert saved = alertRepository.save(alert);
-        log.info("Created alert {} severity={} type={}", saved.getId(), saved.getSeverity(), saved.getType());
-        return saved;
-    }
-
     public Alert getById(UUID id) {
         return alertRepository.findById(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Alert not found"));
@@ -34,10 +28,6 @@ public class AlertService {
 
     public List<Alert> getAll() {
         return alertRepository.findByTenantId(UserContext.getTenantId());
-    }
-
-    public List<Alert> getByTenantId(UUID tenantId) {
-        return alertRepository.findByTenantId(tenantId);
     }
 
     public Page<Alert> getPageByTenantId(UUID tenantId, Pageable pageable) {
@@ -52,20 +42,8 @@ public class AlertService {
         return alertRepository.findByTenantIdAndSeverity(tenantId, severity);
     }
 
-    public List<Alert> getByStatus(String status) {
-        return alertRepository.findByTenantIdAndStatus(UserContext.getTenantId(), status);
-    }
-
-    public List<Alert> getBySeverity(String severity) {
-        return alertRepository.findByTenantIdAndSeverity(UserContext.getTenantId(), severity);
-    }
-
-    public List<Alert> getByServiceEnvironmentId(UUID serviceEnvironmentId) {
-        return alertRepository.findByServiceEnvironmentId(serviceEnvironmentId);
-    }
-
     public Alert acknowledge(UUID id, UUID acknowledgedBy) {
-        Alert alert = getById(id);
+        Alert alert = getOwnedById(id);
         alert.setStatus("ACK");
         alert.setAcknowledgedBy(acknowledgedBy.toString());
         Alert saved = alertRepository.save(alert);
@@ -74,7 +52,7 @@ public class AlertService {
     }
 
     public Alert resolve(UUID id) {
-        Alert alert = getById(id);
+        Alert alert = getOwnedById(id);
         alert.setStatus("RESOLVED");
         alert.setResolvedAt(Instant.now());
         Alert saved = alertRepository.save(alert);
@@ -83,7 +61,24 @@ public class AlertService {
     }
 
     public void delete(UUID id) {
-        alertRepository.deleteById(id);
+        Alert alert = getOwnedById(id);
+        alertRepository.delete(alert);
         log.info("Deleted alert {}", id);
+    }
+
+    /**
+     * Charge une alerte en s'assurant qu'elle appartient au tenant de l'appelant.
+     * Renvoie 404 (et non 403) pour ne pas révéler l'existence d'alertes
+     * appartenant à un autre tenant (prévention IDOR cross-tenant).
+     */
+    private Alert getOwnedById(UUID id) {
+        Alert alert = getById(id);
+        UUID currentTenant = UserContext.getTenantId();
+        if (currentTenant == null || !currentTenant.equals(alert.getTenantId())) {
+            log.warn("Tenant {} attempted to mutate alert {} owned by tenant {} — denied",
+                    currentTenant, id, alert.getTenantId());
+            throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Alert not found");
+        }
+        return alert;
     }
 }

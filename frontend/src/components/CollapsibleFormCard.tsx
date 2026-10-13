@@ -3,7 +3,7 @@ import { Box, Button, Card, CardActions, CardContent, Collapse, IconButton, Typo
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import LoadingSpinner from './LoadingSpinner';
-import { BTN, C} from '../theme/tokens';
+import { C } from '../theme/tokens';
 
 interface CollapsibleFormCardProps {
     title: string;
@@ -24,7 +24,7 @@ const CollapsibleFormCard = ({
     createLabel = 'Create',
     children
 }: CollapsibleFormCardProps) => (
-    <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+    <Card sx={{ mb: 3 }}>
         <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: open ? 2.5 : 0 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
@@ -46,11 +46,6 @@ const CollapsibleFormCard = ({
                     onClick={onCreate}
                     disabled={creating}
                     startIcon={creating ? <LoadingSpinner size={14} variant="inline" /> : <AddIcon />}
-                    sx={{
-                        background: BTN.primary.gradient,
-                        fontWeight: 700,
-                        '&:hover': { background: BTN.primary.gradientHover }
-                    }}
                 >
                     {creating ? 'Creating…' : createLabel}
                 </Button>

@@ -29,8 +29,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
+import { PAGE_BG } from '../../../theme/tokens';
 import {
     listEnvironments,
     listServiceEnvironments,
@@ -82,6 +83,8 @@ const K8sDeploymentsPage = () => {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('All');
     const [deployments, setDeployments] = useState<K8sDeployment[]>([]);
+    // Full (non-paginated) list used only to compute the KPI totals on ALL data.
+    const [allDeployments, setAllDeployments] = useState<K8sDeployment[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hpaConfigs, setHpaConfigs] = useState<Record<string, K8sHpaResponse>>({});
@@ -146,6 +149,13 @@ const K8sDeploymentsPage = () => {
             setDeployments(result.items);
             setTotalElements(result.total);
             loadHpas(result.items);
+            // Load the full (non-paginated) list for the KPI cards so their
+            // totals reflect ALL deployments, not just the current page (10 items).
+            try {
+                setAllDeployments(await k8sService.getAll(user?.tenantId));
+            } catch {
+                // Non-blocking: KPIs fall back to the current page if the full list fails.
+            }
         } catch (e: unknown) {
             setError(getErrorMessage(e, 'Failed to load deployments'));
         } finally {
@@ -203,20 +213,22 @@ const K8sDeploymentsPage = () => {
 
     useEffect(() => { setPage(0); }, [search, statusFilter]);
 
-    const paginated = useMemo(() => {
-        const start = page * PAGE_SIZE;
-        return filtered.slice(start, start + PAGE_SIZE);
-    }, [filtered, page]);
+    // The backend already paginates (10/page). `filtered` = items of the CURRENT
+    // backend page after applying the client-side search/status filter. We must
+    // NOT re-slice in memory (that would break pagination): the displayed rows are
+    // exactly the filtered items of the page the backend returned.
+    const paginated = useMemo(() => filtered, [filtered]);
 
-    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const kpis = useMemo(() => {
-        const total = deployments.length;
-        const running = deployments.filter((d) => d.status === 'RUNNING').length;
-        const pending = deployments.filter((d) => ['CREATED', 'SCALED', 'RESTARTED', 'PENDING'].includes(d.status)).length;
-        const failed = deployments.filter((d) => d.status === 'FAILED').length;
+        const base = allDeployments.length > 0 ? allDeployments : deployments;
+        const total = base.length;
+        const running = base.filter((d) => d.status === 'RUNNING').length;
+        const pending = base.filter((d) => ['CREATED', 'SCALED', 'RESTARTED', 'PENDING'].includes(d.status)).length;
+        const failed = base.filter((d) => d.status === 'FAILED').length;
         return { total, running, pending, failed };
-    }, [deployments]);
+    }, [allDeployments, deployments]);
 
     const envName = (id: string) => {
         const se = serviceEnvs.find((s) => s.id === id);
@@ -304,6 +316,22 @@ const K8sDeploymentsPage = () => {
         }
     };
 
+    // Tab change handler for the "Pods" dialog: when the user opens the "Events"
+    // tab, load the events of the CURRENT deployment (podsTarget). This guarantees
+    // the events shown always belong to the deployment being viewed — never a
+    // cached global value from another deployment.
+    const handlePodsTabChange = (v: number) => {
+        setPodsTab(v);
+        if (v === 1 && podsTarget) {
+            setEvents('');
+            setEventsLoading(true);
+            k8sService.getEvents(podsTarget.id)
+                .then((data) => setEvents(data))
+                .catch((e: unknown) => toast.error(getErrorMessage(e, 'Failed to load events')))
+                .finally(() => setEventsLoading(false));
+        }
+    };
+
     const handleConfigureHpa = (d: K8sDeployment) => {
         const existing = hpaConfigs[d.id];
         setHpaTarget(d);
@@ -318,13 +346,13 @@ const K8sDeploymentsPage = () => {
         if (hpaMinReplicas > hpaMaxReplicas) return toast.error('Min replicas must be less than or equal to max replicas');
         setHpaSaving(true);
         try {
-            await k8sService.configureHpa(hpaTarget.id, {
+            const res = await k8sService.configureHpa(hpaTarget.id, {
                 minReplicas: hpaMinReplicas,
                 maxReplicas: hpaMaxReplicas,
                 cpuTargetAverageUtilization: hpaCpuTarget,
                 memoryTargetAverageUtilization: hpaMemoryTarget
             });
-            toast.success(`HPA configured for "${hpaTarget.name}"`);
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(`HPA configured for "${hpaTarget.name}"`);
             setHpaTarget(null);
             await load(true);
         } catch (e: unknown) {
@@ -363,7 +391,7 @@ const K8sDeploymentsPage = () => {
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, background: PAGE_BG, minHeight: '100%' }}>
             {/* Header */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -375,7 +403,7 @@ const K8sDeploymentsPage = () => {
                             {t('k8s.pageTitle')}
                         </Typography>
                         <Typography sx={{ color: C.muted, fontSize: 14 }}>
-                            {t('k8s.deploymentCount', { count: deployments.length })}
+                            {t('k8s.deploymentCount', { count: totalElements })}
                             {hasPending && (
                                 <Chip size="small" icon={<AutorenewIcon sx={{ fontSize: 12, animation: 'spin 1s linear infinite', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />} label={t('k8s.autoRefreshing')} sx={{ ml: 1, height: 20, fontSize: 10, fontWeight: 700, backgroundColor: '#FCE7F3', color: '#BE185D', '& .MuiChip-icon': { ml: 0.5 } }} />
                             )}
@@ -440,7 +468,7 @@ const K8sDeploymentsPage = () => {
                     <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
                         <PlayArrowIcon sx={{ fontSize: 48, color: C.subtle, mb: 2 }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{search || statusFilter !== 'All' ? t('k8s.noResults') : t('k8s.noDeployments')}</Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{search || statusFilter !== 'ALL' ? t('k8s.adjustSearch') : t('k8s.createFirstDeployment')}</Typography>
+                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{search || statusFilter !== 'All' ? t('k8s.adjustSearch') : t('k8s.createFirstDeployment')}</Typography>
                         {allowManage && !search && statusFilter === 'All' && (
                             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`, fontWeight: 700 }}>{t('k8s.createDeployment')}</Button>
                         )}
@@ -469,7 +497,7 @@ const K8sDeploymentsPage = () => {
                         />
                     ))}
                 </Box>
-                <PaginationBar page={page + 1} pageCount={pageCount} total={filtered.length} onPageChange={(p) => setPage(p - 1)} />
+                <PaginationBar page={page + 1} pageCount={pageCount} total={totalElements} onPageChange={(p) => setPage(p - 1)} />
                 </>
             )}
 
@@ -486,7 +514,7 @@ const K8sDeploymentsPage = () => {
                 pods={pods}
                 podsLoading={podsLoading}
                 podsTab={podsTab}
-                onPodsTabChange={setPodsTab}
+                onPodsTabChange={handlePodsTabChange}
                 events={events}
                 onPodsClose={() => setPodsTarget(null)}
                 logsTarget={logsTarget}

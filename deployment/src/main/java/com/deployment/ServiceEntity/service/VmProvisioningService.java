@@ -1,14 +1,15 @@
 package com.deployment.ServiceEntity.service;
 
 import java.util.UUID;
+import java.time.Instant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.deployment.ServiceEntity.domain.VmClient;
-import com.deployment.ServiceEntity.domain.VagrantSshConfig;
+import com.deployment.ServiceEntity.infra.VmClient;
+import com.deployment.ServiceEntity.infra.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.repository.VmRepository;
 
@@ -58,6 +59,7 @@ public class VmProvisioningService {
 
                         // ── 5. Status RUNNING ─────────────────────────────────────────
                         vm.setStatus(Vm.Status.RUNNING);
+                        vm.setStartedAt(Instant.now());
                         vmRepository.save(vm);
                         log.info("VM {} provisioned successfully", vm.getName());
 

@@ -42,6 +42,7 @@ public class NotificationController {
     private final AuditService auditService;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final Map<SseEmitter, UUID> emitterUsers = new java.util.concurrent.ConcurrentHashMap<>();
 
     @PostMapping
     public ResponseEntity<NotificationResponseDto> create(@Valid @RequestBody NotificationCreateDto dto) {
@@ -110,17 +111,27 @@ public class NotificationController {
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe() {
         UserContext.requirePermission("NOTIFICATION_READ");
+        UUID currentUserId = UserContext.getUserId();
         SseEmitter emitter = new SseEmitter(-1L);
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
+        emitter.onCompletion(() -> { emitters.remove(emitter); emitterUsers.remove(emitter); });
+        emitter.onTimeout(() -> { emitters.remove(emitter); emitterUsers.remove(emitter); });
+        emitter.onError(e -> { emitters.remove(emitter); emitterUsers.remove(emitter); });
         emitters.add(emitter);
+        emitterUsers.put(emitter, currentUserId);
         return emitter;
     }
 
+    // Diffuse la notification uniquement aux subscribers du même utilisateur
+    // (évite toute fuite cross-tenant via /notifications/stream).
     private void pushToAll(NotificationResponseDto notification) {
+        if (notification.userId() == null) {
+            return;
+        }
         List<SseEmitter> dead = new java.util.ArrayList<>();
         for (SseEmitter emitter : emitters) {
+            if (!notification.userId().equals(emitterUsers.get(emitter))) {
+                continue;
+            }
             try {
                 emitter.send(SseEmitter.event()
                         .name("notification")

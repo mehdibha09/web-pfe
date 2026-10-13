@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNamespaceRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNamespaceResponse;
@@ -72,20 +72,44 @@ public class K8sNamespaceController {
     @PostMapping
     public ResponseEntity<K8sNamespaceResponse> create(@Valid @RequestBody K8sNamespaceRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.createNamespace(dto.name(), dto.labels());
-        K8sNamespaceResponse result = kubernetesClient.getNamespace(dto.name());
+        String name = resolveOwnedNamespace(dto.name());
+        kubernetesClient.createNamespace(name, dto.labels());
+        K8sNamespaceResponse result = kubernetesClient.getNamespace(name);
         if (result == null) {
             result = K8sNamespaceResponse.fromSimulated(dto.name());
         }
-        auditService.record("K8S_NAMESPACE_CREATE", "k8s-namespace", dto.name(), "Namespace created (name='" + dto.name() + "')");
+        auditService.record("K8S_NAMESPACE_CREATE", "k8s-namespace", name, "Namespace created (name='" + name + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @DeleteMapping("/{name}")
     public ResponseEntity<Void> delete(@PathVariable String name) {
         UserContext.requirePermission("K8S_MANAGE");
-        kubernetesClient.deleteNamespace(name);
-        auditService.record("K8S_NAMESPACE_DELETE", "k8s-namespace", name, "Namespace deleted (name='" + name + "')");
+        String resolved = resolveOwnedNamespace(name);
+        kubernetesClient.deleteNamespace(resolved);
+        auditService.record("K8S_NAMESPACE_DELETE", "k8s-namespace", resolved, "Namespace deleted (name='" + resolved + "')");
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Pour un non-superadmin, force le namespace dans le prefix tenant-{id8} :
+     * rejette (403) toute tentative de créer/supprimer un namespace d'un autre
+     * tenant ou du cluster. Le superadmin gère des noms libres.
+     */
+    private String resolveOwnedNamespace(String raw) {
+        if (UserContext.isSuperAdmin()) {
+            return raw;
+        }
+        String prefix = TenantNamespaceResolver.tenantNamespacePrefix();
+        if (prefix == null) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "Namespace management not permitted for this tenant");
+        }
+        if (raw == null || !raw.startsWith(prefix)) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Tenants may only manage namespaces under '" + prefix + "'");
+        }
+        return raw;
     }
 }

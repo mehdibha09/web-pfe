@@ -18,8 +18,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { type NotificationResponse } from '../../../services/notificationService';
-import { typeColors } from './constants';
-import { C} from '../../../theme/tokens';
+import { C, NOTIFICATION_TYPE_COLORS } from '../../../theme/tokens';
 
 type NotificationTableProps = {
     displayed: NotificationResponse[];
@@ -53,28 +52,28 @@ const NotificationTable = ({ displayed, filter, onMarkAsRead, onDelete }: Notifi
                 boxShadow: '0 4px 20px rgba(228,71,125,0.06)'
             }}
         >
-            <Table>
+            <Table sx={{ minWidth: 760 }}>
                 <TableHead>
-                    <TableRow sx={{ backgroundColor: '#F8F5FA' }}>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }}>{t('common.status')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }}>{t('notifications.type')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }}>{t('notifications.title')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }}>{t('notifications.message')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }}>{t('common.date')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: C.text }} align="right">
+                    <TableRow>
+                        <TableCell>{t('common.status')}</TableCell>
+                        <TableCell>{t('notifications.type')}</TableCell>
+                        <TableCell>{t('notifications.title')}</TableCell>
+                        <TableCell>{t('notifications.message')}</TableCell>
+                        <TableCell>{t('common.date')}</TableCell>
+                        <TableCell align="right">
                             {t('common.actions')}
                         </TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
                     {displayed.map((n) => {
-                        const tc = typeColors[n.type] || typeColors.SYSTEM;
+                        const tc = NOTIFICATION_TYPE_COLORS[n.type] || NOTIFICATION_TYPE_COLORS.SYSTEM;
                         return (
                             <TableRow
                                 key={n.id}
                                 sx={{
-                                    backgroundColor: n.read ? '#FFFFFF' : '#FFF8FA',
-                                    '&:hover': { backgroundColor: '#F8F5FA' }
+                                    backgroundColor: n.read ? '#FFFFFF' : C.unread,
+                                    '&:hover': { backgroundColor: C.rowHover }
                                 }}
                             >
                                 <TableCell>

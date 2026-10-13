@@ -157,7 +157,7 @@ const request = async <T = any>(
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
+    if (!response.ok && import.meta.env.DEV) {
         console.debug('[axiosInstance] request failed', {
             method,
             url,

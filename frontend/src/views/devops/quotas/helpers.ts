@@ -7,6 +7,13 @@ import type {
 export const getUsagePercent = (used: number, max: number): number =>
     max > 0 ? Math.min((used / max) * 100, 100) : 0;
 
+/** Ratio réel, sans plafond à 100%, pour afficher un quota explicitement dépassé (ex. 168%). */
+export const getUsagePercentRaw = (used: number, max: number): number =>
+    max > 0 ? (used / max) * 100 : 0;
+
+export const isQuotaExhausted = (used: number, max: number): boolean =>
+    max > 0 && used >= max;
+
 export const getBarColor = (pct: number): string =>
     pct >= 90 ? '#C95B6E' : pct >= 75 ? '#8A6A2E' : '#10B981';
 

@@ -1,4 +1,4 @@
-import type { AuthUser } from './authService';
+import type { AuthUser } from '../authService';
 
 const normalizeKey = (value: string) =>
   value
@@ -15,14 +15,17 @@ const normalizePermission = (value: string) =>
 const hasRole = (user: AuthUser, roleName: string) =>
   (user.roles || []).map(normalizeKey).includes(normalizeKey(roleName));
 
+// UI-only guard: hides/shows menu items and controls. The backend remains the
+// real authorization gate — never rely on these checks for security.
 const hasPermission = (user: AuthUser, permissionKeyword: string) => {
   const normalizedPermissions = (user.permissions || []).map(normalizePermission);
   const keyword = normalizePermission(permissionKeyword);
 
   return (
     normalizedPermissions.includes('*') ||
-    normalizedPermissions.includes(keyword) ||
-    normalizedPermissions.some((permission) => permission.includes(keyword))
+    normalizedPermissions.some(
+      (permission) => permission === keyword || permission.startsWith(keyword + '_')
+    )
   );
 };
 
@@ -44,15 +47,10 @@ export const canAccessPermissions = (user: AuthUser) =>
   isSuperAdmin(user) || isTenantAdmin(user) || hasPermission(user, 'PERMISSION');
 
 export const canManagePermissions = (user: AuthUser) =>
-  isSuperAdmin(user) ||
-  (isPlatformTenant(user) &&
-    (hasPermission(user, 'PERMISSION_MANAGE') || hasPermission(user, 'USER_MANAGE')));
+  isSuperAdmin(user) && isPlatformTenant(user);
 
 export const canAccessTenants = (user: AuthUser) =>
-  isSuperAdmin(user) ||
-  (hasPermission(user, 'TENANT_MANAGE') &&
-    !!user.platformTenantId &&
-    user.tenantId === user.platformTenantId);
+  isSuperAdmin(user) && isPlatformTenant(user);
 
 export const canAccessSessions = (user: AuthUser) =>
   isSuperAdmin(user) || hasPermission(user, 'SESSION');
@@ -68,6 +66,11 @@ export const canModifyUserStatus = (user: AuthUser) =>
 
 export const isAdminRoleName = (roleName?: string | null) =>
   ['ADMIN', 'SUPER_ADMIN', 'TENANT_ADMIN', 'PLATFORM_ADMIN'].includes(
+    (roleName || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+  );
+
+export const isSuperAdminRoleName = (roleName?: string | null) =>
+  ['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(
     (roleName || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
   );
 

@@ -20,14 +20,14 @@ import { useNavigate } from 'react-router-dom';
 import { listServices, listDeploymentHistory, type ServiceResponse, type HistoryEntry } from '../../services/devopsService';
 import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } from '../../services/cloudPricerService';
 import { listNotifications, type NotificationResponse } from '../../services/notificationService';
-import { getStoredUser } from '../../services/authStorage';
+import { getStoredUser } from '../../services/core/authStorage';
 import {
     canAccessAlerts,
     canAccessAuditLogs,
     canAccessCosts,
     canAccessNotifications,
     canAccessServices
-} from '../../services/authorization';
+} from '../../services/core/authorization';
 import { C } from '../../theme/tokens';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DashboardKpiCard from './DashboardKpiCard';

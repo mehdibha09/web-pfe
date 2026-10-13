@@ -24,7 +24,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import type { K8sDeployment, K8sHpaResponse } from '../../../services/k8sService';
-import { C, STATUS_COLORS, fmtDate } from './constants';
+import { C, R, STATUS_COLORS, fmtDate } from './constants';
 
 interface K8sCardProps {
     dep: K8sDeployment;
@@ -100,20 +100,20 @@ const K8sCard = ({ dep, envName, hpaConfig, allowManage = false, onScale, onRest
             </CardContent>
             <CardActions sx={{ px: 2.5, py: 1.5, flexDirection: 'column', alignItems: 'stretch', gap: 0.75, borderTop: `1px solid ${C.border}`, background: '#FAFAFA' }}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    <Tooltip title={t('k8s.viewPods')}><Button size="small" startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />} onClick={() => onViewPods(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#0D9488', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.viewPods')}</Button></Tooltip>
-                    <Tooltip title={t('k8s.viewLogs')}><Button size="small" startIcon={<TerminalIcon sx={{ fontSize: 14 }} />} onClick={() => onViewLogs(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#8A6A2E', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.viewLogs')}</Button></Tooltip>
-                    <Tooltip title={t('k8s.viewEvents')}><Button size="small" startIcon={<EventsIcon sx={{ fontSize: 14 }} />} onClick={() => onViewEvents(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#6366F1', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.viewEvents')}</Button></Tooltip>
+                    <Tooltip title={t('k8s.viewPods')}><Button size="small" startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />} onClick={() => onViewPods(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.viewPods')}</Button></Tooltip>
+                    <Tooltip title={t('k8s.viewLogs')}><Button size="small" startIcon={<TerminalIcon sx={{ fontSize: 14 }} />} onClick={() => onViewLogs(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.viewLogs')}</Button></Tooltip>
+                    <Tooltip title={t('k8s.viewEvents')}><Button size="small" startIcon={<EventsIcon sx={{ fontSize: 14 }} />} onClick={() => onViewEvents(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.viewEvents')}</Button></Tooltip>
                 </Box>
                 {allowManage && (
                     <>
                         <Divider sx={{ borderColor: C.border, my: 0.25 }} />
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-                            <Tooltip title={t('k8s.scale')}><Button size="small" startIcon={<ScaleIcon sx={{ fontSize: 14 }} />} onClick={() => onScale(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#BE185D', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.scale')}</Button></Tooltip>
-                            <Tooltip title={t('k8s.restart')}><Button size="small" startIcon={<RestartAltIcon sx={{ fontSize: 14 }} />} onClick={() => onRestart(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#9333EA', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.restart')}</Button></Tooltip>
-                            <Tooltip title={t('k8s.rollback')}><Button size="small" startIcon={<RollbackIcon sx={{ fontSize: 14 }} />} onClick={() => onRollback(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#B45309', border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>{t('k8s.rollback')}</Button></Tooltip>
-                            <Tooltip title="HPA"><Button size="small" startIcon={<HpaIcon sx={{ fontSize: 14 }} />} onClick={() => onConfigureHpa(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: hpaConfig ? '#5E4B9E' : C.subtle, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize' }}>HPA</Button></Tooltip>
+                            <Tooltip title={t('k8s.scale')}><Button size="small" startIcon={<ScaleIcon sx={{ fontSize: 14 }} />} onClick={() => onScale(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.scale')}</Button></Tooltip>
+                            <Tooltip title={t('k8s.restart')}><Button size="small" startIcon={<RestartAltIcon sx={{ fontSize: 14 }} />} onClick={() => onRestart(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.restart')}</Button></Tooltip>
+                            <Tooltip title={t('k8s.rollback')}><Button size="small" startIcon={<RollbackIcon sx={{ fontSize: 14 }} />} onClick={() => onRollback(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>{t('k8s.rollback')}</Button></Tooltip>
+                            <Tooltip title="HPA"><Button size="small" startIcon={<HpaIcon sx={{ fontSize: 14 }} />} onClick={() => onConfigureHpa(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: C.text, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5 }}>HPA</Button></Tooltip>
                             <Box sx={{ flexGrow: 1 }} />
-                            <Tooltip title={t('common.delete')}><Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(dep)} sx={{ fontSize: 12, fontWeight: 'bold', color: '#FFFFFF', background: C.danger, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { background: '#B14A5C' } }}>{t('common.delete')}</Button></Tooltip>
+                            <Tooltip title={t('common.delete')}><Button size="small" variant="contained" color="error" startIcon={<DeleteIcon sx={{ fontSize: 14 }} />} onClick={() => onDelete(dep)} sx={{ fontSize: 12, fontWeight: 'bold', borderRadius: R.control, px: 1.5 }}>{t('common.delete')}</Button></Tooltip>
                         </Box>
                     </>
                 )}

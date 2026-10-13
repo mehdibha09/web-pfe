@@ -13,14 +13,18 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.auth.service.config.CacheConfig;
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Permission;
 import com.auth.service.domain.Role;
@@ -47,7 +51,6 @@ import com.auth.service.repository.TenantRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 
-import jakarta.servlet.http.HttpServletRequest;
 import com.auth.service.web.dto.role.RoleResponse;
 import com.auth.service.web.dto.tenant.TenantCreateRequest;
 import com.auth.service.web.dto.tenant.TenantResponse;
@@ -59,6 +62,7 @@ public class TenantService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final String SUPER_ADMIN_ROLE = "super-admin";
     private static final String DEFAULT_ADMIN_ROLE_NAME = "admin";
+    private static final String DEFAULT_TENANT_NAME = "default-tenant";
     private static final Logger log = LoggerFactory.getLogger(TenantService.class);
 
     private final TenantRepository tenantRepository;
@@ -70,6 +74,7 @@ public class TenantService {
     private final AuditLogRepository auditLogRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final ClientIpResolver clientIpResolver;
 
     @Value("${deployment-service-url}")
     private String deploymentServiceUrl;
@@ -86,7 +91,8 @@ public class TenantService {
                 RoleRepository roleRepository,
                 PermissionRepository permissionRepository,
             AuditLogRepository auditLogRepository,
-            RolePermissionRepository rolePermissionRepository
+            RolePermissionRepository rolePermissionRepository,
+            ClientIpResolver clientIpResolver
     ) {
         this.tenantRepository = tenantRepository;
         this.sessionRepository = sessionRepository;
@@ -96,9 +102,11 @@ public class TenantService {
             this.permissionRepository = permissionRepository;
         this.auditLogRepository = auditLogRepository;
         this.rolePermissionRepository = rolePermissionRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
             @Transactional(readOnly = true)
+            @Cacheable(value = CacheConfig.TENANTS, key = "@cacheKeys.tenantScoped('users:' + #tenantId)")
             public List<UserResponse> listTenantUsers(String authorizationHeader, UUID tenantId) {
             User currentUser = requireCurrentUser(authorizationHeader);
             Tenant tenant = requireTenant(tenantId);
@@ -119,6 +127,7 @@ public class TenantService {
             }
 
             @Transactional(readOnly = true)
+            @Cacheable(value = CacheConfig.ROLES, key = "@cacheKeys.tenantScoped('byTenant:' + #tenantId)")
             public List<RoleResponse> listTenantRoles(String authorizationHeader, UUID tenantId) {
             User currentUser = requireCurrentUser(authorizationHeader);
             Tenant tenant = requireTenant(tenantId);
@@ -149,6 +158,7 @@ public class TenantService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.TENANTS, key = "@cacheKeys.tenantScoped('list:' + #pageable.pageNumber + ':' + #pageable.pageSize)")
     public Page<TenantResponse> listTenants(String authorizationHeader, Pageable pageable) {
         User currentUser = requireCurrentUser(authorizationHeader);
         requireSuperAdminOrTenantManage(currentUser);
@@ -156,6 +166,7 @@ public class TenantService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheConfig.TENANTS, key = "@cacheKeys.tenantScoped('id:' + #tenantId)")
     public TenantResponse getTenantById(String authorizationHeader, UUID tenantId) {
         User currentUser = requireCurrentUser(authorizationHeader);
         Tenant tenant = requireTenant(tenantId);
@@ -168,6 +179,7 @@ public class TenantService {
     }
 
     @Transactional
+    @CacheEvict(value = {CacheConfig.TENANTS, CacheConfig.USERS, CacheConfig.ROLES}, allEntries = true)
     public TenantResponse createTenant(String authorizationHeader, TenantCreateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
         requireSuperAdminOrTenantManage(currentUser);
@@ -189,14 +201,45 @@ public class TenantService {
         Tenant savedTenant = tenantRepository.save(tenant);
         writeAudit(currentUser, "TENANT_CREATE", "Tenant created", savedTenant.getId().toString());
 
-        createNamespaceForTenant(savedTenant, authorizationHeader);
+        // Blocking HTTP call to the deployment service must run AFTER commit so
+        // the transaction (and its DB connection/locks) is not held during the
+        // network round-trip. Mirrors the pattern used by deleteTenant().
+        final String authHeader = authorizationHeader;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    createNamespaceForTenant(savedTenant, authHeader);
+                }
+            });
+        } else {
+            createNamespaceForTenant(savedTenant, authHeader);
+        }
 
         if (request.adminEmail() != null && !request.adminEmail().isBlank()
                 && request.adminPassword() != null && !request.adminPassword().isBlank()) {
+            validateAdminPasswordStrength(request.adminPassword());
             createAdminUserForTenant(savedTenant, request.adminEmail(), request.adminPassword(), authorizationHeader);
         }
 
         return toResponse(savedTenant);
+    }
+
+    /**
+     * Vérifie que le mot de passe de l'admin d'un tenant, s'il est fourni,
+     * respecte la politique de force (cohérent avec le validateur @Password
+     * utilisé sur les DTOs utilisateur).
+     */
+    private void validateAdminPasswordStrength(String password) {
+        if (password == null || password.length() < 8
+                || !password.matches(".*[A-Z].*")
+                || !password.matches(".*[a-z].*")
+                || !password.matches(".*\\d.*")
+                || !password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Tenant admin password must be 8-128 characters with uppercase, lowercase, digit, and special character");
+        }
     }
 
     @Transactional
@@ -281,6 +324,7 @@ public class TenantService {
     }
 
     @Transactional
+    @CacheEvict(value = {CacheConfig.TENANTS, CacheConfig.USERS}, allEntries = true)
     public TenantResponse updateTenant(String authorizationHeader, UUID tenantId, TenantUpdateRequest request) {
         User currentUser = requireCurrentUser(authorizationHeader);
         requireSuperAdminOrTenantManage(currentUser);
@@ -311,7 +355,11 @@ public class TenantService {
         }
 
         if (request.status() != null && !request.status().isBlank()) {
-            tenant.setStatus(parseStatusOrDefault(request.status(), tenant.getStatus()));
+            TenantStatus newStatus = parseStatusOrDefault(request.status(), tenant.getStatus());
+            if (newStatus == TenantStatus.DELETED && isDefaultTenant(tenant)) {
+                throw new BadRequestException("The default tenant cannot be disabled");
+            }
+            tenant.setStatus(newStatus);
         }
 
         Tenant savedTenant = tenantRepository.save(tenant);
@@ -319,20 +367,109 @@ public class TenantService {
         return toResponse(savedTenant);
     }
 
+    private boolean isDefaultTenant(Tenant tenant) {
+        return tenant.getName() != null && tenant.getName().trim().equalsIgnoreCase(DEFAULT_TENANT_NAME);
+    }
+
     @Transactional
+    @CacheEvict(value = {CacheConfig.TENANTS, CacheConfig.USERS, CacheConfig.SESSIONS}, allEntries = true)
     public TenantResponse disableTenant(String authorizationHeader, UUID tenantId) {
         User currentUser = requireCurrentUser(authorizationHeader);
         requireSuperAdminOrTenantManage(currentUser);
 
         Tenant tenant = requireTenant(tenantId);
+        if (isDefaultTenant(tenant)) {
+            throw new BadRequestException("The default tenant cannot be disabled");
+        }
         tenant.setStatus(TenantStatus.DELETED);
 
         Tenant savedTenant = tenantRepository.save(tenant);
         writeAudit(currentUser, "TENANT_DELETE", "Tenant disabled", savedTenant.getId().toString());
 
-        deprovisionTenant(tenantId, authorizationHeader);
+        // Best-effort deprovisioning (session revocation + blocking K8s HTTP call)
+        // runs AFTER commit so the network round-trip does not hold the DB
+        // transaction/locks open. Mirrors the pattern used by deleteTenant().
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deprovisionTenant(tenantId, authorizationHeader);
+                }
+            });
+        } else {
+            deprovisionTenant(tenantId, authorizationHeader);
+        }
 
         return toResponse(savedTenant);
+    }
+
+    /**
+     * Suppression permanente (hard delete) d'un tenant et de toutes ses données :
+     * users, roles, role-permissions, user-roles, sessions. Le namespace K8s
+     * du tenant est également demandé en suppression (best-effort).
+     * Réservé au super-admin — opération irréversible.
+     */
+    @Transactional
+    @CacheEvict(value = {CacheConfig.TENANTS, CacheConfig.USERS, CacheConfig.SESSIONS,
+            CacheConfig.ROLES, CacheConfig.PERMISSIONS}, allEntries = true)
+    public void deleteTenant(String authorizationHeader, UUID tenantId) {
+        User currentUser = requireCurrentUser(authorizationHeader);
+        if (!isSuperAdmin(currentUser)) {
+            throw new ForbiddenException("Only a super administrator can permanently delete a tenant");
+        }
+
+        Tenant tenant = requireTenant(tenantId);
+        if (isDefaultTenant(tenant)) {
+            throw new BadRequestException("The default tenant cannot be deleted");
+        }
+
+        // Cascade delete dans l'ordre des dépendances FK :
+        // 1. role-permissions (par tenant — bulk delete)
+        rolePermissionRepository.deleteAllByTenantId(tenantId);
+
+        // 2. user-roles des utilisateurs du tenant
+        for (User user : userRepository.findByTenant_Id(tenantId)) {
+            List<UserRole> urs = userRoleRepository.findByUser_Id(user.getId());
+            if (!urs.isEmpty()) {
+                userRoleRepository.deleteAll(urs);
+            }
+        }
+
+        // 3. sessions du tenant
+        List<Session> tenantSessions = sessionRepository.findAllByTenant_Id(tenantId);
+        if (!tenantSessions.isEmpty()) {
+            sessionRepository.deleteAll(tenantSessions);
+        }
+
+        // 4. users + roles
+        List<User> tenantUsers = userRepository.findByTenant_Id(tenantId);
+        userRepository.deleteAll(tenantUsers);
+        roleRepository.deleteAll(roleRepository.findByTenant_Id(tenantId));
+
+        // 5. le tenant lui-même
+        tenantRepository.delete(tenant);
+
+        log.info("Tenant '{}' ({}) permanently deleted — users:{}, sessions:{}",
+                tenant.getName(), tenantId, tenantUsers.size(), tenantSessions.size());
+
+        writeAudit(currentUser, "TENANT_HARD_DELETE",
+                "Tenant permanently deleted", tenantId.toString());
+
+        // Déprovisionnement K8s (best-effort) APRÈS le commit : l'appel HTTP
+        // (timeout 10 s) ne doit pas rester à l'intérieur de la transaction,
+        // sous peine de prolonger inutilement les verrous et la durée de vie
+        // de la connexion. En cas d'échec, les lignes restent supprimées :
+        // le namespace orphelin se nettoie via disableTenant / re-déploiement.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deprovisionTenant(tenantId, authorizationHeader);
+                }
+            });
+        } else {
+            deprovisionTenant(tenantId, authorizationHeader);
+        }
     }
 
     /**
@@ -405,29 +542,7 @@ public class TenantService {
         if (isSuperAdmin(currentUser)) {
             return;
         }
-
-        UUID platformTenantId = userRoleRepository.findByRole_NameIgnoreCase(SUPER_ADMIN_ROLE)
-                .stream()
-                .findFirst()
-                .map(userRole -> userRole.getUser().getTenant().getId())
-                .orElse(null);
-
-        if (platformTenantId == null || !platformTenantId.equals(currentUser.getTenant().getId())) {
-            throw new ForbiddenException("Tenant management restricted to the platform tenant");
-        }
-
-        boolean canManage = userRoleRepository.findByUser_Id(currentUser.getId())
-                .stream()
-                .map(UserRole::getRole)
-                .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
-                .flatMap(List::stream)
-                .map(RolePermission::getPermission)
-                .anyMatch(permission -> permission.getName() != null
-                        && permission.getName().trim().equalsIgnoreCase("TENANT_MANAGE"));
-
-        if (!canManage) {
-            throw new ForbiddenException("Tenant management permission required");
-        }
+        throw new ForbiddenException("Tenant management restricted to super-admins");
     }
 
     private void ensureTenantAccess(User currentUser, Tenant tenant) {
@@ -535,19 +650,6 @@ public class TenantService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
-        }
+        return clientIpResolver.resolve();
     }
 }

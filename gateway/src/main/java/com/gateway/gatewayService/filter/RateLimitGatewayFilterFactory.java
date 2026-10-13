@@ -12,7 +12,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<RateLimitGatewayFilterFactory.Config> {
 
+    // NOTE: this limiter is per-instance (in-memory) and therefore NOT distributed.
+    // Behind multiple gateway replicas each instance keeps its own counters.
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
+
+    // Safety cap on the number of tracked keys to avoid unbounded growth (memory DoS).
+    private static final int MAX_ENTRIES = 10_000;
 
     public RateLimitGatewayFilterFactory() {
         super(Config.class);
@@ -27,13 +32,31 @@ public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<
             String key = clientIp + ":" + exchange.getRequest().getURI().getPath();
 
             Window window = windows.computeIfAbsent(key, k -> new Window(config.maxRequests, config.windowMs));
-            if (!window.tryAcquire()) {
+            boolean allowed = window.tryAcquire();
+
+            // Opportunistically evict fully-expired windows so the map does not grow unbounded.
+            evictExpired();
+
+            if (!allowed) {
                 exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
                 return exchange.getResponse().setComplete();
             }
 
             return chain.filter(exchange);
         };
+    }
+
+    /**
+     * Removes windows that have fully expired (no request within their window duration).
+     * Runs opportunistically on each request; a full sweep is only triggered once the
+     * map crosses {@link #MAX_ENTRIES} to keep the common path cheap.
+     */
+    private void evictExpired() {
+        if (windows.size() <= MAX_ENTRIES) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        windows.values().removeIf(w -> w.isExpired(now));
     }
 
     public static class Config {
@@ -59,6 +82,10 @@ public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<
                 windowStart = now;
             }
             return count.incrementAndGet() <= maxRequests;
+        }
+
+        boolean isExpired(long now) {
+            return now - windowStart > windowMs;
         }
     }
 }

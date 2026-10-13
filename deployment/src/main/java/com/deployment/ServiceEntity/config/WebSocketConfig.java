@@ -46,9 +46,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
         registry.addHandler(sshWebSocketHandler, "/ws/ssh/{vmId}")
                 .addInterceptors(headerInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOriginPatterns(
+                        "http://192.168.56.10:30080",
+                        "http://localhost:*",
+                        "http://127.0.0.1:*");
         registry.addHandler(agentWebSocketHandler, "/ws/agent/{vmId}/{token}")
                 .addInterceptors(headerInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOriginPatterns(
+                        "http://192.168.56.10:30080",
+                        "http://localhost:*",
+                        "http://127.0.0.1:*");
     }
 }

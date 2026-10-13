@@ -14,7 +14,8 @@ public record K8sIngressResponse(
     List<IngressTLS> tls,
     List<String> addresses,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     public record IngressRule(
         String host,
@@ -118,7 +119,7 @@ public record K8sIngressResponse(
             }
 
             return new K8sIngressResponse(name, namespace != null ? namespace : "default",
-                labels, ingressClassName, rules, tls, addresses, creationTimestamp, "v1");
+                labels, ingressClassName, rules, tls, addresses, creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -142,6 +143,6 @@ public record K8sIngressResponse(
     public static K8sIngressResponse fromSimulated(String name, String namespace, String host, String svcName, int svcPort) {
         return new K8sIngressResponse(name, namespace, Map.of(), "", 
             List.of(new IngressRule(host, List.of(new IngressPath("/", "Prefix", svcName, svcPort)))),
-            List.of(), List.of(), java.time.Instant.now().toString(), "v1");
+            List.of(), List.of(), java.time.Instant.now().toString(), "v1",true);
     }
 }

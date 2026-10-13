@@ -1,4 +1,4 @@
-package com.deployment.ServiceEntity.domain;
+package com.deployment.ServiceEntity.infra;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,19 +9,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
+import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.web.dto.vm.VmMetricsSnapshot;
 
 import jakarta.annotation.PostConstruct;
 
-@Component
-@ConditionalOnProperty(name = "vm.provider", havingValue = "vagrant", matchIfMissing = true)
-public class VagrantVmClient implements VmClient {
+@Deprecated
+public class VagrantClient {
 
-    private static final Logger log = LoggerFactory.getLogger(VagrantVmClient.class);
+    private static final Logger log = LoggerFactory.getLogger(VagrantClient.class);
 
+    // ── Cache SSH config per VM to avoid re-running `vagrant ssh-config` ───────
     private final ConcurrentHashMap<String, String[]> sshConfigCache = new ConcurrentHashMap<>();
 
     @Value("${vagrant.base-dir:./vms}")
@@ -35,17 +34,19 @@ public class VagrantVmClient implements VmClient {
         log.info("Vagrant base directory: {}", this.baseDirAbsolute);
     }
 
+    // ── PATH système pour ProcessBuilder ──────────────────────────────────────
     private String systemPath() {
         String env = System.getenv("PATH");
         return "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:"
                 + (env != null ? env : "");
     }
 
-    @Override
+    // ── Chemin VM ─────────────────────────────────────────────────────────────
     public String getVmPath(String tenantId, String vmName) {
         return baseDirAbsolute.resolve(tenantId).resolve(vmName).toString();
     }
 
+    // ── Exécuter commande Vagrant ─────────────────────────────────────────────
     private String exec(String vmPath, String... args) {
         Path dir = Paths.get(vmPath);
         if (!Files.isDirectory(dir)) {
@@ -81,7 +82,7 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
+    // ── Générer Vagrantfile — retourne vbName ─────────────────────────────────
     public String createVagrantfile(Vm vm) {
         try {
             log.info("baseDir=[{}] user.dir=[{}]", baseDir, System.getProperty("user.dir"));
@@ -93,13 +94,6 @@ public class VagrantVmClient implements VmClient {
 
             Path vmDir = Paths.get(vm.getVagrantPath());
             Files.createDirectories(vmDir);
-
-            String vmId = vm.getId().toString();
-            String backendUrl = System.getenv("AGENT_BACKEND_URL");
-            if (backendUrl == null || backendUrl.isBlank()) {
-                backendUrl = "ws://10.10.226.124:8082";
-                log.warn("AGENT_BACKEND_URL not set, using default: {}", backendUrl);
-            }
 
             String vagrantfile = String.format("""
                     Vagrant.configure("2") do |config|
@@ -119,75 +113,11 @@ public class VagrantVmClient implements VmClient {
                         vb.customize ["modifyvm", :id, "--vram", "16"]
                       end
 
-                      $agent_script = <<-AGENT
-                        # Install Node.js
-                        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-                        apt-get install -y nodejs
-
-                        # Create agent directory
-                        mkdir -p /opt/vm-agent
-
-                        cat > /opt/vm-agent/package.json <<'PKG'
-                    {"name":"vm-agent","version":"1.0.0","dependencies":{"ws":"^8.16.0"}}
-                    PKG
-
-                        cat > /opt/vm-agent/agent.js <<'SCRIPT'
-                    const WebSocket = require('ws');
-                    const {spawn} = require('child_process');
-                    const BACKEND = process.env.BACKEND_WS_URL || '%s';
-                    const VM_ID = process.env.VM_ID || '%s';
-                    const VM_TOKEN = process.env.VM_TOKEN || '%s';
-                    let ws, shell;
-                    function connect(){
-                      const u=BACKEND+'/ws/agent/'+VM_ID+'/'+VM_TOKEN;
-                      ws=new WebSocket(u);
-                      ws.on('open',()=>console.log('Agent connected'));
-                      ws.on('message',d=>{
-                        try{
-                          const m=JSON.parse(d.toString());
-                          if(m.type==='start_shell'&&!shell){startShell()}
-                          else if(m.type==='stop_shell'&&shell){stopShell()}
-                          else if(shell&&shell.stdin.writable){shell.stdin.write(m)}
-                        }catch(e){}
-                      });
-                      ws.on('close',()=>{stopShell();setTimeout(connect,5000)});
-                      ws.on('error',()=>ws.close());
-                    }
-                    function startShell(){
-                      shell=spawn('/bin/bash',[],{stdio:['pipe','pipe','pipe'],env:{...process.env,TERM:'xterm-256color'}});
-                      shell.stdout.on('data',d=>ws.send(JSON.stringify({type:'shell_output',data:d.toString('base64')})));
-                      shell.stderr.on('data',d=>ws.send(JSON.stringify({type:'shell_output',data:d.toString('base64')})));
-                      shell.on('exit',()=>{shell=null});
-                    }
-                    function stopShell(){if(shell){shell.kill('SIGTERM');shell=null}}
-                    connect();
-                    SCRIPT
-
-                        cd /opt/vm-agent && npm install --production
-
-                        # Systemd service
-                        cat > /etc/systemd/system/vm-agent.service <<'SVC'
-                    [Unit]
-                    Description=VM Agent for PFE Platform
-                    After=network.target
-                    [Service]
-                    ExecStart=/usr/bin/node /opt/vm-agent/agent.js
-                    Environment=BACKEND_WS_URL=%s
-                    Environment=VM_ID=%s
-                    Environment=VM_TOKEN=%s
-                    Restart=always
-                    RestartSec=10
-                    [Install]
-                    WantedBy=multi-user.target
-                    SVC
-
-                        systemctl daemon-reload
-                        systemctl enable vm-agent
-                        systemctl start vm-agent
-                        echo "VM Agent installed and started"
-                      AGENT
-
-                      config.vm.provision "shell", inline: $agent_script
+                      config.vm.provision "shell", inline: <<-SHELL
+                        apt-get update -y
+                        apt-get install -y curl wget htop net-tools sysstat
+                        echo "VM %s ready"
+                      SHELL
                     end
                     """,
                     vm.getOs().getVagrantBox(),
@@ -197,48 +127,41 @@ public class VagrantVmClient implements VmClient {
                     vbName,
                     vm.getRam(),
                     vm.getCpu(),
-                    backendUrl,
-                    vmId,
-                    vmId,
-                    backendUrl,
-                    vmId,
-                    vmId);
+                    vm.getName());
 
             Files.writeString(vmDir.resolve("Vagrantfile"), vagrantfile);
             log.info("Vagrantfile created at {} vbName={}", vmDir, vbName);
 
-            return vbName;
+            return vbName; // ← retourner le nom VirtualBox
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to create Vagrantfile: " + e.getMessage());
         }
     }
 
+    // ── IP unique ─────────────────────────────────────────────────────────────
     private String generateIp(Vm vm) {
         int x = Math.abs(vm.getTenantId().hashCode()) % 254 + 1;
         int y = Math.abs(vm.getId().hashCode()) % 254 + 1;
         return "192.168." + x + "." + y;
     }
 
-    @Override
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
     public void up(String vmPath) {
         log.info("Starting VM at {}", vmPath);
         exec(vmPath, "up", "--no-color");
     }
 
-    @Override
     public void halt(String vmPath) {
         log.info("Stopping VM at {}", vmPath);
         exec(vmPath, "halt", "--no-color");
     }
 
-    @Override
     public void reload(String vmPath) {
         log.info("Restarting VM at {}", vmPath);
         exec(vmPath, "reload", "--no-color");
     }
 
-    @Override
     public void destroy(String vmPath) {
         log.info("Destroying VM at {}", vmPath);
         try {
@@ -259,7 +182,7 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
+    // ── Status ────────────────────────────────────────────────────────────────
     public String status(String vmPath) {
         try {
             String output = exec(vmPath, "status", "--no-color");
@@ -280,7 +203,7 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
+    // ── SSH Config ────────────────────────────────────────────────────────────
     public VagrantSshConfig getSshConfig(String vmPath) {
         try {
             String output = exec(vmPath, "ssh-config", "--no-color");
@@ -304,11 +227,11 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
+    // ── Métriques VirtualBox ──────────────────────────────────────────────────
     private static final String VBOX_METRICS = "CPU/Load/User,RAM/Usage/Used,Disk/Usage/Used,Net/Rate/Rx,Net/Rate/Tx";
 
     private final java.util.Set<String> metricsSetupDone = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    @Override
     public void setupMetrics(String vbName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -328,7 +251,6 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
     public VmMetricsSnapshot queryMetrics(String vbName) {
         if (!metricsSetupDone.contains(vbName)) {
             setupMetrics(vbName);
@@ -422,7 +344,7 @@ public class VagrantVmClient implements VmClient {
         return snapshot;
     }
 
-    @Override
+    // -- SSH Execute (direct ssh, bypasses vagrant for speed) --------------------
     public String executeCommand(String vmPath, String command) {
         log.info("SSH execute on {}: {}", vmPath, command);
 
@@ -481,21 +403,11 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
     public void invalidateSshConfigCache(String vmPath) {
         sshConfigCache.remove(vmPath);
     }
 
-    @Override
-    public String readRemoteFile(String filePath) {
-        try {
-            return java.nio.file.Files.readString(java.nio.file.Paths.get(filePath));
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read file: " + filePath, e);
-        }
-    }
-
-    @Override
+    // -- VBoxManage Snapshots ---------------------------------------------------
     public void takeSnapshot(String vbName, String snapshotName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -518,7 +430,6 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
     public void restoreSnapshot(String vbName, String snapshotName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -540,7 +451,6 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
     public void deleteSnapshot(String vbName, String snapshotName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -562,7 +472,6 @@ public class VagrantVmClient implements VmClient {
         }
     }
 
-    @Override
     public long getSnapshotSizeMb(String vbName) {
         try {
             ProcessBuilder pb = new ProcessBuilder(

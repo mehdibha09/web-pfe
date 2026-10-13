@@ -29,16 +29,16 @@ public class EmailService {
      */
     public void sendPasswordResetEmail(String toEmail, String resetToken, String userName) {
         String resetLink = frontendBaseUrl.replaceAll("/+$", "") + "/resetPassword/" + resetToken;
-        
+
         String body = String.format(
             "Bonjour %s,\n\n" +
             "Vous avez demandé de réinitialiser votre mot de passe.\n\n" +
             "Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe:\n" +
             "%s\n\n" +
-            "Ce lien expire dans 24 heures.\n\n" +
+            "Ce lien expire dans 1 heure.\n\n" +
             "Si vous n'avez pas demandé cette action, veuillez ignorer cet email.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName, resetLink
+            "%s",
+            userName, resetLink, signature()
         );
 
         sendEmail(toEmail, "Réinitialisation de votre mot de passe", body);
@@ -52,8 +52,8 @@ public class EmailService {
             "Bonjour %s,\n\n" +
             "Votre authentification à deux facteurs a été vérifiée avec succès.\n\n" +
             "Si ce n'était pas vous, veuillez immédiatement changer votre mot de passe.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName
+            "%s",
+            userName, signature()
         );
 
         sendEmail(toEmail, "Notification de vérification 2FA", body);
@@ -68,8 +68,8 @@ public class EmailService {
             "Votre code de vérification pour la connexion est : %s\n\n" +
             "Ce code expire dans %d minutes.\n\n" +
             "Si ce n'était pas vous, ignorez cet email.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName, code, expiresMinutes
+            "%s",
+            userName, code, expiresMinutes, signature()
         );
 
         sendEmail(toEmail, "Code de vérification de connexion", body);
@@ -83,8 +83,8 @@ public class EmailService {
             "Bonjour %s,\n\n" +
             "Votre code d'activation 2FA est : %s\n\n" +
             "Ce code expire dans %d minutes.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName, code, expiresMinutes
+            "%s",
+            userName, code, expiresMinutes, signature()
         );
 
         sendEmail(toEmail, "Code d'activation 2FA", body);
@@ -98,8 +98,8 @@ public class EmailService {
             "Bonjour %s,\n\n" +
             "L'authentification à deux facteurs a été désactivée pour votre compte.\n\n" +
             "Si vous n'avez pas effectué cette action, veuillez immédiatement changer votre mot de passe et contacter le support.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName
+            "%s",
+            userName, signature()
         );
 
         sendEmail(toEmail, "Authentification à deux facteurs désactivée", body);
@@ -113,8 +113,8 @@ public class EmailService {
             "Bonjour %s,\n\n" +
             "Votre mot de passe a été modifié avec succès.\n\n" +
             "Si vous n'avez pas effectué cette action, veuillez immédiatement contacter le support.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName
+            "%s",
+            userName, signature()
         );
 
         sendEmail(toEmail, "Confirmation de changement de mot de passe", body);
@@ -130,8 +130,8 @@ public class EmailService {
             "Adresse IP: %s\n" +
             "Horodatage: %s\n\n" +
             "Si ce n'était pas vous, veuillez immédiatement changer votre mot de passe.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName, ipAddress, java.time.Instant.now()
+            "%s",
+            userName, ipAddress, java.time.Instant.now(), signature()
         );
 
         sendEmail(toEmail, "Notification de connexion", body);
@@ -145,15 +145,37 @@ public class EmailService {
             "Bonjour %s,\n\n" +
             "Votre compte a été suspendu.\n\n" +
             "Veuillez contacter le support pour plus d'informations.\n\n" +
-            "Cordialement,\nL'équipe d'authentification",
-            userName
+            "%s",
+            userName, signature()
         );
 
         sendEmail(toEmail, "Compte suspendu", body);
     }
 
     /**
-     * Generic email sending method
+     * Build the closing signature block appended to every email.
+     * Includes a human-readable site name and the site URL.
+     */
+    private String signature() {
+        return "Cordialement,\n" + siteName() + "\n" + frontendBaseUrl;
+    }
+
+    /**
+     * Derive a readable site name from the configured frontend base URL.
+     */
+    private String siteName() {
+        String host = frontendBaseUrl
+                .replaceAll("^[a-zA-Z]+://", "")
+                .replaceAll("/.*$", "")
+                .replaceAll(":.*$", "");
+        if (host == null || host.isBlank() || host.contains("localhost") || host.equals("127.0.0.1")) {
+            return "PFE Cloud Platform";
+        }
+        return host;
+    }
+
+    /**
+     * Generic email sending method (best-effort: failures are logged, never thrown)
      */
     private void sendEmail(String toEmail, String subject, String body) {
         try {
@@ -162,7 +184,7 @@ public class EmailService {
             message.setTo(toEmail);
             message.setSubject(subject);
             message.setText(body);
-            
+
             mailSender.send(message);
             log.info("Email sent successfully to {} (subject='{}', from='{}')", toEmail, subject, fromEmail);
         } catch (Exception e) {

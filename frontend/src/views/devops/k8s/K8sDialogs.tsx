@@ -167,11 +167,11 @@ const K8sDialogs = ({
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 700 }}>{t('common.name')}</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>{t('common.status')}</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>{t('k8s.ready')}</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>{t('k8s.restarts')}</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>{t('k8s.age')}</TableCell>
+                                    <TableCell>{t('common.name')}</TableCell>
+                                    <TableCell>{t('common.status')}</TableCell>
+                                    <TableCell>{t('k8s.ready')}</TableCell>
+                                    <TableCell>{t('k8s.restarts')}</TableCell>
+                                    <TableCell>{t('k8s.age')}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>

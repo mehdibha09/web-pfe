@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceAccountResponse;
@@ -66,15 +66,7 @@ public class K8sServiceAccountController {
         UserContext.requirePermission("K8S_MANAGE");
         String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
-        StringBuilder yamlSpec = new StringBuilder();
-        if (dto.labels() != null && !dto.labels().isEmpty()) {
-            yamlSpec.append("labels:\n");
-            for (var entry : dto.labels().entrySet()) {
-                yamlSpec.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-            }
-        }
-
-        kubernetesClient.createOrUpdateServiceAccount(dto.name(), ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateServiceAccount(dto.name(), ns, dto.labels(), dto.annotations());
 
         K8sServiceAccountResponse result = kubernetesClient.getServiceAccount(dto.name(), ns);
         if (result == null) {

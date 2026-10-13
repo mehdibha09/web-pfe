@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import type { EnvironmentResponse, MetricResponse, ServiceEnvironmentResponse, ServiceResponse } from '../../../services/devopsService';
 import {
     getLatestMetric,
@@ -37,7 +37,7 @@ import {
     listServices
 } from '../../../services/devopsService';
 import { useSse as useSseStream } from '../../../hooks/useSse';
-import { C } from '../../../theme/tokens';
+import { C, PAGE_BG } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { formatBps, formatPct, isMetricStale, serviceEnvironmentLabel } from '../metrics/constants';
 import SparkLine from '../metrics/SparkLine';
@@ -126,7 +126,8 @@ const MonitoringTempsReelPage = () => {
         if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, '');
         const host = import.meta.env.VITE_API_HOST || 'localhost';
         const port = import.meta.env.VITE_API_PORT || '6060';
-        return `http://${host}:${port}`;
+        const path = (import.meta.env.VITE_API_PATH || '/api/v1').replace(/^\/+/, '/');
+        return `http://${host}:${port}${path}`;
     })();
 
     const { connected: sseConnected } = useSseStream({
@@ -134,7 +135,13 @@ const MonitoringTempsReelPage = () => {
         enabled: useSse && !!selectedSeId,
         onMessage: (data: MetricResponse) => {
             setLatest(data);
-            setHistory((prev) => [...prev, data].slice(-120));
+            setHistory((prev) => {
+                const key = data.id ?? data.timestamp ?? data.createdAt;
+                if (key && prev.some((m) => (m.id ?? m.timestamp ?? m.createdAt) === key)) {
+                    return prev;
+                }
+                return [...prev, data].slice(-120);
+            });
         }
     });
 
@@ -172,7 +179,7 @@ const MonitoringTempsReelPage = () => {
     }, [selectedSeId, loadSelection]);
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{
@@ -271,7 +278,7 @@ const MonitoringTempsReelPage = () => {
                             <Typography sx={{ fontSize: 10, fontWeight: 700, color: item.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 {t(item.labelKey)}
                             </Typography>
-                            <Typography variant="h4" sx={{ fontWeight: 900, color: '#1F2937', mt: 0.5 }}>
+                            <Typography variant="h4" sx={{ fontWeight: 900, color: C.text, mt: 0.5 }}>
                                 {item.value === null || item.value === undefined
                                     ? '—'
                                     : item.unit === 'bps'
@@ -298,7 +305,7 @@ const MonitoringTempsReelPage = () => {
                     { key: 'cpu', labelKey: 'monitoring.cpuUsage', color: '#6366F1', unit: '%' },
                     { key: 'ram', labelKey: 'monitoring.ramUsage', color: '#10B981', unit: '%' }
                 ] as const).map((chart) => (
-                    <Grid key={chart.key} size={{ xs: 12 }}>
+                    <Grid key={chart.key} size={{ xs: 12, md: 6 }}>
                         <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, boxShadow: `0 4px 16px ${chart.color}14`, overflow: 'hidden' }}>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -307,19 +314,19 @@ const MonitoringTempsReelPage = () => {
                                     <Typography sx={{ ml: 'auto', fontSize: 11, color: '#9CA3AF' }}>{chartData.length > 0 && `${chartData.length} pts`}</Typography>
                                 </Box>
                                 {loading && chartData.length === 0 ? (
-                                    <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 2 }} />
+                                    <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 2 }} />
                                 ) : chartData.length === 0 ? (
                                     <Typography sx={{ color: C.muted, textAlign: 'center', py: 6 }}>
                                         {selectedSeId ? t('monitoring.noMetrics') : t('monitoring.selectDeploymentHint')}
                                     </Typography>
                                 ) : (
                                     <Box>
-                                        <Typography sx={{ fontWeight: 900, fontSize: 40, color: chart.color, lineHeight: 1.1, mb: 1.5 }}>
+                                        <Typography sx={{ fontWeight: 900, fontSize: 32, color: chart.color, lineHeight: 1.1, mb: 1.5 }}>
                                             {chart.key === 'cpu'
                                                 ? latestStale ? '—' : (latest?.cpuUsage ?? 0).toFixed(0) + '%'
                                                 : latestStale ? '—' : (latest?.ramUsage ?? 0).toFixed(0) + '%'}
                                         </Typography>
-                                        <Box sx={{ width: '100%', '& svg': { width: '100%', height: 220, display: 'block' } }}>
+                                        <Box sx={{ width: '100%', '& svg': { width: '100%', height: 160, display: 'block' } }}>
                                             <SparkLine points={chartData.map((d) => d[chart.key] ?? 0)} color={chart.color} />
                                         </Box>
                                     </Box>

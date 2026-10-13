@@ -1,7 +1,7 @@
 import LinkIcon from '@mui/icons-material/Link';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
-    Alert, Box, Card, CardContent, Dialog, DialogActions, DialogContent,
+    Alert, Box, Dialog, DialogActions, DialogContent,
     DialogContentText, DialogTitle, Typography
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,16 +13,17 @@ import {
     createServiceEnvironment,
     deleteServiceEnvironment,
     listEnvironments,
-    listServiceEnvironments,
     listServiceEnvironmentsPaginated,
     listServices,
     updateServiceEnvironment
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageDeployments } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageDeployments } from '../../../services/core/authorization';
+import { PAGE_BG } from '../../../theme/tokens';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import PaginationBar from '../../../components/PaginationBar';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
@@ -30,9 +31,7 @@ import CreateForm from './CreateForm';
 import RelationCard from './RelationCard';
 import RelationsToolbar from './RelationsToolbar';
 import StatsBar from './StatsBar';
-import { P, type Option } from './palette';
-
-const cardSx = { borderRadius: 3, border: `1px solid ${P.border}`, backgroundColor: P.surface, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' };
+import { P, type Option } from '../../../theme/palette';
 
 const ServiceEnvironmentsPage = () => {
     const { t } = useTranslation();
@@ -171,7 +170,7 @@ const ServiceEnvironmentsPage = () => {
     };
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #E4477D, #BE185D)', mb: 3 }} />
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
@@ -236,33 +235,11 @@ const ServiceEnvironmentsPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filteredRelations.length === 0 ? (
-                <Card sx={{ ...cardSx, textAlign: 'center' }}>
-                    <CardContent sx={{ py: 6 }}>
-                        <Box
-                            sx={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: 2.5,
-                                background: P.gradientMuted,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                mx: 'auto',
-                                mb: 1.5
-                            }}
-                        >
-                            <LinkIcon sx={{ fontSize: 28, color: P.brand }} />
-                        </Box>
-                        <Typography sx={{ fontWeight: 700, color: P.text, mb: 0.5 }}>
-                            {search ? t('serviceEnvs.noMatching') : t('serviceEnvs.noRelations')}
-                        </Typography>
-                        <Typography sx={{ color: P.muted, fontSize: 14 }}>
-                            {search
-                                ? t('serviceEnvs.adjustSearch')
-                                : t('serviceEnvs.linkToStart')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<LinkIcon />}
+                    title={search ? t('serviceEnvs.noMatching') : t('serviceEnvs.noRelations')}
+                    message={search ? t('serviceEnvs.adjustSearch') : t('serviceEnvs.linkToStart')}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
@@ -309,8 +286,8 @@ const ServiceEnvironmentsPage = () => {
                     <DialogContentText>{t('serviceEnvs.confirmDeleteBody')}</DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button onClick={() => setConfirmDeleteId(null)} variant="outlined" sx={{ borderRadius: 2, textTransform: 'capitalize', fontWeight: 700 }}>{t('common.cancel')}</Button>
-                    <Button onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)} variant="contained" sx={{ color: '#fff', background: '#DC2626', borderRadius: 2, textTransform: 'capitalize', fontWeight: 700, '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
+                    <Button onClick={() => setConfirmDeleteId(null)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>{t('common.cancel')}</Button>
+                    <Button onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)} variant="contained" color="error">{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

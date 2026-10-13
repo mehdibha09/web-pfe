@@ -1,10 +1,5 @@
 export const BREAKDOWN_TYPES = ['COMPUTE', 'STORAGE', 'NETWORK', 'BACKUP', 'OS'] as const;
 
-export const modeColors: Record<string, { bg: string; color: string }> = {
-    VM: { bg: '#E9E6F6', color: '#5E4B9E' },
-    SERVICE: { bg: '#E4EEF7', color: '#2E5C8A' }
-};
-
 export interface BreakdownRow {
     type: string;
     unitCost: number;

@@ -1,4 +1,4 @@
-import type { AuthUser } from './authService';
+import type { AuthUser } from '../authService';
 
 const USER_KEY = 'authUser';
 const PENDING_2FA_KEY = 'pendingTwoFactorSession';

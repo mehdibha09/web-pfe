@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.exception.ApiException;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sSecretResponse;
@@ -38,6 +39,17 @@ public class K8sSecretController {
 
     private final KubernetesClient kubernetesClient;
     private final AuditService auditService;
+
+    // Empêche l'injection YAML via des clés user-controlled : une clé contenant
+    // ':', '\n', ' ' etc. permettrait d'injecter des champs YAML arbitraires.
+    private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[A-Za-z0-9._-]+$");
+
+    private static void validateKey(String key) {
+        if (key == null || !SAFE_KEY.matcher(key).matches()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_KEY",
+                    "Invalid data key '" + key + "': only [A-Za-z0-9._-] are allowed");
+        }
+    }
 
     @GetMapping
     public ResponseEntity<Page<K8sSecretResponse>> list(
@@ -72,23 +84,17 @@ public class K8sSecretController {
         StringBuilder yamlSpec = new StringBuilder();
         yamlSpec.append("type: ").append(type).append("\n");
 
-        if (dto.labels() != null && !dto.labels().isEmpty()) {
-            yamlSpec.append("metadata:\n  labels:\n");
-            for (var entry : dto.labels().entrySet()) {
-                yamlSpec.append("    ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-            }
-        }
-
         yamlSpec.append("data:\n");
         if (dto.data() != null) {
             for (var entry : dto.data().entrySet()) {
+                validateKey(entry.getKey());
                 String encoded = Base64.getEncoder().encodeToString(
                     entry.getValue() != null ? entry.getValue().getBytes() : "".getBytes());
                 yamlSpec.append("  ").append(entry.getKey()).append(": ").append(encoded).append("\n");
             }
         }
 
-        kubernetesClient.createOrUpdateSecret(dto.name(), ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateSecret(dto.name(), ns, yamlSpec.toString(), dto.labels());
 
         K8sSecretResponse result = kubernetesClient.getSecret(dto.name(), ns);
         if (result == null) {
@@ -111,13 +117,14 @@ public class K8sSecretController {
         yamlSpec.append("data:\n");
         if (dto.data() != null) {
             for (var entry : dto.data().entrySet()) {
+                validateKey(entry.getKey());
                 String encoded = Base64.getEncoder().encodeToString(
                     entry.getValue() != null ? entry.getValue().getBytes() : "".getBytes());
                 yamlSpec.append("  ").append(entry.getKey()).append(": ").append(encoded).append("\n");
             }
         }
 
-        kubernetesClient.createOrUpdateSecret(name, ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateSecret(name, ns, yamlSpec.toString(), dto.labels());
 
         K8sSecretResponse result = kubernetesClient.getSecret(name, ns);
         if (result == null) {
@@ -141,7 +148,8 @@ public class K8sSecretController {
     public ResponseEntity<Void> deleteBatch(@RequestBody Map<String, List<String>> body) {
         UserContext.requirePermission("K8S_MANAGE");
         List<String> names = body.get("names");
-        String namespace = TenantNamespaceResolver.resolve(body.getOrDefault("namespace", List.of("default")).get(0));
+        List<String> nsList = body.getOrDefault("namespace", List.of());
+        String namespace = TenantNamespaceResolver.resolve(nsList.isEmpty() ? null : nsList.get(0));
         if (names != null) {
             for (String name : names) {
                 kubernetesClient.deleteSecret(name, namespace);

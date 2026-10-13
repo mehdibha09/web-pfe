@@ -2,6 +2,7 @@ package com.auth.service.config;
 
 import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,9 @@ public class AuthCookieWriter {
     private static final long ACCESS_COOKIE_TTL_SECONDS = 7 * 24 * 3600;
     private static final long REFRESH_COOKIE_TTL_SECONDS = 7 * 24 * 3600;
 
+    @Value("${app.cookie.secure:true}")
+    private boolean secureCookies;
+
     public void setAuthCookies(HttpServletResponse response, AuthTokensResponse tokens) {
         if (tokens == null) {
             return;
@@ -35,7 +39,7 @@ public class AuthCookieWriter {
     private void addCookie(HttpServletResponse response, String name, String value, long maxAgeSeconds) {
         ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
-                .secure(false)
+                .secure(secureCookies)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))

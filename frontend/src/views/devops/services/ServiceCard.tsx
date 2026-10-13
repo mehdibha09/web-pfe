@@ -13,7 +13,7 @@ import {
 import MyCustomButton from '../../../components/MyCustomButton';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { getStatusColor } from './constants';
-import { C, BTN } from '../../../theme/tokens';
+import { C, BTN, R } from '../../../theme/tokens';
 
 type ServiceCardProps = {
     service: ServiceResponse;
@@ -104,18 +104,18 @@ const ServiceCard = ({ service, onRefresh, allowManage = false, canViewAudit = f
             </CardContent>
             {!editing && (
                 <CardActions sx={{ px: 3, pb: 2.5, gap: 0.5, flexWrap: 'wrap' }}>
-                    {canViewAudit && <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/audit-logs')} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>}
+                    {canViewAudit && <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => navigate('/admin/audit-logs')} sx={{ borderRadius: R.control, fontWeight: 'bold', color: '#2E5C8A', borderColor: '#B0C4DE' }}>{t('services.viewDeployments')}</Button>}
                     {allowManage && (
                         <>
-                            <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
-                            <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold' }}>{t('common.delete')}</Button>
+                            <Button size="small" variant="outlined" onClick={() => startEdit(service)} sx={{ borderRadius: R.control, fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.edit')}</Button>
+                            <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(service.id)} sx={{ borderRadius: R.control, fontWeight: 'bold' }}>{t('common.delete')}</Button>
                         </>
                     )}
                 </CardActions>
             )}
             {editing && (
                 <CardActions sx={{ px: 3, pb: 2.5, justifyContent: 'flex-end', gap: 1 }}>
-                    <Button variant="outlined" onClick={cancelEdit} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.cancel')}</Button>
+                    <Button variant="outlined" onClick={cancelEdit} sx={{ borderRadius: R.control, fontWeight: 'bold', color: C.muted, borderColor: C.border }}>{t('common.cancel')}</Button>
                     <MyCustomButton onClick={() => handleUpdate(service.id)} sx={{ px: 3 }}>{t('common.save')}</MyCustomButton>
                 </CardActions>
             )}

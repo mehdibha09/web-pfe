@@ -146,6 +146,7 @@ export interface K8sNetworkPolicyResponse {
   egressRules: string[];
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sConfigMapRequest {
@@ -165,6 +166,7 @@ export interface K8sConfigMapResponse {
   dataEntries: number;
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sServiceAccountRequest {
@@ -178,10 +180,12 @@ export interface K8sServiceAccountResponse {
   name: string;
   namespace: string;
   labels: Record<string, string>;
+  annotations: Record<string, string>;
   secretsCount: number;
   secretNames: string[];
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface PolicyRule {
@@ -206,6 +210,7 @@ export interface K8sRoleResponse {
   rulesCount: number;
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface RoleBindingSubject {
@@ -232,6 +237,7 @@ export interface K8sRoleBindingResponse {
   subjectsSummary: string[];
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sSecretRequest {
@@ -251,6 +257,7 @@ export interface K8sSecretResponse {
   labels: Record<string, string>;
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sHpaRequest {
@@ -274,6 +281,7 @@ export interface K8sHpaResponse {
   memoryTargetAverageUtilization?: number;
   memoryCurrentAverageUtilization?: number;
   status: string;
+  simulated?: boolean;
 }
 
 export interface K8sNamespaceResponse {
@@ -282,6 +290,7 @@ export interface K8sNamespaceResponse {
   labels: Record<string, string>;
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sNamespaceRequest {
@@ -308,6 +317,7 @@ export interface K8sServiceResponse {
   labels: Record<string, string>;
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sServiceRequest {
@@ -348,6 +358,7 @@ export interface K8sIngressResponse {
   addresses: string[];
   createdAt: string;
   apiVersion: string;
+  simulated?: boolean;
 }
 
 export interface K8sIngressRequest {

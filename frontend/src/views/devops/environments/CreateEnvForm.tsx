@@ -17,7 +17,7 @@ import { toast } from 'react-toastify';
 
 import { createEnvironment } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import { C } from './constants';
 
 interface CreateEnvFormProps {

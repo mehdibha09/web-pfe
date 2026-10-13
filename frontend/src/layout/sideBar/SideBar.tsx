@@ -1,5 +1,5 @@
 import { Box, useMediaQuery } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Body from './components/Body';
 import Footer from './components/Footer';
 import Header from './components/Header';
@@ -23,11 +23,17 @@ const SideBar = ({ setSideBarWidth, mobileOpen, onMobileClose }: SideBarProps) =
         if (isTablet) setIsClosed(true);
     }, [isTablet]);
 
-    useEffect(() => {
-        setSideBarWidth(isMobile ? 0 : (isClosed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED));
-    }, [isClosed, isMobile, setSideBarWidth]);
+    // Stable — only runs when width value actually changes (not every render)
+    const applyWidth = useCallback((w: number) => setSideBarWidth(w), [setSideBarWidth]);
 
-    const switchMenuClosing = () => setIsClosed((prev) => !prev);
+    useEffect(() => {
+        const targetWidth = isMobile ? 0 : (isClosed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED);
+        applyWidth(targetWidth);
+    }, [isClosed, isMobile, applyWidth]);
+
+    const switchMenuClosing = useCallback(() => setIsClosed((prev) => !prev), []);
+
+    const closeOnMobile = useCallback(() => onMobileClose(), [onMobileClose]);
 
     const width = isMobile ? SIDEBAR_EXPANDED : (isClosed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED);
 
@@ -35,7 +41,7 @@ const SideBar = ({ setSideBarWidth, mobileOpen, onMobileClose }: SideBarProps) =
         <>
             {isMobile && mobileOpen && (
                 <Box
-                    onClick={onMobileClose}
+                    onClick={closeOnMobile}
                     sx={{
                         position: 'fixed',
                         inset: 0,

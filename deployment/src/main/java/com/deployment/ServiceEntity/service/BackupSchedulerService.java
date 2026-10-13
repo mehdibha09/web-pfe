@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.domain.Backup;
-import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.infra.VmClient;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.repository.BackupRepository;
 import com.deployment.ServiceEntity.repository.VmRepository;
@@ -37,6 +37,9 @@ public class BackupSchedulerService {
         log.info("Running scheduled backups");
         List<Vm> runningVms = vmRepository.findByStatus(Vm.Status.RUNNING);
         for (Vm vm : runningVms) {
+            if (!vm.isBackupEnabled()) {
+                continue;
+            }
             try {
                 createScheduledBackup(vm);
             } catch (Exception e) {
@@ -76,9 +79,7 @@ public class BackupSchedulerService {
 
     private void cleanupOldBackups() {
         Instant cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
-        List<Backup> oldBackups = backupRepository.findAll().stream()
-                .filter(b -> b.getCreatedAt().isBefore(cutoff))
-                .toList();
+        List<Backup> oldBackups = backupRepository.findByCreatedAtBefore(cutoff);
         for (Backup backup : oldBackups) {
             try {
                 if (backup.getFilePath() != null) {

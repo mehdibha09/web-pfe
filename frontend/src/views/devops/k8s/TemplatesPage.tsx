@@ -11,8 +11,9 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s, isSuperAdmin } from '../../../services/core/authorization';
+import { PAGE_BG } from '../../../theme/tokens';
 import type { DeploymentTemplate, DeploymentTemplateRequest } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
@@ -52,6 +53,7 @@ const TemplatesPage = () => {
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
     const allowManage = canManageK8s(getStoredUser()!);
+    const allowPublic = isSuperAdmin(getStoredUser()!);
     const { errors, setFieldError, clearFieldError } = useInlineErrors();
 
     const load = async (quiet = false) => {
@@ -122,11 +124,15 @@ const TemplatesPage = () => {
         }
         setSaving(true);
         try {
+            const payload: DeploymentTemplateRequest = {
+                ...form,
+                publicTemplate: allowPublic && form.publicTemplate
+            };
             if (editingId) {
-                await k8sService.updateTemplate(editingId, form);
+                await k8sService.updateTemplate(editingId, payload);
                 toast.success(t('k8s.templates.updatedToast'));
             } else {
-                await k8sService.createTemplate(form);
+                await k8sService.createTemplate(payload);
                 toast.success(t('k8s.templates.createdToast'));
             }
             setDialogOpen(false);
@@ -151,7 +157,7 @@ const TemplatesPage = () => {
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #BE185D, #9D174D)', mb: 3 }} />
 
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
@@ -304,14 +310,16 @@ const TemplatesPage = () => {
                                     <LockIcon sx={{ fontSize: 16, color: '#065F46' }} /> {t('k8s.templates.private')}
                                 </Box>
                             } />
-                            <FormControlLabel value="PUBLIC" control={<Radio size="small" />} label={
+                            <FormControlLabel value="PUBLIC" control={<Radio size="small" disabled={!allowPublic} />} label={
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <PublicIcon sx={{ fontSize: 16, color: '#BE185D' }} /> {t('k8s.templates.public')}
+                                    <PublicIcon sx={{ fontSize: 16, color: allowPublic ? '#BE185D' : C.subtle }} /> {t('k8s.templates.public')}
                                 </Box>
                             } />
                         </RadioGroup>
                         <Typography variant="caption" sx={{ color: C.muted }}>
-                            {t('k8s.templates.visibilityHint')}
+                            {allowPublic
+                                ? t('k8s.templates.visibilityHint')
+                                : t('k8s.templates.visibilitySuperAdminOnly')}
                         </Typography>
 
                         <Divider sx={{ my: 0.5 }} />

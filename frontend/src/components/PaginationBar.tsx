@@ -3,7 +3,7 @@ import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import FirstPageIcon from '@mui/icons-material/FirstPage';
 import LastPageIcon from '@mui/icons-material/LastPage';
-import { C } from '../theme/tokens';
+import { C, R } from '../theme/tokens';
 
 interface PaginationBarProps {
     page: number;
@@ -21,7 +21,7 @@ const PaginationBar = ({ page, pageCount, total, onPageChange }: PaginationBarPr
     const btnSx = {
         minWidth: 36,
         height: 36,
-        borderRadius: 2,
+        borderRadius: `${R.control}px`,
         fontWeight: 700,
         fontSize: 14,
         color: C.text,
@@ -33,7 +33,7 @@ const PaginationBar = ({ page, pageCount, total, onPageChange }: PaginationBarPr
     const activePageSx = {
         minWidth: 36,
         height: 36,
-        borderRadius: 2,
+        borderRadius: `${R.control}px`,
         fontWeight: 700,
         fontSize: 14,
         backgroundColor: C.brand,
@@ -53,8 +53,8 @@ const PaginationBar = ({ page, pageCount, total, onPageChange }: PaginationBarPr
             justifyContent: 'space-between',
             px: 3,
             py: 2,
-            borderRadius: 3,
-            backgroundColor: '#FAFAFF',
+            borderRadius: `${R.card}px`,
+            backgroundColor: C.surfaceAlt,
             border: `1px solid ${C.border}`,
             mt: 3
         }}>

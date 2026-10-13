@@ -83,6 +83,24 @@ spec:
                   name: backend-config
                   key: MAIL_FROM
 
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: MAIL_USERNAME
+
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: MAIL_PASSWORD
+
+            - name: FRONTEND_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: FRONTEND_BASE_URL
+
           readinessProbe:
             httpGet:
               path: /actuator/health

@@ -15,10 +15,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import {
     canAccessAlerts,
     canAccessAuditLogs,
@@ -40,7 +40,7 @@ import {
     canAccessUsers,
     canAccessVMs,
     isSuperAdmin
-} from '../../../services/authorization';
+} from '../../../services/core/authorization';
 import { C } from '../../../theme/tokens';
 import Module from './Module';
 import SectionHeader from './SectionHeader';
@@ -61,10 +61,12 @@ const Body = ({ isMenuClosed }: BodyProps) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
     const currentLink = location.pathname.replace(/^\//, '');
-    const [user, setUser] = useState(getStoredUser());
+    const [user, setUser] = useState(getStoredUser);
+    const userRef = useRef(user);
+    if (userRef.current !== user) userRef.current = user;
 
     useEffect(() => {
-        const syncUser = () => setUser(getStoredUser());
+        const syncUser = () => setUser(getStoredUser);
         window.addEventListener('authUserUpdated', syncUser);
         window.addEventListener('storage', syncUser);
         return () => {
@@ -73,59 +75,81 @@ const Body = ({ isMenuClosed }: BodyProps) => {
         };
     }, []);
 
-    const sections: { label: string; modules: ModuleDef[] }[] = [
-        {
-            label: t('nav.general'),
-            modules: [
-                { label: t('nav.dashboard'), link: 'admin/dashboard', icon: DashboardIcon, visible: true },
-            ]
-        },
-        {
-            label: t('nav.administration'),
-            modules: [
-                { label: t('nav.users'), link: 'admin/users', icon: PeopleAltIcon, visible: user ? canAccessUsers(user) : false },
-                { label: t('nav.roles'), link: 'admin/roles', icon: Person2Icon, visible: user ? canAccessRoles(user) : false },
-                { label: t('nav.permissions'), link: 'admin/permissions', icon: LockOutlinedIcon, visible: user ? canAccessPermissions(user) : false },
-                { label: t('nav.tenants'), link: 'admin/tenants', icon: DomainAddIcon, visible: user ? canAccessTenants(user) : false },
-                { label: t('nav.sessions'), link: 'admin/sessions', icon: DevicesIcon, visible: user ? canAccessSessions(user) : false },
-                { label: t('nav.auditLogs'), link: 'admin/audit-logs', icon: ChangeHistoryIcon, visible: user ? canAccessAuditLogs(user) : false },
-            ]
-        },
-        {
-            label: t('nav.devops'),
-            modules: [
-                { label: t('nav.dashboard'), link: 'admin/devops/dashboard', icon: DashboardIcon, visible: user ? (canAccessDashboard(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.services'), link: 'admin/devops/services', icon: DashboardIcon, visible: user ? (canAccessServices(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.environments'), link: 'admin/devops/environments', icon: DomainAddIcon, visible: user ? (canAccessEnvironments(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.serviceEnvs'), link: 'admin/devops/service-environments', icon: DevicesIcon, visible: user ? (canAccessServiceEnvironments(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.metrics'), link: 'admin/devops/metrics', icon: ChangeHistoryIcon, visible: user ? (canAccessMetrics(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.monitoring'), link: 'admin/devops/monitoring', icon: ChangeHistoryIcon, visible: user ? (canAccessMetrics(user) && !isSuperAdmin(user)) : false },
-            ]
-        },
-        {
-            label: t('nav.infrastructure'),
-            modules: [
-                { label: t('nav.vms'), link: 'admin/devops/vms', icon: DevicesIcon, visible: user ? (canAccessVMs(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.kubernetes'), link: 'admin/devops/k8s', icon: AccountTreeIcon, visible: user ? (canAccessK8s(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.backups'), link: 'admin/devops/backups', icon: DevicesIcon, visible: user ? (canAccessBackups(user) && !isSuperAdmin(user)) : false },
-            ]
-        },
-        {
-            label: t('nav.finance'),
-            modules: [
-                { label: t('nav.rateCard'), link: 'admin/pricing', icon: PriceChangeIcon, visible: user ? canAccessPricing(user) : false },
-                { label: t('nav.costs'), link: 'admin/devops/costs', icon: AttachMoneyIcon, visible: user ? canAccessCosts(user) : false },
-                { label: t('nav.quotas'), link: 'admin/devops/quotas', icon: GavelIcon, visible: user ? canAccessQuotas(user) : false },
-            ]
-        },
-        {
-            label: t('nav.system'),
-            modules: [
-                { label: t('nav.alerts'), link: 'admin/devops/alerts', icon: NotificationsActiveIcon, visible: user ? (canAccessAlerts(user) && !isSuperAdmin(user)) : false },
-                { label: t('nav.notifications'), link: 'admin/devops/notifications', icon: NotificationsActiveIcon, visible: user ? (canAccessNotifications(user) && !isSuperAdmin(user)) : false },
-            ]
-        }
-    ];
+    // Stable — only rebuilds when locale or user changes (not on every render)
+    const sections = useMemo((): { label: string; modules: ModuleDef[] }[] => {
+        const u = userRef.current;
+        const nav = (link: string, labelKey: string, Icon: React.ElementType, visible: boolean): ModuleDef => ({
+            label: t(labelKey),
+            link,
+            icon: Icon,
+            visible,
+        });
+        return [
+            {
+                label: t('nav.general'),
+                modules: [nav('admin/dashboard', 'nav.dashboard', DashboardIcon, true)],
+            },
+            {
+                label: t('nav.administration'),
+                modules: [
+                    nav('admin/users', 'nav.users', PeopleAltIcon, u ? canAccessUsers(u) : false),
+                    nav('admin/roles', 'nav.roles', Person2Icon, u ? canAccessRoles(u) : false),
+                    nav('admin/permissions', 'nav.permissions', LockOutlinedIcon, u ? canAccessPermissions(u) : false),
+                    nav('admin/tenants', 'nav.tenants', DomainAddIcon, u ? canAccessTenants(u) : false),
+                    nav('admin/sessions', 'nav.sessions', DevicesIcon, u ? canAccessSessions(u) : false),
+                    nav('admin/audit-logs', 'nav.auditLogs', ChangeHistoryIcon, u ? canAccessAuditLogs(u) : false),
+                ],
+            },
+            {
+                label: t('nav.devops'),
+                modules: [
+                    nav('admin/devops/dashboard', 'nav.dashboard', DashboardIcon, u ? (canAccessDashboard(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/services', 'nav.services', DashboardIcon, u ? (canAccessServices(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/environments', 'nav.environments', DomainAddIcon, u ? (canAccessEnvironments(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/service-environments', 'nav.serviceEnvs', DevicesIcon, u ? (canAccessServiceEnvironments(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/metrics', 'nav.metrics', ChangeHistoryIcon, u ? (canAccessMetrics(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/monitoring', 'nav.monitoring', ChangeHistoryIcon, u ? (canAccessMetrics(u) && !isSuperAdmin(u)) : false),
+                ],
+            },
+            {
+                label: t('nav.infrastructure'),
+                modules: [
+                    nav('admin/devops/vms', 'nav.vms', DevicesIcon, u ? (canAccessVMs(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/k8s', 'nav.kubernetes', AccountTreeIcon, u ? (canAccessK8s(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/backups', 'nav.backups', DevicesIcon, u ? (canAccessBackups(u) && !isSuperAdmin(u)) : false),
+                ],
+            },
+            {
+                label: t('nav.finance'),
+                modules: [
+                    nav('admin/pricing', 'nav.rateCard', PriceChangeIcon, u ? canAccessPricing(u) : false),
+                    nav('admin/devops/costs', 'nav.costs', AttachMoneyIcon, u ? canAccessCosts(u) : false),
+                    nav('admin/devops/quotas', 'nav.quotas', GavelIcon, u ? canAccessQuotas(u) : false),
+                ],
+            },
+            {
+                label: t('nav.system'),
+                modules: [
+                    nav('admin/devops/alerts', 'nav.alerts', NotificationsActiveIcon, u ? (canAccessAlerts(u) && !isSuperAdmin(u)) : false),
+                    nav('admin/devops/notifications', 'nav.notifications', NotificationsActiveIcon, u ? (canAccessNotifications(u) && !isSuperAdmin(u)) : false),
+                ],
+            },
+        ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [t, user]);
+
+    // Stable — not recreated on each render
+    const profileModule = useMemo(() => (
+        <Module
+            key="profile"
+            label={t('nav.profile')}
+            link="profile"
+            selectedIndex={currentLink}
+            isMenuClosed={isMenuClosed}
+            icon={AccountCircleIcon}
+        />
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [t, currentLink, isMenuClosed]);
 
     if (!user) {
         return (
@@ -149,17 +173,6 @@ const Body = ({ isMenuClosed }: BodyProps) => {
             </Box>
         );
     }
-
-    const profileModule = (
-        <Module
-            key="profile"
-            label={t('nav.profile')}
-            link="profile"
-            selectedIndex={currentLink}
-            isMenuClosed={isMenuClosed}
-            icon={AccountCircleIcon}
-        />
-    );
 
     return (
         <Box sx={{ height: 'auto', marginTop: '10px' }}>

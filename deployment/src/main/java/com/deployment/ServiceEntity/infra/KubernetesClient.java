@@ -1,4 +1,4 @@
-package com.deployment.ServiceEntity.domain;
+package com.deployment.ServiceEntity.infra;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.deployment.ServiceEntity.domain.K8sDeployment;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sNamespaceResponse;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sServiceResponse;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sIngressResponse;
@@ -95,6 +96,7 @@ public class KubernetesClient {
             client().apps().deployments().inNamespace(deployment.getNamespace()).resource(d).create();
         } catch (Exception e) {
             log.error("Failed to create deployment {}: {}", deployment.getName(), e.getMessage());
+            throw new IllegalStateException("Failed to create deployment '" + deployment.getName() + "' in Kubernetes: " + e.getMessage(), e);
         }
     }
 
@@ -107,6 +109,7 @@ public class KubernetesClient {
             client().apps().deployments().inNamespace(namespace).withName(name).scale(replicas);
         } catch (Exception e) {
             log.error("Failed to scale deployment {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to scale deployment '" + name + "' to " + replicas + " replicas: " + e.getMessage(), e);
         }
     }
 
@@ -126,6 +129,7 @@ public class KubernetesClient {
                             .editMetadata().addToAnnotations(annotations).endMetadata().build());
         } catch (Exception e) {
             log.error("Failed to restart deployment {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to restart deployment '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -154,6 +158,7 @@ public class KubernetesClient {
             }
         } catch (Exception e) {
             log.error("Failed to rollback deployment {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to rollback deployment '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -166,16 +171,14 @@ public class KubernetesClient {
             client().apps().deployments().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete deployment {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete deployment '" + name + "': " + e.getMessage(), e);
         }
     }
 
     public List<K8sPodResponse> getPods(String name, String namespace) {
-        if (!available()) {
-            return simulatePods(name, namespace);
-        }
         try {
             List<Pod> pods = client().pods().inNamespace(namespace).withLabel("app", name).list().getItems();
-            if (pods.isEmpty()) return simulatePods(name, namespace);
+            if (pods.isEmpty()) return List.of();
             List<K8sPodResponse> result = new ArrayList<>();
             for (Pod p : pods) {
                 String podName = p.getMetadata().getName();
@@ -195,10 +198,10 @@ public class KubernetesClient {
                 String age = computeAge(p.getMetadata().getCreationTimestamp());
                 result.add(new K8sPodResponse(podName, phase, readyContainers + "/" + totalContainers, restarts, age, ns));
             }
-            return result.isEmpty() ? simulatePods(name, namespace) : result;
+            return result;
         } catch (Exception e) {
-            log.warn("Failed to get pods, returning simulated data: {}", e.getMessage());
-            return simulatePods(name, namespace);
+            log.warn("Failed to get pods for {}: {}", name, e.getMessage());
+            return List.of();
         }
     }
 
@@ -309,6 +312,7 @@ public class KubernetesClient {
             client().autoscaling().v2().horizontalPodAutoscalers().inNamespace(namespace).resource(hpa).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update HPA for {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update HPA for '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -331,6 +335,7 @@ public class KubernetesClient {
             client().autoscaling().v2().horizontalPodAutoscalers().inNamespace(namespace).withName(name + "-hpa").delete();
         } catch (Exception e) {
             log.error("Failed to delete HPA for {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete HPA for '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -404,16 +409,17 @@ public class KubernetesClient {
                   name: %s
                   namespace: %s
                 spec:
-                  %s
+                %s
                 """, name, namespace, yamlSpec);
             NetworkPolicy np = io.fabric8.kubernetes.client.utils.Serialization.unmarshal(full, NetworkPolicy.class);
             client().network().v1().networkPolicies().inNamespace(namespace).resource(np).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update NetworkPolicy {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update NetworkPolicy '" + name + "': " + e.getMessage(), e);
         }
     }
 
-    public void createOrUpdateConfigMap(String name, String namespace, String yamlSpec) {
+    public void createOrUpdateConfigMap(String name, String namespace, String yamlSpec, Map<String, String> labels) {
         if (!available()) {
             log.info("Kubernetes not available — simulating create/update ConfigMap {}", name);
             return;
@@ -422,6 +428,7 @@ public class KubernetesClient {
             createNamespace(namespace);
         }
         try {
+            String labelsYaml = buildLabelsYaml(labels);
             String yaml = String.format("""
                 apiVersion: v1
                 kind: ConfigMap
@@ -429,15 +436,17 @@ public class KubernetesClient {
                   name: %s
                   namespace: %s
                 %s
-                """, name, namespace, yamlSpec);
+                %s
+                """, name, namespace, labelsYaml, yamlSpec);
             ConfigMap cm = io.fabric8.kubernetes.client.utils.Serialization.unmarshal(yaml, ConfigMap.class);
             client().configMaps().inNamespace(namespace).resource(cm).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update ConfigMap {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update ConfigMap '" + name + "': " + e.getMessage(), e);
         }
     }
 
-    public void createOrUpdateSecret(String name, String namespace, String yamlSpec) {
+    public void createOrUpdateSecret(String name, String namespace, String yamlSpec, Map<String, String> labels) {
         if (!available()) {
             log.info("Kubernetes not available — simulating create/update Secret {}", name);
             return;
@@ -446,6 +455,7 @@ public class KubernetesClient {
             createNamespace(namespace);
         }
         try {
+            String labelsYaml = buildLabelsYaml(labels);
             String yaml = String.format("""
                 apiVersion: v1
                 kind: Secret
@@ -453,15 +463,31 @@ public class KubernetesClient {
                   name: %s
                   namespace: %s
                 %s
-                """, name, namespace, yamlSpec);
+                %s
+                """, name, namespace, labelsYaml, yamlSpec);
             Secret s = io.fabric8.kubernetes.client.utils.Serialization.unmarshal(yaml, Secret.class);
             client().secrets().inNamespace(namespace).resource(s).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update Secret {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update Secret '" + name + "': " + e.getMessage(), e);
         }
     }
 
-    public void createOrUpdateService(String name, String namespace, String yamlSpec) {
+    private String buildMetaMapYaml(String key, Map<String, String> map) {
+        if (map == null || map.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder("  ").append(key).append(":\n");
+        for (var entry : map.entrySet()) {
+            sb.append("    ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** Construit la sous-clé YAML {@code labels} (indentée sous metadata), vide si aucune. */
+    private String buildLabelsYaml(Map<String, String> labels) {
+        return buildMetaMapYaml("labels", labels);
+    }
+
+    public void createOrUpdateService(String name, String namespace, String yamlSpec, Map<String, String> labels) {
         if (!available()) {
             log.info("Kubernetes not available — simulating create/update Service {}", name);
             return;
@@ -470,23 +496,26 @@ public class KubernetesClient {
             createNamespace(namespace);
         }
         try {
+            String labelsYaml = buildLabelsYaml(labels);
             String yaml = String.format("""
                 apiVersion: v1
                 kind: Service
                 metadata:
                   name: %s
                   namespace: %s
+                %s
                 spec:
                 %s
-                """, name, namespace, yamlSpec);
+                """, name, namespace, labelsYaml, yamlSpec);
             Service s = io.fabric8.kubernetes.client.utils.Serialization.unmarshal(yaml, Service.class);
             client().services().inNamespace(namespace).resource(s).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update Service {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update Service '" + name + "': " + e.getMessage(), e);
         }
     }
 
-    public void createOrUpdateIngress(String name, String namespace, String yamlSpec) {
+    public void createOrUpdateIngress(String name, String namespace, String yamlSpec, Map<String, String> labels) {
         if (!available()) {
             log.info("Kubernetes not available — simulating create/update Ingress {}", name);
             return;
@@ -495,19 +524,22 @@ public class KubernetesClient {
             createNamespace(namespace);
         }
         try {
+            String labelsYaml = buildLabelsYaml(labels);
             String yaml = String.format("""
                 apiVersion: networking.k8s.io/v1
                 kind: Ingress
                 metadata:
                   name: %s
                   namespace: %s
+                %s
                 spec:
                 %s
-                """, name, namespace, yamlSpec);
+                """, name, namespace, labelsYaml, yamlSpec);
             Ingress ing = io.fabric8.kubernetes.client.utils.Serialization.unmarshal(yaml, Ingress.class);
             client().network().v1().ingresses().inNamespace(namespace).resource(ing).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update Ingress {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update Ingress '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -548,6 +580,7 @@ public class KubernetesClient {
             client().network().v1().networkPolicies().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete NetworkPolicy {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete NetworkPolicy '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -584,6 +617,7 @@ public class KubernetesClient {
             client().configMaps().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete ConfigMap {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete ConfigMap '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -620,6 +654,7 @@ public class KubernetesClient {
             client().secrets().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete Secret {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete Secret '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -697,10 +732,11 @@ public class KubernetesClient {
             client().namespaces().withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete namespace {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete namespace '" + name + "': " + e.getMessage(), e);
         }
     }
 
-    public void createOrUpdateServiceAccount(String name, String namespace, String yamlSpec) {
+    public void createOrUpdateServiceAccount(String name, String namespace, Map<String, String> labels, Map<String, String> annotations) {
         if (!available()) {
             log.info("Kubernetes not available — simulating create ServiceAccount {}", name);
             return;
@@ -709,6 +745,8 @@ public class KubernetesClient {
             createNamespace(namespace);
         }
         try {
+            String labelsYaml = buildMetaMapYaml("labels", labels);
+            String annotationsYaml = buildMetaMapYaml("annotations", annotations);
             String yaml = String.format("""
                 apiVersion: v1
                 kind: ServiceAccount
@@ -716,12 +754,14 @@ public class KubernetesClient {
                   name: %s
                   namespace: %s
                 %s
-                """, name, namespace, yamlSpec);
+                %s
+                """, name, namespace, labelsYaml, annotationsYaml);
             io.fabric8.kubernetes.api.model.ServiceAccount sa =
                     io.fabric8.kubernetes.client.utils.Serialization.unmarshal(yaml, io.fabric8.kubernetes.api.model.ServiceAccount.class);
             client().serviceAccounts().inNamespace(namespace).resource(sa).createOrReplace();
         } catch (Exception e) {
             log.error("Failed to create/update ServiceAccount {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to create/update ServiceAccount '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -758,6 +798,7 @@ public class KubernetesClient {
             client().serviceAccounts().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete ServiceAccount {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete ServiceAccount '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -790,6 +831,7 @@ public class KubernetesClient {
             }
         } catch (Exception e) {
             log.error("Failed to apply {} {}: {}", kind, name, e.getMessage());
+            throw new IllegalStateException("Failed to apply " + kind + " '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -849,6 +891,7 @@ public class KubernetesClient {
             }
         } catch (Exception e) {
             log.error("Failed to delete {} {}: {}", isClusterRole ? "ClusterRole" : "Role", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete " + (isClusterRole ? "ClusterRole" : "Role") + " '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -880,6 +923,7 @@ public class KubernetesClient {
             }
         } catch (Exception e) {
             log.error("Failed to apply {} {}: {}", kind, name, e.getMessage());
+            throw new IllegalStateException("Failed to apply " + kind + " '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -907,8 +951,32 @@ public class KubernetesClient {
         }
     }
 
+    /**
+     * Récupère un RoleBinding / ClusterRoleBinding réel pour vérifier sa création.
+     * Retourne null si la ressource est absente (pas d'exception levée).
+     */
+    public K8sRoleBindingResponse getRoleBinding(String name, String namespace, boolean isClusterBinding) {
+        try {
+            if (isClusterBinding) {
+                var list = client().rbac().clusterRoleBindings().list();
+                for (var item : list.getItems()) {
+                    if (item.getMetadata() != null && name.equals(item.getMetadata().getName())) {
+                        return K8sRoleBindingResponse.fromK8sList(asJsonMap(list), true).stream()
+                                .filter(r -> name.equals(r.name())).findFirst().orElse(null);
+                    }
+                }
+                return null;
+            }
+            var rb = client().rbac().roleBindings().inNamespace(namespace).withName(name).get();
+            if (rb == null) return null;
+            return K8sRoleBindingResponse.fromK8sJson(asJsonMap(rb), false);
+        } catch (Exception e) {
+            log.warn("Failed to get RoleBinding {}: {}", name, e.getMessage());
+            return null;
+        }
+    }
+
     public void deleteRoleBinding(String name, String namespace, boolean isClusterBinding) {
-        if (!available()) return;
         try {
             if (isClusterBinding) {
                 client().rbac().clusterRoleBindings().withName(name).delete();
@@ -917,6 +985,7 @@ public class KubernetesClient {
             }
         } catch (Exception e) {
             log.error("Failed to delete {} {}: {}", isClusterBinding ? "ClusterRoleBinding" : "RoleBinding", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete " + (isClusterBinding ? "ClusterRoleBinding" : "RoleBinding") + " '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -953,6 +1022,7 @@ public class KubernetesClient {
             client().services().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete Service {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete Service '" + name + "': " + e.getMessage(), e);
         }
     }
 
@@ -989,22 +1059,8 @@ public List<K8sIngressResponse> listIngresses(String namespace) {
             client().network().v1().ingresses().inNamespace(namespace).withName(name).delete();
         } catch (Exception e) {
             log.error("Failed to delete Ingress {}: {}", name, e.getMessage());
+            throw new IllegalStateException("Failed to delete Ingress '" + name + "': " + e.getMessage(), e);
         }
-    }
-
-    private List<K8sPodResponse> simulatePods(String name, String namespace) {
-        int count = ThreadLocalRandom.current().nextInt(1, 4);
-        List<K8sPodResponse> pods = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            pods.add(new K8sPodResponse(
-                    name + "-" + (ThreadLocalRandom.current().nextInt(10000, 99999)) + "-" + i,
-                    "Running",
-                    "1/1",
-                    0,
-                    "1d",
-                    namespace));
-        }
-        return pods;
     }
 
     private String computeAge(String created) {

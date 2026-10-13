@@ -11,7 +11,8 @@ public record K8sServiceAccountResponse(
     int secretsCount,
     List<String> secretNames,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sServiceAccountResponse fromK8sJson(Map<String, Object> json) {
@@ -35,7 +36,7 @@ public record K8sServiceAccountResponse(
                 : List.of();
 
             return new K8sServiceAccountResponse(name, namespace != null ? namespace : "default",
-                labels, secretsCount, secretNames, creationTimestamp, "v1");
+                labels, secretsCount, secretNames, creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -58,6 +59,6 @@ public record K8sServiceAccountResponse(
 
     public static K8sServiceAccountResponse fromSimulated(String name, String namespace) {
         return new K8sServiceAccountResponse(name, namespace, Map.of(), 0, List.of(),
-            java.time.Instant.now().toString(), "v1");
+            java.time.Instant.now().toString(), "v1",true);
     }
 }

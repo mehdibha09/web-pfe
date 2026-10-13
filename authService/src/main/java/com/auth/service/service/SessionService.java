@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.auth.service.config.CacheConfig;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.RolePermission;
@@ -93,6 +95,7 @@ public class SessionService {
     }
 
     @Transactional
+    @CacheEvict(value = CacheConfig.SESSIONS, allEntries = true)
     public AuthActionResponse revokeSession(String authorizationHeader, UUID sessionId) {
         Session currentSession = requireValidSession(authorizationHeader);
         User currentUser = currentSession.getUser();
@@ -105,6 +108,11 @@ public class SessionService {
 
         if (!session.getUser().getId().equals(currentUser.getId())) {
             ensureCanManageSessions(currentUser);
+            // Tenant scoping: a non-super-admin must not revoke a session belonging to another tenant
+            if (!isSuperAdmin(currentUser)
+                    && !session.getUser().getTenant().getId().equals(currentUser.getTenant().getId())) {
+                throw new ForbiddenException("Cannot revoke sessions from another tenant");
+            }
         }
 
         session.setRevokedAt(Instant.now());
@@ -171,8 +179,6 @@ public class SessionService {
                 session.getId(),
                 session.getUser().getId(),
                 session.getUser().getEmail(),
-                session.getAccessToken(),
-                session.getRefreshToken(),
                 session.getExpirationDate(),
                 session.getCreatedAt(),
                 session.getIpAddress(),

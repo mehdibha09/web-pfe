@@ -21,8 +21,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
                         select a from AuditLog a
                         where (:tenantId is null or a.tenant.id = :tenantId)
                           and a.timestamp between :from and :to
-                          and (:action is null or lower(a.action) = lower(:action))
-                          and (:resource is null or lower(a.resource) = lower(:resource))
+                          and (:action is null or lower(a.action) = lower(cast(:action as string)))
+                          and (:resource is null or lower(a.resource) = lower(cast(:resource as string)))
                           and (:userId is null or (a.user is not null and a.user.id = :userId))
                         order by a.timestamp desc
                         """,
@@ -30,8 +30,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
                         select count(a) from AuditLog a
                         where (:tenantId is null or a.tenant.id = :tenantId)
                           and a.timestamp between :from and :to
-                          and (:action is null or lower(a.action) = lower(:action))
-                          and (:resource is null or lower(a.resource) = lower(:resource))
+                          and (:action is null or lower(a.action) = lower(cast(:action as string)))
+                          and (:resource is null or lower(a.resource) = lower(cast(:resource as string)))
                           and (:userId is null or (a.user is not null and a.user.id = :userId))
                         """)
         Page<AuditLog> search(@Param("tenantId") UUID tenantId,

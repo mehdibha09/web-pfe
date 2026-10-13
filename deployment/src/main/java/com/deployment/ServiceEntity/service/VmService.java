@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import org.springframework.data.domain.Page;
@@ -12,10 +13,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.domain.Metric;
-import com.deployment.ServiceEntity.domain.DirectSshVmClient;
+import com.deployment.ServiceEntity.infra.DirectSshVmClient;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
-import com.deployment.ServiceEntity.domain.VmClient;
-import com.deployment.ServiceEntity.domain.VagrantSshConfig;
+import com.deployment.ServiceEntity.infra.VmClient;
+import com.deployment.ServiceEntity.infra.VagrantSshConfig;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.BackupRepository;
@@ -30,6 +31,7 @@ import com.deployment.ServiceEntity.web.dto.vm.VmStatusResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -78,12 +80,6 @@ public class VmService {
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
     public VmResponse create(VmRequest req) {
-
-        log.info("VM REQUEST name={}", req.getName());
-        log.info("VM REQUEST tenantId={}", req.getTenantId());
-        log.info("VM REQUEST environmentId={}", req.getServiceEnvironmentId());
-        log.info("VM REQUEST os={}", req.getOs());
-
         if (req.getTenantId() == null) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -115,7 +111,9 @@ public class VmService {
 
         vm.setOs(req.getOs());
 
-        vm.setTenantId(req.getTenantId());
+        // Le tenant est TOUJOURS dérivé du contexte authentifié (jamais du client),
+        // cohérent avec EnvironmentController/ServiceEnvironmentController.
+        vm.setTenantId(UserContext.getTenantId());
 
         vm.setServiceEnvironmentId(
                 req.getServiceEnvironmentId());
@@ -143,10 +141,6 @@ public class VmService {
         log.info("Vagrant path generated={}", vagrantPath);
 
         Vm saved = vmRepository.saveAndFlush(vm);
-
-        log.info("VM saved id={}", saved.getId());
-        log.info("VM status={}", saved.getStatus());
-        log.info("VM path={}", saved.getVagrantPath());
 
         provisioningService.provisionVmAsync(
                 saved.getId());
@@ -218,9 +212,17 @@ public class VmService {
         vm.setDisk(req.getDisk());
         vm.setServiceEnvironmentId(req.getServiceEnvironmentId());
         vm.setUpdatedBy(UserContext.getUserId());
+        // Re-applique le quota à la modification (sinon on peut dépasser la limite
+        // en éditant cpu/ram/disk). La VM éditée est exclue de l'usage courant.
+        if (req.getServiceEnvironmentId() != null) {
+            quotaEnforcementService.enforceVmUpdate(
+                    req.getServiceEnvironmentId(), id,
+                    req.getCpu(), req.getRam(), req.getDisk());
+        }
         return VmResponse.from(vmRepository.save(vm));
     }
 
+    @Transactional
     public void delete(UUID id) {
         Vm vm = requireOwnedVm(id);
         backupRepository.deleteByVmId(id);
@@ -229,11 +231,20 @@ public class VmService {
         vmRepository.delete(vm);
     }
 
+    @Transactional
     public void deleteByServiceEnvironment(UUID serviceEnvironmentId) {
         List<Vm> vms = vmRepository.findByServiceEnvironmentId(serviceEnvironmentId);
         for (Vm vm : vms) {
             backupRepository.deleteByVmId(vm.getId());
             metricRepository.deleteByVmId(vm.getId());
+            // Détruit la VM réelle comme delete(UUID) : sinon la cascade supprime les
+            // lignes DB mais laisse la VM orpheline. On isole chaque échec pour ne pas
+            // interrompre le reste de la cascade.
+            try {
+                vagrantClient.destroy(vm.getVagrantPath());
+            } catch (RuntimeException e) {
+                log.warn("Failed to destroy VM {} during cascade delete: {}", vm.getName(), e.getMessage());
+            }
         }
         vmRepository.deleteByServiceEnvironmentId(serviceEnvironmentId);
     }
@@ -248,6 +259,7 @@ public class VmService {
         if ("running".equals(currentStatus)) {
             if (vm.getStatus() != Vm.Status.RUNNING) {
                 vm.setStatus(Vm.Status.RUNNING);
+                vm.setStartedAt(Instant.now());
                 vmRepository.save(vm);
             }
             throw new ApiException(HttpStatus.CONFLICT, "CONFLICT", "VM is already running");
@@ -269,6 +281,7 @@ public class VmService {
         }
 
         vm.setStatus(Vm.Status.RUNNING);
+        vm.setStartedAt(Instant.now());
         Vm saved = vmRepository.save(vm);
 
         // Active la collecte de métriques VirtualBox pour cette VM
@@ -300,7 +313,9 @@ public class VmService {
         try {
             vagrantClient.halt(vm.getVagrantPath());
         } catch (RuntimeException e) {
-            log.warn("Vagrant halt failed for VM {}: {}. Forcing DB status to STOPPED", vm.getName(), e.getMessage());
+            log.error("Vagrant halt failed for VM {}: {}", vm.getName(), e.getMessage());
+            throw new ApiException(HttpStatus.CONFLICT, "VM_STOP_FAILED",
+                    "Impossible d'arrêter la VM '" + vm.getName() + "': " + e.getMessage());
         }
 
         vm.setStatus(Vm.Status.STOPPED);
@@ -309,12 +324,22 @@ public class VmService {
 
     public VmResponse restart(UUID id) {
         Vm vm = requireOwnedVm(id);
+        Vm.Status previous = vm.getStatus();
         vm.setStatus(Vm.Status.PENDING);
         vmRepository.save(vm);
 
-        vagrantClient.reload(vm.getVagrantPath());
+        try {
+            vagrantClient.reload(vm.getVagrantPath());
+        } catch (RuntimeException e) {
+            log.error("Vagrant reload failed for VM {}: {}", vm.getName(), e.getMessage());
+            vm.setStatus(previous); // revient à l'état précédent au lieu de rester bloqué en PENDING
+            vmRepository.save(vm);
+            throw new ApiException(HttpStatus.CONFLICT, "VM_RESTART_FAILED",
+                    "Impossible de redémarrer la VM '" + vm.getName() + "': " + e.getMessage());
+        }
 
         vm.setStatus(Vm.Status.RUNNING);
+        vm.setStartedAt(Instant.now());
         return VmResponse.from(vmRepository.save(vm));
     }
 
@@ -341,48 +366,8 @@ public class VmService {
     public List<Metric> getMetrics(UUID id) {
         Vm vm = requireOwnedVm(id);
 
-        if (vm.getVboxName() != null && vm.getStatus() == Vm.Status.RUNNING) {
-            try {
-                VmMetricsSnapshot snapshot = clientQueryMetrics(vm);
-
-                if (snapshot != null) {
-                    Metric metric = new Metric();
-                    metric.setVmId(vm.getId());
-                    metric.setServiceEnvironmentId(vm.getServiceEnvironmentId());
-                    metric.setTenantId(vm.getTenantId());
-
-                    // CPU — déjà en %
-                    metric.setCpuUsage(snapshot.getCpuUsage());
-
-                    // RAM — kB → MB, puis % du RAM alloué à la VM
-                    double ramUsedMb = snapshot.getRamUsageKb() / 1024.0;
-                    float ramPercent = vm.getRam() > 0
-                            ? (float) (ramUsedMb / vm.getRam() * 100)
-                            : 0f;
-                    metric.setRamUsage(ramPercent);
-
-                    // Disk — MB → % du disque alloué à la VM (vm.getDisk() en GB)
-                    double diskTotalMb = vm.getDisk() * 1024.0;
-                    float diskPercent = diskTotalMb > 0
-                            ? (float) (snapshot.getDiskUsageMb() / diskTotalMb * 100)
-                            : 0f;
-                    metric.setDiskUsage(diskPercent);
-
-                    // Network — B/s brut (pas de "total" pour en faire un %)
-                    metric.setNetworkUsage((float) snapshot.getNetworkRateBps());
-
-                    metric.setPods(0);
-                    metricRepository.save(metric);
-
-                    log.info("Metrics saved for VM {}: cpu={}% ram={}% disk={}% net={}B/s",
-                            vm.getName(), metric.getCpuUsage(), metric.getRamUsage(),
-                            metric.getDiskUsage(), metric.getNetworkUsage());
-                }
-            } catch (Exception e) {
-                log.warn("Failed to collect metrics for VM {}: {}", vm.getName(), e.getMessage());
-            }
-        }
-
+        // Lecture pure : on renvoie les dernières métriques déjà collectées par
+        // VmMetricsScheduler. Aucune écriture DB depuis le chemin GET (pas de save).
         return metricRepository.findByVmIdOrderByTimestampDesc(vm.getId());
     }
 
@@ -415,8 +400,7 @@ public class VmService {
     }
 
     public VagrantSshConfig getSshInfo(UUID id) {
-        Vm vm = vmRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("VM not found: " + id));
+        Vm vm = requireOwnedVm(id);
 
         if (vm.getStatus() != Vm.Status.RUNNING) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "VM_NOT_RUNNING",

@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import Button from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
@@ -46,10 +47,11 @@ import {
     canManageUsers,
     canModifyUserStatus,
     isAdminRoleName,
-    isSuperAdmin
-} from '../../../services/authorization';
-import { getStoredUser } from '../../../services/authStorage';
-import { C } from '../../../theme/tokens';
+    isSuperAdmin,
+    isSuperAdminRoleName
+} from '../../../services/core/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { C, PAGE_BG } from '../../../theme/tokens';
 
 type UserItem = {
     id: string;
@@ -125,7 +127,8 @@ const UsersPage = () => {
     const currentUserIsSuperAdmin = currentUser ? isSuperAdmin(currentUser) : false;
 
     const canActOnTarget = (user: UserItem) =>
-        user.id !== currentUser?.userId && (currentUserIsSuperAdmin || !isAdminRoleName(user.roleName));
+        user.id !== currentUser?.userId &&
+        (currentUserIsSuperAdmin ? !isSuperAdminRoleName(user.roleName) : !isAdminRoleName(user.roleName));
 
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
@@ -454,14 +457,14 @@ const UsersPage = () => {
     };
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
                 <Box
                     sx={{
                         width: 48,
                         height: 4,
                         borderRadius: 2,
-                        background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
+                        background: 'linear-gradient(135deg, #E4477D, #BE185D)',
                         mb: 2
                     }}
                 />
@@ -477,7 +480,7 @@ const UsersPage = () => {
                         label: t('admin.users.totalUsers'),
                         value: totalElements,
                         icon: <PeopleIcon />,
-                        gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)'
+                        gradient: 'linear-gradient(135deg, #E4477D, #BE185D)'
                     },
                     {
                         label: t('admin.users.visibleUsers'),
@@ -543,7 +546,7 @@ const UsersPage = () => {
                                 left: 0,
                                 right: 0,
                                 height: 3,
-                                background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
+                                background: 'linear-gradient(135deg, #E4477D, #BE185D)',
                                 borderTopLeftRadius: 12,
                                 borderTopRightRadius: 12
                             }}
@@ -602,6 +605,13 @@ const UsersPage = () => {
                                         </MenuItem>
                                     ))}
                                 </TextField>
+                                {defaultViewerRoleId && !selectedRole ? (
+                                    <Typography variant="caption" sx={{ color: C.muted, mt: 0.5, display: 'block' }}>
+                                        {t('admin.users.defaultRoleHint', {
+                                            role: availableRoles.find((r) => r.id === defaultViewerRoleId)?.name || 'Viewer'
+                                        })}
+                                    </Typography>
+                                ) : null}
                                 <Button onClick={addUser}>{t('common.create')}</Button>
                             </Box>
                         </CardContent>
@@ -656,31 +666,11 @@ const UsersPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filteredUsers.length === 0 ? (
-                <Card sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box
-                            sx={{
-                                width: 64,
-                                height: 64,
-                                borderRadius: 3,
-                                background: C.brandLight,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                mx: 'auto',
-                                mb: 2
-                            }}
-                        >
-                            <PeopleIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.users.noUsersFound')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('admin.users.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<PeopleIcon />}
+                    title={t('admin.users.noUsersFound')}
+                    message={t('admin.users.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -1057,6 +1047,7 @@ const UsersPage = () => {
                         error={Boolean(errors.email)}
                         helperText={errors.email}
                         slotProps={{ htmlInput: { 'data-lpignore': 'true' } }}
+                        sx={{ marginTop: 1 }}
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
@@ -1069,7 +1060,7 @@ const UsersPage = () => {
                             borderRadius: '5px',
                             textTransform: 'capitalize',
                             fontWeight: 'bold',
-                            color: '#BE185D',
+                            color: '#fff',
                             borderColor: '#F9A8D4',
                             backgroundColor: '#FFFFFF',
                             '&:hover': { borderColor: '#EC4899', backgroundColor: '#FCE7F3' }
@@ -1117,7 +1108,8 @@ const UsersPage = () => {
                     <Button
                         onClick={handleDeleteUser}
                         disabled={deleting}
-                        sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}
+                        variant="contained"
+                        color="error"
                     >
                         {deleting ? t('common.deleting') : t('common.delete')}
                     </Button>

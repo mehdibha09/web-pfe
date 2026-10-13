@@ -1,5 +1,6 @@
 package com.auth.service.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -8,9 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.Permission;
 import com.auth.service.domain.Role;
@@ -33,7 +33,6 @@ import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 
-import jakarta.servlet.http.HttpServletRequest;
 import com.auth.service.web.dto.auth.AuthActionResponse;
 import com.auth.service.web.dto.role.RoleAssignUserRequest;
 import com.auth.service.web.dto.role.RoleCreateRequest;
@@ -52,6 +51,7 @@ public class RoleService {
     private final RolePermissionRepository rolePermissionRepository;
     private final SessionRepository sessionRepository;
     private final AuditLogRepository auditLogRepository;
+    private final ClientIpResolver clientIpResolver;
 
     public RoleService(
             RoleRepository roleRepository,
@@ -60,7 +60,8 @@ public class RoleService {
             UserRoleRepository userRoleRepository,
             RolePermissionRepository rolePermissionRepository,
             SessionRepository sessionRepository,
-            AuditLogRepository auditLogRepository
+            AuditLogRepository auditLogRepository,
+            ClientIpResolver clientIpResolver
     ) {
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
@@ -69,6 +70,7 @@ public class RoleService {
         this.rolePermissionRepository = rolePermissionRepository;
         this.sessionRepository = sessionRepository;
         this.auditLogRepository = auditLogRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional(readOnly = true)
@@ -430,6 +432,10 @@ public class RoleService {
         if (session.getRevokedAt() != null) {
             throw new UnauthorizedException("Session revoked");
         }
+
+        if (session.getExpirationDate().isBefore(Instant.now())) {
+            throw new UnauthorizedException("Access token expired");
+        }
         return session;
     }
 
@@ -478,19 +484,6 @@ public class RoleService {
     }
 
     private String resolveClientIp() {
-        try {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-            String realIp = request.getHeader("X-Real-IP");
-            if (realIp != null && !realIp.isBlank()) {
-                return realIp;
-            }
-            return request.getRemoteAddr();
-        } catch (Exception e) {
-            return null;
-        }
+        return clientIpResolver.resolve();
     }
 }

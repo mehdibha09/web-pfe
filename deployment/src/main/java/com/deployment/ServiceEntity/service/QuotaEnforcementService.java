@@ -38,13 +38,42 @@ public class QuotaEnforcementService {
             double usedDisk = vms.stream().mapToDouble(Vm::getDisk).sum();
 
             List<String> exceeded = new ArrayList<>();
-            if (usedCpu + cpu > quota.getMaxCpu()) {
+            if (quota.getMaxCpu() > 0 && usedCpu + cpu > quota.getMaxCpu()) {
                 exceeded.add("CPU " + fmt(usedCpu + cpu) + "/" + fmt(quota.getMaxCpu()));
             }
-            if (usedRam + ram > quota.getMaxRam()) {
+            if (quota.getMaxRam() > 0 && usedRam + ram > quota.getMaxRam()) {
                 exceeded.add("RAM " + fmt(usedRam + ram) + "/" + fmt(quota.getMaxRam()) + " MB");
             }
-            if (usedDisk + disk > quota.getMaxStorage()) {
+            if (quota.getMaxStorage() > 0 && usedDisk + disk > quota.getMaxStorage()) {
+                exceeded.add("storage " + fmt(usedDisk + disk) + "/" + fmt(quota.getMaxStorage()) + " GB");
+            }
+            if (!exceeded.isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "QUOTA_EXCEEDED",
+                        "Quota exceeded for this service environment: " + String.join(", ", exceeded));
+            }
+        });
+    }
+
+    /**
+     * Vérifie le quota lors d'une MODIFICATION de VM : on exclut la VM en cours
+     * d'édition de l'usage courant (sinon double comptage), puis on projette
+     * l'usage avec les nouvelles valeurs cpu/ram/disk.
+     */
+    public void enforceVmUpdate(UUID serviceEnvironmentId, UUID vmId, int cpu, int ram, int disk) {
+        quotaRepository.findFirstByServiceEnvironmentIdAndActiveTrueOrderByCreatedAtDesc(serviceEnvironmentId).ifPresent(quota -> {
+            List<Vm> vms = vmRepository.findByServiceEnvironmentId(serviceEnvironmentId);
+            double usedCpu = vms.stream().filter(v -> !v.getId().equals(vmId)).mapToDouble(Vm::getCpu).sum();
+            double usedRam = vms.stream().filter(v -> !v.getId().equals(vmId)).mapToDouble(Vm::getRam).sum();
+            double usedDisk = vms.stream().filter(v -> !v.getId().equals(vmId)).mapToDouble(Vm::getDisk).sum();
+
+            List<String> exceeded = new ArrayList<>();
+            if (quota.getMaxCpu() > 0 && usedCpu + cpu > quota.getMaxCpu()) {
+                exceeded.add("CPU " + fmt(usedCpu + cpu) + "/" + fmt(quota.getMaxCpu()));
+            }
+            if (quota.getMaxRam() > 0 && usedRam + ram > quota.getMaxRam()) {
+                exceeded.add("RAM " + fmt(usedRam + ram) + "/" + fmt(quota.getMaxRam()) + " MB");
+            }
+            if (quota.getMaxStorage() > 0 && usedDisk + disk > quota.getMaxStorage()) {
                 exceeded.add("storage " + fmt(usedDisk + disk) + "/" + fmt(quota.getMaxStorage()) + " GB");
             }
             if (!exceeded.isEmpty()) {
@@ -111,18 +140,32 @@ public class QuotaEnforcementService {
         if (value == null || value.isBlank()) return 0;
         String v = value.trim().toLowerCase();
         double multiplier = 1.0;
-        if (v.endsWith("k") || v.endsWith("ki")) {
+        // Ordre important : tester les suffixes sur 2 lettres ("mi","gi","ti","ki")
+        // AVANT les suffixes sur 1 lettre ("m","g","t","k") pour ne pas matcher "512mi" sur "m".
+        if (v.endsWith("ki")) {
             multiplier = 1.0 / 1024.0;
-            v = v.endsWith("ki") ? v.substring(0, v.length() - 2) : v.substring(0, v.length() - 1);
-        } else if (v.endsWith("m")) {
-            multiplier = 1.0 / 1000.0;
-            v = v.substring(0, v.length() - 1);
-        } else if (v.endsWith("g") || v.endsWith("gi")) {
+            v = v.substring(0, v.length() - 2);
+        } else if (v.endsWith("mi")) {
+            multiplier = 1.0;
+            v = v.substring(0, v.length() - 2);
+        } else if (v.endsWith("gi")) {
             multiplier = 1024.0;
-            v = v.endsWith("gi") ? v.substring(0, v.length() - 2) : v.substring(0, v.length() - 1);
-        } else if (v.endsWith("t") || v.endsWith("ti")) {
+            v = v.substring(0, v.length() - 2);
+        } else if (v.endsWith("ti")) {
             multiplier = 1024.0 * 1024.0;
-            v = v.endsWith("ti") ? v.substring(0, v.length() - 2) : v.substring(0, v.length() - 1);
+            v = v.substring(0, v.length() - 2);
+        } else if (v.endsWith("k")) {
+            multiplier = 1.0 / 1024.0;
+            v = v.substring(0, v.length() - 1);
+        } else if (v.endsWith("m")) {
+            multiplier = 1.0;
+            v = v.substring(0, v.length() - 1);
+        } else if (v.endsWith("g")) {
+            multiplier = 1024.0;
+            v = v.substring(0, v.length() - 1);
+        } else if (v.endsWith("t")) {
+            multiplier = 1024.0 * 1024.0;
+            v = v.substring(0, v.length() - 1);
         }
         try {
             return Double.parseDouble(v) * multiplier;

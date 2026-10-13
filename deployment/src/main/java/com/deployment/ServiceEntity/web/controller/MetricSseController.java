@@ -17,7 +17,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.Metric;
+import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.repository.MetricRepository;
+import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class MetricSseController {
 
     private final MetricRepository metricRepository;
+    private final ServiceEnvironmentRepository serviceEnvironmentRepository;
 
     @Value("${metrics.sse.push-interval-ms:3000}")
     private long pushIntervalMs;
@@ -44,6 +47,15 @@ public class MetricSseController {
     @GetMapping(value = "/stream/{serviceEnvironmentId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@PathVariable UUID serviceEnvironmentId) {
         UserContext.requirePermission("METRIC_READ");
+        // Scoping tenant : on n'abonne que si l'environnement appartient au tenant
+        // courant (même règle que les endpoints GET /metrics non-SSE).
+        ServiceEnvironment se = serviceEnvironmentRepository.findById(serviceEnvironmentId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Service environment not found"));
+        if (!se.getTenantId().equals(UserContext.getTenantId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Service environment not found");
+        }
         SseEmitter emitter = new SseEmitter(timeoutMs > 0 ? timeoutMs : -1L);
 
         emitter.onCompletion(() -> { emitters.remove(emitter); lastSentIds.remove(emitter); lastHeartbeat.remove(emitter); });

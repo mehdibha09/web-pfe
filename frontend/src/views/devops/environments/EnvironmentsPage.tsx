@@ -12,7 +12,6 @@ import {
     Card,
     CardContent,
     Chip,
-    Fade,
     IconButton,
     InputAdornment,
     Skeleton,
@@ -31,10 +30,11 @@ import {
     updateEnvironment
 } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageDeployments } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageDeployments } from '../../../services/core/authorization';
 import { C } from '../../../theme/tokens';
 import PaginationBar from '../../../components/PaginationBar';
+import EmptyState from '../../../components/EmptyState';
 import CreateEnvForm from './CreateEnvForm';
 import DeleteEnvDialog from './DeleteEnvDialog';
 import EnvCard from './EnvCard';
@@ -284,32 +284,15 @@ const EnvironmentsPage = () => {
             )}
 
             {!loading && filtered.length === 0 && (
-                <Fade in>
-                    <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
-                        <StorageIcon sx={{ fontSize: 48, color: C.subtle, mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                            {search ? t('environments.noResultsFound') : t('environments.noEnvironmentsYet')}
-                        </Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>
-                            {search
-                                ? t('environments.noResultsMessage', { search })
-                                : t('environments.createFirstEnvironment')}
-                        </Typography>
-                        {!search && allowManage && (
-                            <Button
-                                variant="contained"
-                                startIcon={<AddIcon />}
-                                onClick={() => setCreateOpen(true)}
-                                sx={{
-                                    background: `linear-gradient(135deg, ${C.brand}, ${C.brandDark})`,
-                                    fontWeight: 700
-                                }}
-                            >
-                                {t('environments.newEnvironment')}
-                            </Button>
-                        )}
-                    </Card>
-                </Fade>
+                <EmptyState
+                    icon={<StorageIcon />}
+                    title={search ? t('environments.noResultsFound') : t('environments.noEnvironmentsYet')}
+                    message={search
+                        ? t('environments.noResultsMessage', { search })
+                        : t('environments.createFirstEnvironment')}
+                    actionLabel={!search && allowManage ? t('environments.newEnvironment') : undefined}
+                    onAction={!search && allowManage ? () => setCreateOpen(true) : undefined}
+                />
             )}
 
             {!loading && filtered.length > 0 && (

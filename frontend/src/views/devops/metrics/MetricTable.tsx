@@ -145,9 +145,7 @@ const MetricTable = ({
                 <TableContainer component={Paper} variant="outlined" sx={{ borderColor: C.border }}>
                     <Table size="small">
                         <TableHead>
-                            <TableRow
-                                sx={{ '& th': { fontWeight: 800, color: C.text, backgroundColor: '#FAFAFA' } }}
-                            >
+                            <TableRow>
                                 <TableCell>{t('metrics.created')}</TableCell>
                                 <TableCell>{t('metrics.serviceEnvironment')}</TableCell>
                                 <TableCell align="right">{t('metrics.cpu')}</TableCell>

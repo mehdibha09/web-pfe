@@ -41,6 +41,9 @@ public class Quota {
   @Column(nullable = false)
   private boolean isActive;
 
+  @Column(name = "auto_stop_on_exceed", nullable = false)
+  private boolean autoStopOnExceed = false;
+
   @Column(nullable = false)
   private Instant createdAt;
 
@@ -123,6 +126,14 @@ public class Quota {
 
   public void setActive(boolean isActive) {
     this.isActive = isActive;
+  }
+
+  public boolean isAutoStopOnExceed() {
+    return autoStopOnExceed;
+  }
+
+  public void setAutoStopOnExceed(boolean autoStopOnExceed) {
+    this.autoStopOnExceed = autoStopOnExceed;
   }
 
   public Instant getCreatedAt() {

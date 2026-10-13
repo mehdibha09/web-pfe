@@ -55,6 +55,13 @@ public class PriceConfigController {
     @PostMapping
     public ResponseEntity<PriceConfigResponse> create(@Valid @RequestBody PriceConfigRequest dto) {
         UserContext.requirePermission("PRICE_CONFIG_MANAGE");
+        // Les tarifs sont GLOBAUX (sans tenant) : seuls les super-admins peuvent
+        // les modifier pour ne pas laisser un tenant altérer les prix de tous.
+        if (!UserContext.isSuperAdmin()) {
+            throw new com.cloud_pricer.exception.ApiException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Price configuration management requires super-admin privileges");
+        }
         PriceConfig config = new PriceConfig();
         config.setMode(dto.mode());
         config.setResourceType(dto.resourceType());
@@ -73,6 +80,11 @@ public class PriceConfigController {
     public ResponseEntity<PriceConfigResponse> update(@PathVariable UUID id,
             @Valid @RequestBody PriceConfigRequest dto) {
         UserContext.requirePermission("PRICE_CONFIG_MANAGE");
+        if (!UserContext.isSuperAdmin()) {
+            throw new com.cloud_pricer.exception.ApiException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Price configuration management requires super-admin privileges");
+        }
         PriceConfig config = new PriceConfig();
         config.setMode(dto.mode());
         config.setResourceType(dto.resourceType());
@@ -89,6 +101,11 @@ public class PriceConfigController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserContext.requirePermission("PRICE_CONFIG_MANAGE");
+        if (!UserContext.isSuperAdmin()) {
+            throw new com.cloud_pricer.exception.ApiException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "FORBIDDEN",
+                    "Price configuration management requires super-admin privileges");
+        }
         priceConfigService.delete(id);
         auditService.record("PRICE_CONFIG_DELETE", "price-config", id.toString(), "Price config deleted (id=" + id + ")");
         return ResponseEntity.noContent().build();

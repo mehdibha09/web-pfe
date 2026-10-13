@@ -34,8 +34,8 @@ import { listAlerts, type AlertResponse } from '../../services/cloudPricerServic
 import { C } from '../../theme/tokens';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DashboardKpiCard from './DashboardKpiCard';
-import { getStoredUser } from '../../services/authStorage';
-import { canAccessAlerts } from '../../services/authorization';
+import { getStoredUser } from '../../services/core/authStorage';
+import { canAccessAlerts } from '../../services/core/authorization';
 
 const actionColor = (action: string) => {
     const a = action.toUpperCase();

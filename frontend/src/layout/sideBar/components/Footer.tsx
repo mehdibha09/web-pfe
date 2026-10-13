@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { logout } from '../../../services/authService';
-import { clearSession } from '../../../services/authStorage';
+import { clearSession } from '../../../services/core/authStorage';
 import Module from './Module';
 
 interface FooterProps {

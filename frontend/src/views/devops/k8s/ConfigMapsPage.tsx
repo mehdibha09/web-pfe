@@ -1,16 +1,17 @@
 import { Add as AddIcon, Close as CloseIcon, ContentCopy, Delete as DeleteIcon, Refresh as RefreshIcon, Save as SaveIcon, Search as SearchIcon, Storage as StorageIcon, WarningAmber as WarningAmberIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Fade, IconButton, InputAdornment, MenuItem, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { k8sService } from '../../../services/k8sService';
 import type { K8sConfigMapResponse } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
-import { C } from '../../../theme/tokens';
+import EmptyState from '../../../components/EmptyState';
+import { C, R } from '../../../theme/tokens';
 import { fmtDate } from './constants';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
@@ -23,7 +24,7 @@ const ConfigMapsPage = () => {
 
     const [createOpen, setCreateOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<K8sConfigMapResponse | null>(null);
-    const [form, setForm] = useState({ name: '', keys: [{ key: '', value: '' }], labels: '' });
+    const [form, setForm] = useState({ name: '', keys: [{ key: '', value: '' }], binaryKeys: [{ key: '', value: '' }], labels: '' });
     const [saving, setSaving] = useState(false);
 
     const [detailItem, setDetailItem] = useState<K8sConfigMapResponse | null>(null);
@@ -60,7 +61,7 @@ const ConfigMapsPage = () => {
 
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
-    const resetForm = () => setForm({ name: '', keys: [{ key: '', value: '' }], labels: '' });
+    const resetForm = () => setForm({ name: '', keys: [{ key: '', value: '' }], binaryKeys: [{ key: '', value: '' }], labels: '' });
 
     const buildDataFromKeys = (keys: { key: string; value: string }[]) => {
         const data: Record<string, string> = {};
@@ -79,15 +80,16 @@ const ConfigMapsPage = () => {
             const payload = {
                 name: form.name.trim(),
                 data,
+                binaryData: buildDataFromKeys(form.binaryKeys),
                 labels: form.labels.trim() ? Object.fromEntries(form.labels.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined,
             };
 
             if (editTarget) {
-                await k8sService.updateConfigMap(editTarget.name, payload);
-                toast.success(t('k8s.configmaps.updatedToast'));
+                const res = await k8sService.updateConfigMap(editTarget.name, payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.configmaps.updatedToast'));
             } else {
-                await k8sService.createConfigMap(payload);
-                toast.success(t('k8s.configmaps.createdToast'));
+                const res = await k8sService.createConfigMap(payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.configmaps.createdToast'));
             }
             setCreateOpen(false);
             setEditTarget(null);
@@ -105,6 +107,7 @@ const ConfigMapsPage = () => {
         setForm({
             name: cm.name,
             keys,
+            binaryKeys: Object.entries(cm.binaryData).map(([k, v]) => ({ key: k, value: v })),
             labels: Object.entries(cm.labels).map(([k, v]) => `${k}=${v}`).join(', '),
         });
         setEditTarget(cm);
@@ -137,7 +140,7 @@ const ConfigMapsPage = () => {
             {/* KPIs */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 1.5, mb: 3 }}>
                 {[
-                    { label: t('k8s.configmaps.total'), value: items.length, bg: '#F8FAFC', fg: '#475569' },
+                    { label: t('k8s.configmaps.total'), value: items.length, bg: '#F8FAFC', fg: C.muted },
                     { label: t('k8s.configmaps.totalEntries'), value: items.reduce((sum, cm) => sum + cm.dataEntries, 0), bg: '#FCE7F3', fg: '#BE185D' },
                     { label: 'Avg entries', value: items.length ? Math.round(items.reduce((sum, cm) => sum + cm.dataEntries, 0) / items.length) : 0, bg: '#F0FDF4', fg: '#16A34A' },
                 ].map((kpi) => (
@@ -167,18 +170,13 @@ const ConfigMapsPage = () => {
 
             {/* Empty */}
             {!loading && filtered.length === 0 && (
-                <Fade in>
-                    <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
-                        <StorageIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                            {t('k8s.configmaps.noConfigMaps')}
-                        </Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>
-                            {t('k8s.configmaps.createFirst')}
-                        </Typography>
-                        {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); }}>{t('k8s.configmaps.new')}</MyCustomButton>}
-                    </Card>
-                </Fade>
+                <EmptyState
+                    icon={<StorageIcon />}
+                    title={t('k8s.configmaps.noConfigMaps')}
+                    message={t('k8s.configmaps.createFirst')}
+                    actionLabel={allowManage ? t('k8s.configmaps.new') : undefined}
+                    onAction={allowManage ? () => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); } : undefined}
+                />
             )}
 
             {/* Cards */}
@@ -212,17 +210,20 @@ const ConfigMapsPage = () => {
                                             {Object.keys(cm.data).length > 4 && (
                                                 <Chip label={t('k8s.configmaps.more', { count: Object.keys(cm.data).length - 4 })} size="small" sx={{ backgroundColor: '#F3F4F6', color: '#374151', fontSize: 10 }} />
                                             )}
-                                            {Object.keys(cm.data).length === 0 && (
-                                                <Typography sx={{ color: C.subtle, fontStyle: 'italic', fontSize: 12 }}>{t('k8s.configmaps.noDataEntries')}</Typography>
-                                            )}
+{Object.keys(cm.data).length === 0 && Object.keys(cm.binaryData).length === 0 && (
+                                        <Typography sx={{ color: C.subtle, fontStyle: 'italic', fontSize: 12 }}>{t('k8s.configmaps.noDataEntries')}</Typography>
+                                    )}
+                                    {Object.entries(cm.binaryData).map(([k]) => (
+                                        <Chip key={k} label={`${k}: [binary]`} size="small" sx={{ backgroundColor: '#EDE9FE', color: '#6D28D9', fontSize: 10 }} />
+                                    ))}
                                         </Box>
                                     ) : (
                                         <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.border}`, boxShadow: 'none', mt: 1 }}>
-                                            <Table size="small">
+                                            <Table size="small" sx={{ minWidth: 720 }}>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell sx={{ fontWeight: 700, fontSize: 11, color: C.muted }}>{t('k8s.configmaps.key')}</TableCell>
-                                                        <TableCell sx={{ fontWeight: 700, fontSize: 11, color: C.muted }}>{t('k8s.configmaps.value')}</TableCell>
+                                                        <TableCell>{t('k8s.configmaps.key')}</TableCell>
+                                                        <TableCell>{t('k8s.configmaps.value')}</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -230,6 +231,12 @@ const ConfigMapsPage = () => {
                                                         <TableRow key={k} sx={{ '&:hover': { bgcolor: '#F9FAFB' } }}>
                                                             <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{k}</TableCell>
                                                             <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre-wrap' }}>{v}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    {Object.entries(cm.binaryData).map(([k, v]) => (
+                                                        <TableRow key={k} sx={{ '&:hover': { bgcolor: '#FAF5FF' }, bgcolor: '#FAF8FF' }}>
+                                                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{k}</TableCell>
+                                                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: '#6D28D9', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre-wrap' }}>{v} (base64)</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -292,11 +299,25 @@ const ConfigMapsPage = () => {
                                 <IconButton size="small" onClick={() => { const keys = form.keys.filter((_, idx) => idx !== i); setForm((p) => ({ ...p, keys: keys.length ? keys : [{ key: '', value: '' }] })); }} sx={{ color: C.danger }}><CloseIcon fontSize="small" /></IconButton>
                             </Box>
                         ))}
-                        <Button variant="text" size="small" onClick={() => setForm((p) => ({ ...p, keys: [...p.keys, { key: '', value: '' }] }))} sx={{ textTransform: 'capitalize', fontWeight: 600, justifyContent: 'flex-start', pl: 0 }}>{t('k8s.configmaps.addEntry')}</Button>
+                        <Button variant="text" size="small" onClick={() => setForm((p) => ({ ...p, keys: [...p.keys, { key: '', value: '' }] }))} sx={{ fontWeight: 600, justifyContent: 'flex-start', pl: 0 }}>{t('k8s.configmaps.addEntry')}</Button>
+                        <Box sx={{ borderTop: `1px solid ${C.border}`, pt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: C.text, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <StorageIcon sx={{ fontSize: 14, color: '#7C3AED' }} /> {t('k8s.configmaps.binaryData')}
+                            </Typography>
+                            <Typography sx={{ color: C.muted, fontSize: 12, mb: 0.5 }}>{t('k8s.configmaps.binaryDataHint')}</Typography>
+                            {form.binaryKeys.map((entry, i) => (
+                                <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 1, alignItems: 'center' }}>
+                                    <TextField size="small" label={t('k8s.configmaps.key')} value={entry.key} onChange={(e) => { const keys = [...form.binaryKeys]; keys[i].key = e.target.value; setForm((p) => ({ ...p, binaryKeys: keys })); }} />
+                                    <TextField size="small" label={t('k8s.configmaps.binaryValue')} value={entry.value} onChange={(e) => { const keys = [...form.binaryKeys]; keys[i].value = e.target.value; setForm((p) => ({ ...p, binaryKeys: keys })); }} />
+                                    <IconButton size="small" onClick={() => { const keys = form.binaryKeys.filter((_, idx) => idx !== i); setForm((p) => ({ ...p, binaryKeys: keys.length ? keys : [{ key: '', value: '' }] })); }} sx={{ color: C.danger }}><CloseIcon fontSize="small" /></IconButton>
+                                </Box>
+                            ))}
+                            <Button variant="text" size="small" onClick={() => setForm((p) => ({ ...p, binaryKeys: [...p.binaryKeys, { key: '', value: '' }] }))} sx={{ fontWeight: 600, justifyContent: 'flex-start', pl: 0 }}>{t('k8s.configmaps.addBinaryEntry')}</Button>
+                        </Box>
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => { setCreateOpen(false); setEditTarget(null); }} sx={{ borderRadius: '5px', textTransform: 'capitalize' }}>{t('k8s.configmaps.cancel')}</Button>
+                    <Button variant="outlined" onClick={() => { setCreateOpen(false); setEditTarget(null); }} sx={{ borderRadius: R.control }}>{t('k8s.configmaps.cancel')}</Button>
                     <MyCustomButton onClick={handleCreateOrUpdate} disabled={saving} sx={{ px: 3 }}>{saving ? t('k8s.configmaps.saving') : editTarget ? t('k8s.configmaps.update') : t('k8s.configmaps.create')}</MyCustomButton>
                 </DialogActions>
             </Dialog>

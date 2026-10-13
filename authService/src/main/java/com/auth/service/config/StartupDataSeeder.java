@@ -3,6 +3,7 @@ package com.auth.service.config;
 import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ import com.auth.service.repository.UserRepository;
 import com.auth.service.repository.UserRoleRepository;
 
 @Component
+@Profile("dev")
 public class StartupDataSeeder implements CommandLineRunner {
 
     private static final String DEFAULT_TENANT_NAME = "default-tenant";
@@ -265,7 +267,12 @@ public class StartupDataSeeder implements CommandLineRunner {
     private User seedUser(Tenant tenant, String email, String rawPassword, UserStatus status) {
         return userRepository.findByTenant_IdAndEmail(tenant.getId(), email)
                 .map(existing -> {
-                    existing.setPassword(PASSWORD_ENCODER.encode(rawPassword));
+                    // Never reset an existing user's password back to the default.
+                    // Only upgrade a stored plaintext password to BCrypt in place (same value).
+                    String storedPassword = existing.getPassword();
+                    if (storedPassword != null && !isBcryptHash(storedPassword)) {
+                        existing.setPassword(PASSWORD_ENCODER.encode(storedPassword));
+                    }
                     existing.setStatus(status);
                     return userRepository.save(existing);
                 })
@@ -277,6 +284,12 @@ public class StartupDataSeeder implements CommandLineRunner {
                     user.setStatus(status);
                     return userRepository.save(user);
                 });
+    }
+
+    private boolean isBcryptHash(String storedPassword) {
+        return storedPassword != null
+                && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")
+                        || storedPassword.startsWith("$2y$"));
     }
 
     private void seedUserRole(User user, Role role) {

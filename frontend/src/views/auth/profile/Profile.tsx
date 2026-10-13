@@ -27,7 +27,7 @@ import {
     getStoredUser,
     isAuthenticated,
     setStoredUser
-} from '../../../services/authStorage';
+} from '../../../services/core/authStorage';
 
 type ChangePasswordForm = {
     currentPassword: string;
@@ -284,7 +284,7 @@ const Profile = () => {
                             <EmailOutlinedIcon sx={{ fontSize: 16, color: '#2E7A4F' }} />
                             {t('profile.updateEmail')}
                         </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr auto' }, gap: 1.5 }}>
+                        <Box component="form" onSubmit={handleSubmitEmail(onSubmitEmail)} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr auto' }, gap: 1.5 }}>
                             <TextField
                                 size="small"
                                 label={t('profile.newEmail')}
@@ -307,7 +307,7 @@ const Profile = () => {
                                 error={!!emailErrors.password}
                                 helperText={emailErrors.password?.message}
                             />
-                            <Button onClick={handleSubmitEmail(onSubmitEmail)} disabled={emailLoading} size="small" sx={{ alignSelf: 'flex-end', mb: '2px', whiteSpace: 'nowrap' }}>
+                            <Button type="submit" disabled={emailLoading} size="small" sx={{ alignSelf: 'flex-end', mb: '2px', whiteSpace: 'nowrap' }}>
                                 {emailLoading ? t('common.saving') : t('profile.update')}
                             </Button>
                         </Box>
@@ -321,7 +321,7 @@ const Profile = () => {
                             <LockOutlinedIcon sx={{ fontSize: 16, color: '#2E5C8A' }} />
                             {t('profile.changePassword')}
                         </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr' }, gap: 1.5 }}>
+                        <Box component="form" onSubmit={handleSubmit(onSubmitPassword)} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr' }, gap: 1.5 }}>
                             <TextField
                                 size="small"
                                 label={t('profile.currentPassword')}
@@ -353,18 +353,18 @@ const Profile = () => {
                                 error={!!errors.confirmPassword}
                                 helperText={errors.confirmPassword?.message}
                             />
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-                            <Button onClick={handleSubmit(onSubmitPassword)} disabled={passwordLoading} size="small">
-                                {passwordLoading ? t('common.saving') : t('common.save')}
-                            </Button>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                                <Button type="submit" disabled={passwordLoading} size="small">
+                                    {passwordLoading ? t('common.saving') : t('common.save')}
+                                </Button>
+                            </Box>
                         </Box>
                     </CardContent>
                 </Card>
             </Box>
 
             <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, mb: 2, position: 'relative', overflow: 'visible' }}>
-                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #5E4B9E, #A78BFA)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                 <CardContent>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, color: C.text, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <SecurityOutlinedIcon sx={{ fontSize: 16, color: '#5E4B9E' }} />
@@ -403,7 +403,7 @@ const Profile = () => {
                                 <EmailOutlinedIcon sx={{ fontSize: 16 }} />
                                 {t('profile.twoFaCodeSent')}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: '#475569', display: 'block', mb: 1 }}>
+                            <Typography variant="caption" sx={{ color: C.muted, display: 'block', mb: 1 }}>
                                 {t('profile.twoFaEnterCode')}
                             </Typography>
                         </Box>

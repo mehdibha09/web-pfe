@@ -8,6 +8,8 @@ import { toast } from 'react-toastify';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { STATUSES } from './constants';
 import AlertTable from './AlertTable';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageAlerts } from '../../../services/core/authorization';
 import PageHeader from '../../../components/PageHeader';
 import KpiCard from '../../../components/KpiCard';
 import SearchFilterBar from '../../../components/SearchFilterBar';
@@ -17,6 +19,8 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 
 const AlertsPage = () => {
     const { t } = useTranslation();
+    const currentUser = getStoredUser();
+    const allowManage = currentUser ? canManageAlerts(currentUser) : false;
     const [alerts, setAlerts] = useState<AlertResponse[]>([]);
     const [totalElements, setTotalElements] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -183,6 +187,7 @@ const AlertsPage = () => {
                     <>
                         <AlertTable
                             alerts={filtered}
+                            canManage={allowManage}
                             onAcknowledge={handleAcknowledge}
                             onResolve={handleResolve}
                             onDelete={handleDelete}

@@ -3,10 +3,11 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ErrorBoundary from '../components/ErrorBoundary';
+import LoadingSpinner from '../components/LoadingSpinner';
 import ProtectedRoute from '../guard/ProtectedRoute';
 import PublicOnlyRoute from '../guard/PublicOnlyRoute';
 import ProtectedLayout from '../layout/ProtectedLayout';
-import { getStoredUser, isAuthenticated } from '../services/authStorage';
+import { getStoredUser, isAuthenticated } from '../services/core/authStorage';
 
 import {
     canAccessAlerts,
@@ -28,28 +29,41 @@ import {
     canAccessTenants,
     canAccessUsers,
     canAccessVMs
-} from '../services/authorization';
+} from '../services/core/authorization';
 
-import AuditLogsPage from '../views/admin/auditLogs/AuditLogsPage.tsx';
-import PermissionsPage from '../views/admin/permissions/PermissionsPage.tsx';
-import RolesPage from '../views/admin/roles/RolesPage.tsx';
-import SessionsPage from '../views/admin/sessions/SessionsPage.tsx';
-import TenantsPage from '../views/admin/tenants/TenantsPage.tsx';
-import UsersPage from '../views/admin/users/UsersPage.tsx';
-import DashboardPrincipal from '../views/dashboard/DashboardPrincipal';
+/* Lazy loaded — all pages */
+const AuditLogsPage = lazy(() => import('../views/admin/auditLogs/AuditLogsPage'));
+const PermissionsPage = lazy(() => import('../views/admin/permissions/PermissionsPage'));
+const RolesPage = lazy(() => import('../views/admin/roles/RolesPage'));
+const SessionsPage = lazy(() => import('../views/admin/sessions/SessionsPage'));
+const TenantsPage = lazy(() => import('../views/admin/tenants/TenantsPage'));
+const UsersPage = lazy(() => import('../views/admin/users/UsersPage'));
+const DashboardPrincipal = lazy(() => import('../views/dashboard/DashboardPrincipal'));
 
-import ForgetPassword from '../views/auth/forgetPassword/ForgetPassword';
-import Login from '../views/auth/login/Login';
-import Profile from '../views/auth/profile/Profile';
-import ResetPassword from '../views/auth/resetPassword/ResetPassword';
-// import SsoCallback from '../views/auth/sso/SsoCallback';
-// import SsoLogin from '../views/auth/sso/SsoLogin';
-import TwoFactor from '../views/auth/twoFactor';
-import DevopsDashboardPage from '../views/devops/dashboard/DevopsDashboardPage';
-import ForbiddenPage from '../views/errors/ForbiddenPage';
-import NotFoundPage from '../views/errors/NotFoundPage';
-import DevOpsVmsPage from '../views/devops/vm/VmPage';
-import PricingPage from '../views/admin/pricing/PricingPage';
+const Login = lazy(() => import('../views/auth/login/Login'));
+const Profile = lazy(() => import('../views/auth/profile/Profile'));
+const ForgetPassword = lazy(() => import('../views/auth/forgetPassword/ForgetPassword'));
+const ResetPassword = lazy(() => import('../views/auth/resetPassword/ResetPassword'));
+const TwoFactor = lazy(() => import('../views/auth/twoFactor/TwoFactor'));
+
+const DevopsDashboardPage = lazy(() => import('../views/devops/dashboard/DevopsDashboardPage'));
+const DevOpsVmsPage = lazy(() => import('../views/devops/vm/VmPage'));
+const PricingPage = lazy(() => import('../views/admin/pricing/PricingPage'));
+const ForbiddenPage = lazy(() => import('../views/errors/ForbiddenPage'));
+const NotFoundPage = lazy(() => import('../views/errors/NotFoundPage'));
+
+/* Lazy loaded DevOps pages */
+const DevOpsServicesPage = lazy(() => import('../views/devops/services/DevopsServicesPage'));
+const DevOpsEnvironmentsPage = lazy(() => import('../views/devops/environments/EnvironmentsPage'));
+const DevOpsServiceEnvironmentsPage = lazy(() => import('../views/devops/service-environments/ServiceEnvironmentsPage'));
+const DevOpsMetricsPage = lazy(() => import('../views/devops/metrics/MetricsPage'));
+const DevOpsBackupsPage = lazy(() => import('../views/devops/backups/BackupPage'));
+const DevOpsK8sPage = lazy(() => import('../views/devops/k8s/K8sPage'));
+const DevOpsCostsPage = lazy(() => import('../views/devops/costs/CostsPage'));
+const DevOpsQuotasPage = lazy(() => import('../views/devops/quotas/QuotasPage'));
+const DevOpsAlertsPage = lazy(() => import('../views/devops/alerts/AlertsPage'));
+const DevOpsNotificationsPage = lazy(() => import('../views/devops/notifications/NotificationsPage'));
+const DevOpsMonitoringTempsReelPage = lazy(() => import('../views/devops/monitoring/MonitoringTempsReelPage'));
 
 type AdminAccessRouteProps = {
     canAccess: (user: NonNullable<ReturnType<typeof getStoredUser>>) => boolean;
@@ -66,23 +80,10 @@ const AdminAccessRoute = ({ canAccess, children }: AdminAccessRouteProps) => {
     return <>{children}</>;
 };
 
-/* Lazy loaded DevOps pages */
-const DevOpsServicesPage = lazy(() => import('../views/devops/services/DevopsServicesPage'));
-const DevOpsEnvironmentsPage = lazy(() => import('../views/devops/environments/EnvironmentsPage'));
-const DevOpsServiceEnvironmentsPage = lazy(() => import('../views/devops/service-environments/ServiceEnvironmentsPage'));
-const DevOpsMetricsPage = lazy(() => import('../views/devops/metrics/MetricsPage'));
-const DevOpsBackupsPage = lazy(() => import('../views/devops/backups/BackupPage'));
-const DevOpsK8sPage = lazy(() => import('../views/devops/k8s/K8sPage'));
-const DevOpsCostsPage = lazy(() => import('../views/devops/costs/CostsPage'));
-const DevOpsQuotasPage = lazy(() => import('../views/devops/quotas/QuotasPage'));
-const DevOpsAlertsPage = lazy(() => import('../views/devops/alerts/AlertsPage'));
-const DevOpsNotificationsPage = lazy(() => import('../views/devops/notifications/NotificationsPage'));
-const DevOpsMonitoringTempsReelPage = lazy(() => import('../views/devops/monitoring/MonitoringTempsReelPage'));
-
 const AppRoutes = () => {
     return (
         <ErrorBoundary>
-        <Suspense fallback={null}>
+        <Suspense fallback={<LoadingSpinner variant="page" />}>
             <Routes>
                 {/* Root redirect based on auth */}
                 <Route

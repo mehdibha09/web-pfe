@@ -23,8 +23,8 @@ import { toast } from 'react-toastify';
 
 import type { CostRecordResponse } from '../../../services/cloudPricerService';
 import { generateCostsNow, listCosts, listCostsPaginated } from '../../../services/cloudPricerService';
-import { canManageCosts } from '../../../services/authorization';
-import { getStoredUser } from '../../../services/authStorage';
+import { canManageCosts } from '../../../services/core/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { C, PAGE_BG } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
@@ -90,7 +90,7 @@ const CostsPage = () => {
         try {
             await generateCostsNow();
             toast.success(t('costs.generateTriggered'));
-            await load();
+            await Promise.all([load(), loadAllCosts()]);
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('costs.failedToLoad')));
         } finally {
@@ -104,7 +104,6 @@ const CostsPage = () => {
             const result = await listCostsPaginated(page, PAGE_SIZE);
             setCosts(result.items);
             setTotalElements(result.total);
-            setAllCosts(await listCosts());
         } catch (e: unknown) {
             toast.error(getErrorMessage(e, t('costs.failedToLoad')));
         } finally {
@@ -112,7 +111,16 @@ const CostsPage = () => {
         }
     };
 
+    const loadAllCosts = async () => {
+        try {
+            setAllCosts(await listCosts());
+        } catch (e: unknown) {
+            toast.error(getErrorMessage(e, t('costs.failedToLoad')));
+        }
+    };
+
     useEffect(() => { load(); }, [page]);
+    useEffect(() => { loadAllCosts(); }, []);
 
     useEffect(() => { if (page >= pageCount && page > 0) setPage(pageCount - 1); }, [totalElements]);
 
@@ -198,7 +206,7 @@ const CostsPage = () => {
                     <Tooltip title={t('costs.exportCsv')!}>
                         <IconButton
                             size="small"
-                            onClick={() => exportToCSV(filteredCosts, t)}
+                            onClick={() => exportToCSV(periodAllCosts, t)}
                             sx={{ borderRadius: 2, border: `1px solid ${C.border}`, color: C.muted }}
                         >
                             <Typography variant="caption" sx={{ fontWeight: 700 }}>CSV</Typography>
@@ -207,7 +215,7 @@ const CostsPage = () => {
                     <Tooltip title={t('costs.exportPdf')!}>
                         <IconButton
                             size="small"
-                            onClick={() => exportToPDF(filteredCosts, t, langCurrency)}
+                            onClick={() => exportToPDF(periodAllCosts, t, langCurrency)}
                             sx={{ borderRadius: 2, border: `1px solid ${C.border}`, color: C.muted }}
                         >
                             <Typography variant="caption" sx={{ fontWeight: 700 }}>PDF</Typography>
@@ -218,7 +226,7 @@ const CostsPage = () => {
 
             <BudgetUsageSection />
 
-            {!loading && filteredCosts.length > 0 && (
+            {!loading && periodAllCosts.length > 0 && (
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                     {kpiCards.map((kpi) => (
                         <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 3 }}>
@@ -252,8 +260,8 @@ const CostsPage = () => {
                 </Grid>
             )}
 
-            {!loading && costs.length > 0 && (
-                <MonthComparisonCard costs={costs} />
+            {!loading && periodAllCosts.length > 0 && (
+                <MonthComparisonCard costs={periodAllCosts} />
             )}
 
             {!loading && periodAllCosts.length > 0 && (
@@ -269,7 +277,7 @@ const CostsPage = () => {
                 />
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField
                     size="small"
                     placeholder={t('costs.searchPlaceholder')}
@@ -284,7 +292,7 @@ const CostsPage = () => {
                             )
                         }
                     }}
-                    sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
+                    sx={{ width: { xs: '100%', sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     {(['today', 'week', 'month', 'year', 'all'] as PeriodFilter[]).map((p) => (

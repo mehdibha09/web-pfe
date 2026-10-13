@@ -13,8 +13,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PriceChangeIcon from '@mui/icons-material/PriceChange';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManagePricing } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManagePricing } from '../../../services/core/authorization';
 import {
     calculateCost,
     createPricing,
@@ -25,7 +25,7 @@ import {
 import MyCustomButton from '../../../components/MyCustomButton';
 import { numericFieldValue } from '../../../utils/numeric';
 import PaginationBar from '../../../components/PaginationBar';
-import { BTN, C } from '../../../theme/tokens';
+import { BTN, C, PAGE_BG } from '../../../theme/tokens';
 import type { CalculateCostResponse, PriceConfigResponse } from '../../../services/interfaces/cloudPricer';
 
 const MODES = ['VM', 'KUBERNETES'];
@@ -325,18 +325,7 @@ const PricingPage = () => {
                         <TableContainer sx={{ border: `1px solid ${C.border}`, borderRadius: 2 }}>
                             <Table>
                                 <TableHead>
-                                    <TableRow sx={{
-                                        backgroundColor: headerBg,
-                                        '& th': {
-                                            color: headerColor,
-                                            fontWeight: 800,
-                                            fontSize: 12,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: 0.6,
-                                            py: 1.4,
-                                            borderBottom: `1px solid ${C.border}`
-                                        }
-                                    }}>
+                                    <TableRow>
                                         <TableCell>{t('admin.pricing.resource')}</TableCell>
                                         <TableCell>{t('admin.pricing.price')}</TableCell>
                                         <TableCell>{t('admin.pricing.unit')}</TableCell>
@@ -533,7 +522,7 @@ const PricingPage = () => {
 
     /* ── Render ── */
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             {/* Header */}
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #E4477D, #BE185D)', mb: 2 }} />

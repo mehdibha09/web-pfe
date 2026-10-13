@@ -54,4 +54,3 @@ scripts
 # Kubernetes secrets (credentials) — ne jamais versionner
 k8s/secrets.yaml
 k8s/*secret*
-

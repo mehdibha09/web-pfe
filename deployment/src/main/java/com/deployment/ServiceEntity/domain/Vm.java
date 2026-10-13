@@ -105,6 +105,15 @@ public class Vm {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Dernier passage à l'état RUNNING. Nullable : sert à la facturation de la
+     * durée RUNNING réelle (une VM arrêtée ne doit pas être facturée). Les VMs
+     * existantes créées avant ce champ gardent startedAt null → la facturation
+     * retombe sur createdAt.
+     */
+    @Column
+    private Instant startedAt;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -288,6 +297,14 @@ public class Vm {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(Instant startedAt) {
+        this.startedAt = startedAt;
     }
 
 }

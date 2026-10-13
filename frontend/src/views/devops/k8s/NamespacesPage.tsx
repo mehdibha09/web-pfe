@@ -3,7 +3,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DnsIcon from '@mui/icons-material/Dns';
 import SearchIcon from '@mui/icons-material/Search';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
     Box,
     Button,
@@ -30,9 +29,10 @@ import { k8sService } from '../../../services/k8sService';
 import type { K8sNamespaceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageNamespaces } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageNamespaces } from '../../../services/core/authorization';
 import PaginationBar from '../../../components/PaginationBar';
+import EmptyState from '../../../components/EmptyState';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
@@ -84,8 +84,8 @@ const NamespacesPage = () => {
         }
         setCreating(true);
         try {
-            await k8sService.createNamespace({ name: newName.trim() });
-            toast.success(t('common.success'));
+            const res = await k8sService.createNamespace({ name: newName.trim() });
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('common.success'));
             setCreateOpen(false);
             setNewName('');
             clearFieldError('name');
@@ -120,7 +120,7 @@ const NamespacesPage = () => {
                     <Typography sx={{ color: C.muted }}>{t('k8s.namespaces.subtitle')}</Typography>
                 </Box>
                 {allowManage && (
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setCreateOpen(true); clearFieldError('name'); }} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setCreateOpen(true); clearFieldError('name'); }} sx={{ fontWeight: 700, px: 3 }}>
                     {t('k8s.namespaces.create')}
                 </Button>
                 )}
@@ -194,7 +194,7 @@ const NamespacesPage = () => {
                 </Box>
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                 <TextField
                     size="small"
                     placeholder={t('k8s.namespaces.search')}
@@ -209,7 +209,7 @@ const NamespacesPage = () => {
                             )
                         }
                     }}
-                    sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
+                    sx={{ width: { xs: '100%', sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
             </Box>
 
@@ -244,21 +244,13 @@ const NamespacesPage = () => {
                     ))}
                 </Grid>
             ) : namespaces.length === 0 ? (
-                <Card sx={{ borderRadius: 3, textAlign: 'center', py: 6 }}>
-                    <CardContent>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 1 }}>
-                            {namespaces.length === 0 ? t('k8s.namespaces.noNamespaces') : t('k8s.namespaces.noResults')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
-                            {namespaces.length === 0 ? t('k8s.namespaces.createFirst') : t('k8s.namespaces.adjustSearch')}
-                        </Typography>
-                        {namespaces.length === 0 && (
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setCreateOpen(true); clearFieldError('name'); }} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
-                                {t('k8s.namespaces.create')}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<DnsIcon />}
+                    title={namespaces.length === 0 ? t('k8s.namespaces.noNamespaces') : t('k8s.namespaces.noResults')}
+                    message={namespaces.length === 0 ? t('k8s.namespaces.createFirst') : t('k8s.namespaces.adjustSearch')}
+                    actionLabel={namespaces.length === 0 ? t('k8s.namespaces.create') : undefined}
+                    onAction={namespaces.length === 0 ? () => { setCreateOpen(true); clearFieldError('name'); } : undefined}
+                />
             ) : (
                 <>
                 <Grid container spacing={2}>
@@ -344,7 +336,7 @@ const NamespacesPage = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
                     <Button onClick={() => setCreateOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
-                    <Button onClick={handleCreate} variant="contained" disabled={creating} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                    <Button onClick={handleCreate} variant="contained" disabled={creating} sx={{ borderRadius: 2, fontWeight: 600 }}>
                         {creating ? t('k8s.namespaces.creating') : t('k8s.namespaces.create')}
                     </Button>
                 </DialogActions>

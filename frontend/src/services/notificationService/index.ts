@@ -3,7 +3,7 @@ export type {
   NotificationCreateRequest,
 } from '../interfaces/notification';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 
 export const listNotifications = async (userId: string): Promise<import('../interfaces/notification').NotificationResponse[]> => {
   const { data } = await axiosInstance.get(`/notifications?userId=${userId}`);

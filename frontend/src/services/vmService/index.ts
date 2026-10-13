@@ -9,10 +9,10 @@ export type {
 } from '../interfaces/vm';
 export { VM_OS_OPTIONS } from '../interfaces/vm';
 
-import api from '../axiosInstance';
+import api from '../core/axiosInstance';
 import type { CreateVmRequest, UpdateVmRequest, Vm, VmStatusResponse } from '../interfaces/vm';
 import type { SshExecuteRequest, SshExecuteResponse, SshInfoResponse } from '../interfaces/backup';
-import { getStoredUser } from '../authStorage';
+import { getStoredUser } from '../core/authStorage';
 
 const BASE = '/vms';
 

@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
 import com.cloud_pricer.domain.CostBreakdown;
@@ -34,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "cost.auto-gen.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class CostAutoGeneratorService {
 
@@ -46,8 +46,14 @@ public class CostAutoGeneratorService {
     private final VmRepository vmRepository;
     private final K8sDeploymentRepository k8sDeploymentRepository;
 
-    @Scheduled(fixedDelayString = "${cost.auto-gen.interval:3600000}", initialDelay = 120000)
-    public void autoGenerateCosts() {
+    // synchronized: serializes the scheduled run and the manual POST /costs/generate
+    // trigger so overlapping billing windows cannot both be persisted (double billing).
+    // NOTE: this only protects a single instance. A multi-replica deployment would
+    // require a DB row lock or distributed lock instead.
+    // The @Scheduled trigger lives in CostAutoGenScheduler (gated by
+    // cost.auto-gen.enabled) so this bean always exists for the manual /costs/generate
+    // endpoint even when auto-generation is disabled.
+    public synchronized void autoGenerateCosts() {
         log.info("Running cost auto-generation (Model A: allocation x RUNNING duration)");
         List<ServiceEnvironment> allSe = serviceEnvironmentRepository.findAll();
         if (allSe.isEmpty()) {
@@ -100,14 +106,15 @@ public class CostAutoGeneratorService {
     }
 
     private void generateVmCost(ServiceEnvironment se, List<Vm> vms, List<PriceConfig> configs, Window window) {
-        double computeCost = 0, storageCost = 0, networkCost = 0, backupCost = 0, osCost = 0;
+        double cpuCost = 0, ramCost = 0, computeCost = 0;
+        double storageCost = 0, networkCost = 0, backupCost = 0, osCost = 0;
         double cpuQty = 0, ramQty = 0, diskQty = 0;
 
         for (Vm vm : vms) {
             if (!isRunning(vm.getStatus())) {
                 continue;
             }
-            double hours = hoursInWindow(vm.getCreatedAt(), window);
+            double hours = hoursInWindow(vmStart(vm), window);
             if (hours <= 0) {
                 continue;
             }
@@ -118,8 +125,9 @@ public class CostAutoGeneratorService {
             cpuQty += cpu;
             ramQty += ram;
             diskQty += disk;
-            computeCost += cpu * pricePerUnit(configs, "CPU") * hours;
-            computeCost += ram * pricePerUnit(configs, "RAM") * hours;
+            cpuCost += cpu * pricePerUnit(configs, "CPU") * hours;
+            ramCost += ram * pricePerUnit(configs, "RAM") * hours;
+            computeCost = cpuCost + ramCost;
             storageCost += disk * pricePerUnit(configs, "DISK") * fraction;
             if (vm.isBackupEnabled()) {
                 backupCost += pricePerUnit(configs, "BACKUP") * disk * fraction;
@@ -136,8 +144,8 @@ public class CostAutoGeneratorService {
             computeCost, storageCost, networkCost, backupCost, osCost);
 
         List<CostBreakdown> breakdowns = List.of(
-            breakdown("CPU", pricePerUnit(configs, "CPU"), cpuQty, computeCost),
-            breakdown("RAM", pricePerUnit(configs, "RAM"), ramQty, computeCost),
+            breakdown("CPU", pricePerUnit(configs, "CPU"), cpuQty, cpuCost),
+            breakdown("RAM", pricePerUnit(configs, "RAM"), ramQty, ramCost),
             breakdown("DISK", pricePerUnit(configs, "DISK"), diskQty, storageCost)
         );
 
@@ -146,7 +154,8 @@ public class CostAutoGeneratorService {
     }
 
     private void generateK8sCost(ServiceEnvironment se, List<K8sDeployment> deployments, List<PriceConfig> configs, Window window) {
-        double computeCost = 0, storageCost = 0, networkCost = 0, backupCost = 0, osCost = 0;
+        double cpuCost = 0, ramCost = 0, computeCost = 0;
+        double storageCost = 0, networkCost = 0, backupCost = 0, osCost = 0;
         double cpuQty = 0, ramQty = 0;
 
         for (K8sDeployment d : deployments) {
@@ -162,8 +171,9 @@ public class CostAutoGeneratorService {
             double ram = parseMemoryRequest(d.getMemoryRequest()) * d.getReplicas();
             cpuQty += cpu;
             ramQty += ram;
-            computeCost += cpu * pricePerUnit(configs, "CPU") * hours;
-            computeCost += ram * pricePerUnit(configs, "RAM") * hours;
+            cpuCost += cpu * pricePerUnit(configs, "CPU") * hours;
+            ramCost += ram * pricePerUnit(configs, "RAM") * hours;
+            computeCost = cpuCost + ramCost;
             osCost += pricePerUnit(configs, "OS") * d.getReplicas() * fraction;
         }
 
@@ -176,8 +186,8 @@ public class CostAutoGeneratorService {
             computeCost, storageCost, networkCost, backupCost, osCost);
 
         List<CostBreakdown> breakdowns = List.of(
-            breakdown("CPU", pricePerUnit(configs, "CPU"), cpuQty, computeCost),
-            breakdown("RAM", pricePerUnit(configs, "RAM"), ramQty, computeCost)
+            breakdown("CPU", pricePerUnit(configs, "CPU"), cpuQty, cpuCost),
+            breakdown("RAM", pricePerUnit(configs, "RAM"), ramQty, ramCost)
         );
 
         costRecordService.create(record, breakdowns);
@@ -229,16 +239,16 @@ public class CostAutoGeneratorService {
             return new Window(now, now, 0);
         }
 
-        double hours = Math.min(HOURS_PER_MONTH, Duration.between(start, now).toHours());
+        double hours = Math.min(HOURS_PER_MONTH, Duration.between(start, now).toMinutes() / 60.0);
         return new Window(start, now, hours);
     }
 
     private Instant earliestAllocationStart(List<Vm> vms, List<K8sDeployment> deployments) {
         Instant earliest = null;
         for (Vm vm : vms) {
-            if (isRunning(vm.getStatus()) && vm.getCreatedAt() != null
-                    && (earliest == null || vm.getCreatedAt().isBefore(earliest))) {
-                earliest = vm.getCreatedAt();
+            if (isRunning(vm.getStatus()) && vmStart(vm) != null
+                    && (earliest == null || vmStart(vm).isBefore(earliest))) {
+                earliest = vmStart(vm);
             }
         }
         for (K8sDeployment d : deployments) {
@@ -250,13 +260,24 @@ public class CostAutoGeneratorService {
         return earliest;
     }
 
+    /**
+     * Point de départ de la facturation d'une VM : le dernier passage à l'état
+     * RUNNING (startedAt) s'il existe, sinon la création (les VMs créées avant
+     * l'ajout du champ started_at). Une VM arrêtée n'est de toute façon pas
+     * comptée (voir isRunning).
+     */
+    private Instant vmStart(Vm vm) {
+        return vm.getStartedAt() != null ? vm.getStartedAt() : vm.getCreatedAt();
+    }
+
     private double hoursInWindow(Instant createdAt, Window window) {
         Instant vmStart = createdAt != null ? createdAt : window.start();
         if (vmStart.isAfter(window.end())) {
             return 0;
         }
         Instant start = vmStart.isBefore(window.start()) ? window.start() : vmStart;
-        return Math.min(HOURS_PER_MONTH, Duration.between(start, window.end()).toHours());
+        // Fractional hours: avoid systematic under-billing from truncating toHours().
+        return Math.min(HOURS_PER_MONTH, Duration.between(start, window.end()).toMinutes() / 60.0);
     }
 
     private boolean isRunning(String status) {
@@ -320,4 +341,23 @@ public class CostAutoGeneratorService {
     }
 
     private record Window(Instant start, Instant end, double hours) {}
+}
+
+/**
+ * Separate component that owns the @Scheduled trigger. Gated by
+ * cost.auto-gen.enabled so disabling auto-generation only removes the scheduler,
+ * leaving CostAutoGeneratorService (and the manual /costs/generate endpoint) intact.
+ */
+@Slf4j
+@Component
+@ConditionalOnProperty(name = "cost.auto-gen.enabled", havingValue = "true", matchIfMissing = true)
+@RequiredArgsConstructor
+class CostAutoGenScheduler {
+
+    private final CostAutoGeneratorService costAutoGeneratorService;
+
+    @Scheduled(fixedDelayString = "${cost.auto-gen.interval:3600000}", initialDelay = 120000)
+    public void scheduledRun() {
+        costAutoGeneratorService.autoGenerateCosts();
+    }
 }

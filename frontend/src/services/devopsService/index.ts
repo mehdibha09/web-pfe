@@ -6,7 +6,7 @@ export type {
   MetricResponse,
 } from '../interfaces/devops';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 
 export const listEnvironments = async (): Promise<import('../interfaces/devops').EnvironmentResponse[]> => {
   const response = await axiosInstance.get('/environments/all');
@@ -178,17 +178,6 @@ export const getMetricsSummary = async (
   }
 };
 
-export const testGet = async (): Promise<any> => {
-  const response = await axiosInstance.get('/test');
-  return response.data;
-};
-
-export const testPostEcho = async (payload: { message: string }): Promise<any> => {
-  const response = await axiosInstance.post('/test', payload);
-  return response.data;
-};
-
-// ── Prometheus ─────────────────────────────────────────────────────────────────
 export const getPrometheusStatus = async (): Promise<{ reachable: boolean; url: string }> => {
   const response = await axiosInstance.get('/metrics/prometheus/status');
   return response.data;

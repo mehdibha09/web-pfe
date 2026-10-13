@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { isAuthenticated } from '../services/authStorage';
+import { isAuthenticated } from '../services/core/authStorage';
 
 const ProtectedRoute = () => {
   if (!isAuthenticated()) {

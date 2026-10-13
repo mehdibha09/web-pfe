@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.domain.Backup;
-import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.infra.VmClient;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.BackupRepository;
@@ -37,6 +37,11 @@ public class BackupService {
     public BackupResponseDto create(BackupCreateDto dto) {
         Vm vm = vmRepository.findById(dto.vmId())
                 .orElseThrow(() -> new EntityNotFoundException("VM not found: " + dto.vmId()));
+
+        // Scoping tenant : on ne prend un snapshot que d'une VM du tenant courant.
+        if (!vm.getTenantId().equals(UserContext.getTenantId())) {
+            throw new EntityNotFoundException("VM not found: " + dto.vmId());
+        }
 
         if (vm.getVboxName() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "VM_NOT_PROVISIONED",
@@ -77,9 +82,12 @@ public class BackupService {
             saved.setSizeMb(size != null && size > 0 ? size : 256L);
             log.info("Backup created: id={} snapshot={} vm={} size={}MB", saved.getId(), snapshotName, vm.getName(), saved.getSizeMb());
         } catch (Exception e) {
-            saved.setStatus(Backup.Status.COMPLETED);
-            saved.setSizeMb(256L);
-            log.warn("Backup created without VirtualBox snapshot: id={} vm={} (fallback size=256MB)", saved.getId(), vm.getName());
+            // Échec réel du snapshot : le backup est marqué FAILED (plus de faux
+            // "COMPLETED" avec une taille inventée — l'utilisateur verrait un backup
+            // réussi alors qu'aucun snapshot n'existe).
+            saved.setStatus(Backup.Status.FAILED);
+            saved.setSizeMb(null);
+            log.error("Backup snapshot failed for vm={} snapshot={}: {}", vm.getName(), snapshotName, e.getMessage());
         }
 
         return map(backupRepository.save(saved));
@@ -123,7 +131,8 @@ public class BackupService {
                     "VM has no VirtualBox name");
         }
 
-        if (vm.getStatus() == Vm.Status.RUNNING) {
+        boolean wasRunning = vm.getStatus() == Vm.Status.RUNNING;
+        if (wasRunning) {
             log.info("Halting VM {} before restoring snapshot", vm.getName());
             vagrantClient.halt(vm.getVagrantPath());
             vm.setStatus(Vm.Status.STOPPED);
@@ -138,6 +147,18 @@ public class BackupService {
         } catch (Exception e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "RESTORE_FAILED",
                     "Failed to restore backup: " + e.getMessage());
+        }
+
+        // Relance la VM si elle tournait avant la restauration (comportement attendu).
+        if (wasRunning) {
+            try {
+                vagrantClient.up(vm.getVagrantPath());
+                vm.setStatus(Vm.Status.RUNNING);
+                vmRepository.save(vm);
+                log.info("VM {} restarted after restore", vm.getName());
+            } catch (Exception e) {
+                log.warn("VM {} left stopped after restore (failed to restart): {}", vm.getName(), e.getMessage());
+            }
         }
 
         return map(backupRepository.save(backup));
@@ -165,6 +186,18 @@ public class BackupService {
                     log.error("Failed to delete snapshot {}: {}", backup.getFilePath(), e.getMessage());
                     throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "SNAPSHOT_DELETE_FAILED",
                             "Failed to delete VirtualBox snapshot: " + e.getMessage());
+                }
+
+                // Relance la VM si elle tournait avant la suppression du snapshot.
+                if (wasRunning) {
+                    try {
+                        vagrantClient.up(vm.getVagrantPath());
+                        vm.setStatus(Vm.Status.RUNNING);
+                        vmRepository.save(vm);
+                        log.info("VM {} restarted after snapshot deletion", vm.getName());
+                    } catch (Exception e) {
+                        log.warn("VM {} left stopped after snapshot deletion (failed to restart): {}", vm.getName(), e.getMessage());
+                    }
                 }
             }
         }

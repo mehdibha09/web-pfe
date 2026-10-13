@@ -12,11 +12,12 @@ import SearchIcon from '@mui/icons-material/Search';
 import ShieldIcon from '@mui/icons-material/Shield';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import PaginationBar from '../../../components/PaginationBar';
 import { listPermissions, updatePermission } from '../../../services/adminService';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManagePermissions, canManageUsers } from '../../../services/authorization';
-import { C } from '../../../theme/tokens';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManagePermissions, canManageUsers } from '../../../services/core/authorization';
+import { C, PAGE_BG } from '../../../theme/tokens';
 
 type PermissionItem = {
     id: string;
@@ -212,9 +213,9 @@ const PermissionsPage = () => {
     };
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
-                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', mb: 2 }} />
+                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(135deg, #E4477D, #BE185D)', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>
                     {t('admin.permissions.title')}
                 </Typography>
@@ -228,7 +229,7 @@ const PermissionsPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                 {[
-                    { label: t('admin.permissions.totalPermissions'), value: permissions.length, icon: <ShieldIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
+                    { label: t('admin.permissions.totalPermissions'), value: permissions.length, icon: <ShieldIcon />, gradient: 'linear-gradient(135deg, #E4477D, #BE185D)' },
                     { label: t('admin.permissions.matchingFilters'), value: filteredPermissions.length, icon: <FilterListIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' },
                     { label: t('admin.permissions.latestKey'), value: permissions[permissions.length - 1]?.key || '\u2014', icon: <KeyIcon />, gradient: 'linear-gradient(135deg, #10B981, #34D399)' }
                 ].map((stat) => (
@@ -325,19 +326,11 @@ const PermissionsPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filteredPermissions.length === 0 ? (
-                <Card sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, background: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <ShieldIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.permissions.noPermissionsFound')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('admin.permissions.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<ShieldIcon />}
+                    title={t('admin.permissions.noPermissionsFound')}
+                    message={t('admin.permissions.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -412,7 +405,7 @@ const PermissionsPage = () => {
                                             label={permission.resource || '-'}
                                             size="small"
                                             variant="outlined"
-                                            sx={{ fontWeight: 600, borderColor: C.border, color: '#475569' }}
+                                            sx={{ fontWeight: 600, borderColor: C.border, color: C.muted }}
                                         />
                                     </Stack>
                                 )}

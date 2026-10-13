@@ -11,7 +11,8 @@ public record K8sNetworkPolicyResponse(
     List<String> ingressRules,
     List<String> egressRules,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sNetworkPolicyResponse fromK8sJson(Map<String, Object> json) {
@@ -40,7 +41,7 @@ public record K8sNetworkPolicyResponse(
 
             return new K8sNetworkPolicyResponse(name, namespace, podSelector,
                 policyTypes != null ? policyTypes : List.of(),
-                ingressSummary, egressSummary, creationTimestamp, "networking.k8s.io/v1");
+                ingressSummary, egressSummary, creationTimestamp, "networking.k8s.io/v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -109,6 +110,6 @@ public record K8sNetworkPolicyResponse(
 
     public static K8sNetworkPolicyResponse fromSimulated(String name, String namespace, String podSelector, List<String> policyTypes) {
         return new K8sNetworkPolicyResponse(name, namespace, podSelector,
-            policyTypes, List.of(), List.of(), java.time.Instant.now().toString(), "networking.k8s.io/v1");
+            policyTypes, List.of(), List.of(), java.time.Instant.now().toString(), "networking.k8s.io/v1",true);
     }
 }

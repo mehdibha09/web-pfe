@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Button from '../../../components/MyCustomButton';
 import { resendEmailTwoFa, verifyEmailTwoFa } from '../../../services/authService';
-import { clearPendingTwoFactorSession, getPendingTwoFactorSession, saveSession } from '../../../services/authStorage';
+import { clearPendingTwoFactorSession, getPendingTwoFactorSession, saveSession } from '../../../services/core/authStorage';
 
 const TwoFactor = () => {
     const { t } = useTranslation();

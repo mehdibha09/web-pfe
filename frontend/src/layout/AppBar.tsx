@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getStoredUser } from '../services/authStorage';
+import { getStoredUser } from '../services/core/authStorage';
 import { C } from '../theme/tokens';
 import {
     countUnreadNotifications,
@@ -125,8 +125,10 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
   useEffect(() => {
     if (!user) return;
     const ctrl = new AbortController();
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
 
-    (async () => {
+    const connect = async () => {
       try {
         await fetchEventSource(`${API_BASE_URL}/notifications/stream`, {
           method: 'GET',
@@ -159,31 +161,47 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
               // ignore parse errors
             }
           },
+          onclose: () => {
+            if (!closed && !ctrl.signal.aborted) {
+              if (reconnectTimer) clearTimeout(reconnectTimer);
+              reconnectTimer = setTimeout(() => { if (!closed) connect(); }, 3000);
+            }
+          },
           onerror: () => {
-            ctrl.abort();
+            // fetchEventSource closes the stream after onerror; schedule a
+            // reconnection so the unread badge keeps updating after a
+            // transient disconnect (previously ctrl.abort() froze it forever).
+            if (!closed && !ctrl.signal.aborted) {
+              if (reconnectTimer) clearTimeout(reconnectTimer);
+              reconnectTimer = setTimeout(() => { if (!closed) connect(); }, 3000);
+            }
           }
         });
       } catch {
-        // connection closed or aborted
+        // connection closed or aborted — will be reconnected via onclose
       }
-    })();
+    };
+
+    connect();
 
     return () => {
+      closed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       ctrl.abort();
       esRef.current = null;
     };
   }, [user]);
 
-  const handleBellClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleBellClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
     fetchRecent();
-  };
+  }, [fetchRecent]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setAnchorEl(null);
-  };
+  }, []);
 
-  const handleMarkRead = async (id: string) => {
+  const handleMarkRead = useCallback(async (id: string) => {
     try {
       await markAsRead(id);
       setRecentNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -191,13 +209,13 @@ const AppBar = ({ onMenuClick }: AppBarProps) => {
     } catch {
       // silent
     }
-  };
+  }, []);
 
-  const handleNotificationClick = (n: NotificationResponse) => {
+  const handleNotificationClick = useCallback((n: NotificationResponse) => {
     if (!n.read) handleMarkRead(n.id);
     if (n.link) navigate(n.link);
     handleClose();
-  };
+  }, [handleClose, handleMarkRead, navigate]);
 
   const open = Boolean(anchorEl);
 

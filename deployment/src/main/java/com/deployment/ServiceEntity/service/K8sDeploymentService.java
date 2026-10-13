@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.domain.K8sDeployment;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.domain.ServiceEnvironment;
 import com.deployment.ServiceEntity.repository.K8sDeploymentRepository;
 import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
@@ -252,6 +252,8 @@ public class K8sDeploymentService {
         return se;
     }
 
+    // Param 'se' conservé volontairement : le schéma de namespace par tenant peut
+    // évoluer pour dériver du ServiceEnvironment. Actuellement résolu via le contexte.
     private String buildNamespace(ServiceEnvironment se) {
         return TenantNamespaceResolver.resolve(null);
     }

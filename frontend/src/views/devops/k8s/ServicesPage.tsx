@@ -32,11 +32,12 @@ import type { K8sServiceResponse } from '../../../services/interfaces/k8s';
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { numericFieldValue } from '../../../utils/numeric';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import { SERVICE_TYPES } from './constants';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 import PaginationBar from '../../../components/PaginationBar';
+import EmptyState from '../../../components/EmptyState';
 
 const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
     ClusterIP: { bg: '#FCE7F3', color: '#BE185D' },
@@ -63,6 +64,7 @@ const ServicesPage = () => {
     const [svcProtocol, setSvcProtocol] = useState('TCP');
     const [svcSelectorKey, setSvcSelectorKey] = useState('app');
     const [svcSelectorValue, setSvcSelectorValue] = useState('');
+    const [svcLabels, setSvcLabels] = useState('');
     const [saving, setSaving] = useState(false);
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
@@ -105,6 +107,7 @@ const ServicesPage = () => {
         setSvcProtocol('TCP');
         setSvcSelectorKey('app');
         setSvcSelectorValue('');
+        setSvcLabels('');
         clearFieldError('name');
         setDialogOpen(true);
     };
@@ -119,6 +122,7 @@ const ServicesPage = () => {
         const selEntry = Object.entries(svc.selector)[0] || ['app', ''];
         setSvcSelectorKey(selEntry[0]);
         setSvcSelectorValue(selEntry[1]);
+        setSvcLabels(svc.labels ? Object.entries(svc.labels).map(([k, v]) => `${k}=${v}`).join(', ') : '');
         clearFieldError('name');
         setDialogOpen(true);
     };
@@ -137,13 +141,14 @@ const ServicesPage = () => {
                 targetPort: svcTargetPort,
                 protocol: svcProtocol,
                 selector: { [svcSelectorKey]: svcSelectorValue || svcName.trim() },
+                labels: svcLabels.trim() ? Object.fromEntries(svcLabels.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined,
             };
             if (editing) {
-                await k8sService.updateService(editing.name, payload);
-                toast.success(t('common.success'));
+                const res = await k8sService.updateService(editing.name, payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('common.success'));
             } else {
-                await k8sService.createService(payload);
-                toast.success(t('common.success'));
+                const res = await k8sService.createService(payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('common.success'));
             }
             setDialogOpen(false);
             clearFieldError('name');
@@ -182,7 +187,7 @@ const ServicesPage = () => {
                     </Typography>
                     <Typography sx={{ color: C.muted }}>{t('k8s.services.subtitle')}</Typography>
                 </Box>
-                {allowManage && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                {allowManage && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3 }}>
                     {t('k8s.services.create')}
                 </Button>}
             </Box>
@@ -204,7 +209,7 @@ const ServicesPage = () => {
                 </Box>
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField
                     size="small"
                     placeholder={t('k8s.services.search')}
@@ -219,7 +224,7 @@ const ServicesPage = () => {
                             )
                         }
                     }}
-                    sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
+                    sx={{ width: { xs: '100%', sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
             </Box>
 
@@ -255,21 +260,13 @@ const ServicesPage = () => {
                     ))}
                 </Grid>
             ) : services.length === 0 ? (
-                <Card sx={{ borderRadius: 3, textAlign: 'center', py: 6 }}>
-                    <CardContent>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 1 }}>
-                            {services.length === 0 ? t('k8s.services.noServices') : t('k8s.services.noResults')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
-                            {services.length === 0 ? t('k8s.services.createFirst') : t('k8s.services.adjustSearch')}
-                        </Typography>
-                        {services.length === 0 && allowManage && (
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
-                                {t('k8s.services.create')}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<StorageIcon />}
+                    title={services.length === 0 ? t('k8s.services.noServices') : t('k8s.services.noResults')}
+                    message={services.length === 0 ? t('k8s.services.createFirst') : t('k8s.services.adjustSearch')}
+                    actionLabel={services.length === 0 && allowManage ? t('k8s.services.create') : undefined}
+                    onAction={services.length === 0 && allowManage ? openCreate : undefined}
+                />
             ) : (<>
                 <Grid container spacing={2}>
                     {services.map((svc) => {
@@ -312,6 +309,14 @@ const ServicesPage = () => {
                                         <Typography variant="caption" sx={{ color: C.muted, display: 'block' }}>
                                             {svc.createdAt ? new Date(svc.createdAt).toLocaleString() : ''}
                                         </Typography>
+
+                                        {svc.labels && Object.entries(svc.labels).length > 0 && (
+                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                                                {Object.entries(svc.labels).map(([k, v]) => (
+                                                    <Chip key={k} label={`${k}=${v}`} size="small" sx={{ backgroundColor: '#E9E6F6', color: '#5E4B9E', fontWeight: 600, fontSize: 11, height: 22 }} />
+                                                ))}
+                                            </Box>
+                                        )}
 
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 1 }}>
                                             {allowManage && (
@@ -379,11 +384,12 @@ const ServicesPage = () => {
                             <TextField fullWidth label="Selector Key" value={svcSelectorKey} onChange={(e) => setSvcSelectorKey(e.target.value)} placeholder="e.g. app" />
                             <TextField fullWidth label="Selector Value" value={svcSelectorValue} onChange={(e) => setSvcSelectorValue(e.target.value)} placeholder="e.g. my-app" />
                         </Box>
+                        <TextField fullWidth label={t('k8s.configmaps.labels')} value={svcLabels} onChange={(e) => setSvcLabels(e.target.value)} placeholder="env=prod,team=backend" helperText={t('k8s.configmaps.labelsHint')} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
                     <Button onClick={() => setDialogOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
-                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600 }}>
                         {saving ? t('k8s.services.saving') : (editing ? t('common.save') : t('k8s.services.create'))}
                     </Button>
                 </DialogActions>

@@ -37,7 +37,7 @@ import {
     type SessionResponse,
     type AuditLogResponse
 } from '../../services/adminService';
-import { vmService, type Vm } from '../../services/VmService';
+import { vmService, type Vm } from '../../services/vmService';
 import { k8sService, type K8sDeployment } from '../../services/k8sService';
 import { backupService, type Backup } from '../../services/backupService';
 import { listAlerts, listCosts, type AlertResponse, type CostRecordResponse } from '../../services/cloudPricerService';
@@ -498,7 +498,7 @@ const SuperAdminDashboard = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3 }}>
                 <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, background: '#FFFFFF', position: 'relative', overflow: 'visible' }}>
-                    <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #5E4B9E, #A78BFA)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+                    <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Box>

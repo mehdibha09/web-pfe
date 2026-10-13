@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.auth.service.service.TenantService;
+import com.auth.service.web.dto.auth.AuthActionResponse;
 import com.auth.service.web.dto.role.RoleResponse;
 import com.auth.service.web.dto.tenant.TenantCreateRequest;
 import com.auth.service.web.dto.tenant.TenantResponse;
@@ -78,6 +79,19 @@ public class TenantController {
             @PathVariable UUID tenantId
     ) {
         return ResponseEntity.ok(tenantService.disableTenant(authorizationHeader, tenantId));
+    }
+
+    /**
+     * Suppression permanente (hard delete) d'un tenant — réservé au super-admin.
+     * Supprime le tenant et toutes ses données associées (users, roles, sessions, etc.).
+     */
+    @DeleteMapping(ApiRoutes.Tenants.HARD_DELETE)
+    public ResponseEntity<AuthActionResponse> hardDeleteTenant(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable UUID tenantId
+    ) {
+        tenantService.deleteTenant(authorizationHeader, tenantId);
+        return ResponseEntity.ok(new AuthActionResponse("Tenant permanently deleted"));
     }
 
     @GetMapping(ApiRoutes.Tenants.USERS)

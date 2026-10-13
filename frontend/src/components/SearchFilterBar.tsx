@@ -30,14 +30,7 @@ const SearchFilterBar = ({
     resultCount,
     totalCount
 }: SearchFilterBarProps) => (
-    <Card
-        sx={{
-            borderRadius: 3,
-            border: `1px solid ${C.border}`,
-            mb: 3,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-        }}
-    >
+    <Card sx={{ mb: 3 }}>
         <CardContent sx={{ py: '14px !important' }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField

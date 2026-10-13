@@ -3,8 +3,8 @@ import { Box, Button, Card, CardContent, CardActions, Chip, MenuItem, TextField,
 import { useTranslation } from 'react-i18next';
 import type { ServiceEnvironmentResponse } from '../../../services/devopsService';
 import MyCustomButton from '../../../components/MyCustomButton';
-import { C, BTN } from '../../../theme/tokens';
-import type { Option } from './palette';
+import { C, BTN, R } from '../../../theme/tokens';
+import type { Option } from '../../../theme/palette';
 
 type RelationCardProps = {
     relation: ServiceEnvironmentResponse;
@@ -69,14 +69,14 @@ const RelationCard = ({
         <CardActions sx={{ px: 3, py: 1.5, justifyContent: 'flex-end', gap: 1, borderTop: `1px solid ${C.border}`, background: '#FAFAFA' }}>
             {isEditing ? (
                 <>
-                    <Button variant="outlined" onClick={onCancelEdit} sx={{ borderRadius: '5px', textTransform: 'capitalize', fontWeight: 'bold', borderColor: C.border, color: C.muted }}>{t('common.cancel')}</Button>
+                    <Button variant="outlined" onClick={onCancelEdit} sx={{ borderRadius: R.control, fontWeight: 'bold', borderColor: C.border, color: C.muted }}>{t('common.cancel')}</Button>
                     <MyCustomButton onClick={onSave}>{t('common.save')}</MyCustomButton>
                 </>
             ) : (
                 allowManage && (
                     <>
-                        <Button size="small" onClick={onStartEdit} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
-                        <Button size="small" onClick={onDelete} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: '5px', px: 1.5, textTransform: 'capitalize', '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
+                        <Button size="small" onClick={onStartEdit} sx={{ fontSize: 12, fontWeight: 'bold', color: C.brand, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5, '&:hover': { backgroundColor: C.brandLight, borderColor: C.brand } }}>{t('common.edit')}</Button>
+                        <Button size="small" onClick={onDelete} sx={{ fontSize: 12, fontWeight: 'bold', color: C.danger, border: `1px solid ${C.border}`, borderRadius: R.control, px: 1.5, '&:hover': { backgroundColor: C.dangerLight, borderColor: C.danger } }}>{t('common.delete')}</Button>
                     </>
                 )
             )}

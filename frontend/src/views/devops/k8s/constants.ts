@@ -11,8 +11,8 @@ export const IMAGE_PULL_POLICIES = ['IfNotPresent', 'Always', 'Never'] as const;
 export const SERVICE_TYPES = ['ClusterIP', 'NodePort', 'LoadBalancer', 'ExternalName'] as const;
 export const RESTART_POLICIES = ['Always', 'OnFailure', 'Never'] as const;
 
-import { BTN, C } from '../../../theme/tokens';
-export { BTN, C };
+import { BTN, C, R } from '../../../theme/tokens';
+export { BTN, C, R };
 
 export const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
     CREATED: { bg: '#FCE7F3', fg: '#BE185D' },

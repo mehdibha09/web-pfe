@@ -19,7 +19,8 @@ import {
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { PAGE_BG } from '../../../theme/tokens';
 import { useSse } from '../../../hooks/useSse';
 
 import type {
@@ -176,11 +177,12 @@ const MetricsPage = () => {
 
         if (pollingEnabled && serviceEnvironmentId) {
             pollingRef.current = setInterval(async () => {
+                const tenantId = getStoredUser()?.tenantId;
                 try {
                     const [latestMetric, historyMetrics, summaryMetric] = await Promise.all([
-                        getLatestMetric(serviceEnvironmentId),
-                        getMetricsHistory(serviceEnvironmentId),
-                        getMetricsSummary(serviceEnvironmentId)
+                        getLatestMetric(serviceEnvironmentId, tenantId),
+                        getMetricsHistory(serviceEnvironmentId, tenantId),
+                        getMetricsSummary(serviceEnvironmentId, tenantId)
                     ]);
                     setLatest(latestMetric);
                     setHistory(historyMetrics);
@@ -210,7 +212,8 @@ const MetricsPage = () => {
         if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, '');
         const host = import.meta.env.VITE_API_HOST || 'localhost';
         const port = import.meta.env.VITE_API_PORT || '6060';
-        return `http://${host}:${port}`;
+        const path = (import.meta.env.VITE_API_PATH || '/api/v1').replace(/^\/+/, '/');
+        return `http://${host}:${port}${path}`;
     })();
 
     const { connected: sseConnected } = useSse({
@@ -218,7 +221,13 @@ const MetricsPage = () => {
         enabled: useSseEnabled && !!serviceEnvironmentId,
         onMessage: (data: MetricResponse) => {
             setLatest(data);
-            setHistory((prev) => [...prev, data].slice(-100));
+            setHistory((prev) => {
+                const key = data.id ?? data.timestamp ?? data.createdAt;
+                if (key && prev.some((m) => (m.id ?? m.timestamp ?? m.createdAt) === key)) {
+                    return prev;
+                }
+                return [...prev, data].slice(-100);
+            });
         }
     });
 
@@ -359,7 +368,7 @@ const MetricsPage = () => {
         <Box
             sx={{
                 p: { xs: 2, md: 4 },
-                background: `linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)`,
+                background: PAGE_BG,
                 minHeight: '100%'
             }}
         >

@@ -36,7 +36,7 @@ public class AuthTokenResolver {
         this.authServiceUrl = env.getProperty("auth.service.url", "http://localhost:7070");
     }
 
-    public record ResolvedUser(UUID userId, UUID tenantId, Set<String> permissions) {}
+    public record ResolvedUser(UUID userId, UUID tenantId, Set<String> permissions, Set<String> roles) {}
 
     public ResolvedUser resolve(String bearerToken) {
         if (bearerToken == null || bearerToken.isBlank()) return null;
@@ -73,8 +73,14 @@ public class AuthTokenResolver {
                     permissions.add(p.asText());
                 }
             }
+            Set<String> roles = new HashSet<>();
+            if (body.has("roles") && body.get("roles").isArray()) {
+                for (var r : body.get("roles")) {
+                    roles.add(r.asText());
+                }
+            }
 
-            ResolvedUser user = new ResolvedUser(userId, tenantId, permissions);
+            ResolvedUser user = new ResolvedUser(userId, tenantId, permissions, roles);
             cache.put(cacheKey, new CacheEntry(user, System.currentTimeMillis() + 300_000));
             return user;
         } catch (Exception e) {

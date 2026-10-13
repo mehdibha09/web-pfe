@@ -28,7 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import type { EnvironmentResponse, ServiceEnvironmentResponse, ServiceResponse } from '../../../services/devopsService';
 import type { DeploymentTemplate, K8sDeploymentRequest, ProbeConfig } from '../../../services/k8sService';
 import { k8sService } from '../../../services/k8sService';

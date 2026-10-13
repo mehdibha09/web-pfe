@@ -33,9 +33,10 @@ import type { K8sIngressResponse, K8sIngressRule, K8sIngressTLS } from '../../..
 import { C } from '../../../theme/tokens';
 import { getErrorMessage } from '../../../utils/errorMessage';
 import { numericFieldValue } from '../../../utils/numeric';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import PaginationBar from '../../../components/PaginationBar';
+import EmptyState from '../../../components/EmptyState';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
 interface PathEntry { path: string; pathType: string; serviceName: string; servicePort: number; }
@@ -58,6 +59,7 @@ const IngressPage = () => {
     const [ingressClass, setIngressClass] = useState('');
     const [rules, setRules] = useState<RuleEntry[]>([{ host: '', paths: [{ path: '/', pathType: 'Prefix', serviceName: '', servicePort: 80 }] }]);
     const [tlsEntries, setTlsEntries] = useState<TLSEntry[]>([]);
+    const [ingressLabels, setIngressLabels] = useState('');
     const [saving, setSaving] = useState(false);
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
@@ -90,6 +92,7 @@ const IngressPage = () => {
         setIngressClass('');
         setRules([{ host: '', paths: [{ path: '/', pathType: 'Prefix', serviceName: '', servicePort: 80 }] }]);
         setTlsEntries([]);
+        setIngressLabels('');
     };
 
     const openCreate = () => {
@@ -112,6 +115,7 @@ const IngressPage = () => {
             hosts: (t.hosts || []).join(', '),
             secretName: t.secretName || '',
         })));
+        setIngressLabels(ing.labels ? Object.entries(ing.labels).map(([k, v]) => `${k}=${v}`).join(', ') : '');
         clearFieldError('name');
         clearFieldError('rules');
         setDialogOpen(true);
@@ -200,13 +204,14 @@ const IngressPage = () => {
                 ingressClassName: ingressClass.trim() || undefined,
                 rules: finalRules,
                 tls: buildTls().length > 0 ? buildTls() : undefined,
+                labels: ingressLabels.trim() ? Object.fromEntries(ingressLabels.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined,
             };
             if (editing) {
-                await k8sService.updateIngress(editing.name, payload);
-                toast.success(t('common.success'));
+                const res = await k8sService.updateIngress(editing.name, payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('common.success'));
             } else {
-                await k8sService.createIngress(payload);
-                toast.success(t('common.success'));
+                const res = await k8sService.createIngress(payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('common.success'));
             }
             setDialogOpen(false);
             clearFieldError('name');
@@ -242,7 +247,7 @@ const IngressPage = () => {
                     </Typography>
                     <Typography sx={{ color: C.muted }}>{t('k8s.ingresses.subtitle')}</Typography>
                 </Box>
-                {allowManage && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
+                {allowManage && <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ fontWeight: 700, px: 3 }}>
                     {t('k8s.ingresses.create')}
                 </Button>}
 
@@ -268,7 +273,7 @@ const IngressPage = () => {
                 </Box>
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField
                     size="small"
                     placeholder={t('k8s.ingresses.search')}
@@ -283,7 +288,7 @@ const IngressPage = () => {
                             ),
                         },
                     }}
-                    sx={{ minWidth: 300, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
+                    sx={{ width: { xs: '100%', sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2, background: C.surface } }}
                 />
             </Box>
 
@@ -319,21 +324,13 @@ const IngressPage = () => {
                     ))}
                 </Grid>
             ) : ingresses.length === 0 ? (
-                <Card sx={{ borderRadius: 3, textAlign: 'center', py: 6 }}>
-                    <CardContent>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 1 }}>
-                            {ingresses.length === 0 ? t('k8s.ingresses.noIngresses') : t('k8s.ingresses.noResults')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted, mb: 2 }}>
-                            {ingresses.length === 0 ? t('k8s.ingresses.createFirst') : t('k8s.ingresses.adjustSearch')}
-                        </Typography>
-                        {ingresses.length === 0 && allowManage && (
-                            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' } }}>
-                                {t('k8s.ingresses.create')}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<TrafficIcon />}
+                    title={ingresses.length === 0 ? t('k8s.ingresses.noIngresses') : t('k8s.ingresses.noResults')}
+                    message={ingresses.length === 0 ? t('k8s.ingresses.createFirst') : t('k8s.ingresses.adjustSearch')}
+                    actionLabel={ingresses.length === 0 && allowManage ? t('k8s.ingresses.create') : undefined}
+                    onAction={ingresses.length === 0 && allowManage ? openCreate : undefined}
+                />
             ) : (<>
                 <Grid container spacing={2}>
                     {ingresses.map((ing) => (
@@ -354,6 +351,14 @@ const IngressPage = () => {
                                         <Typography variant="caption" sx={{ color: C.muted, fontFamily: 'monospace', fontSize: 11, mb: 0.5, display: 'block' }}>
                                             {t('k8s.ingresses.class')}: {ing.ingressClassName}
                                         </Typography>
+                                    )}
+
+                                    {ing.labels && Object.entries(ing.labels).length > 0 && (
+                                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                                            {Object.entries(ing.labels).map(([k, v]) => (
+                                                <Chip key={k} label={`${k}=${v}`} size="small" sx={{ backgroundColor: '#E9E6F6', color: '#5E4B9E', fontWeight: 600, fontSize: 11, height: 22 }} />
+                                            ))}
+                                        </Box>
                                     )}
 
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
@@ -444,6 +449,7 @@ const IngressPage = () => {
                             <TextField fullWidth label={t('common.name')} value={name} onChange={(e) => { setName(e.target.value); clearFieldError('name'); }} disabled={!!editing} error={Boolean(errors.name)} helperText={errors.name} />
                             <TextField fullWidth label={t('k8s.ingresses.ingressClass')} value={ingressClass} onChange={(e) => setIngressClass(e.target.value)} placeholder={t('k8s.ingresses.ingressClassPlaceholder')} />
                         </Box>
+                        <TextField fullWidth label={t('k8s.configmaps.labels')} value={ingressLabels} onChange={(e) => setIngressLabels(e.target.value)} placeholder="env=prod,team=backend" helperText={t('k8s.configmaps.labelsHint')} />
 
                         <Box sx={{ borderTop: `1px solid ${C.border}`, pt: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -498,7 +504,7 @@ const IngressPage = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
                     <Button onClick={() => setDialogOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600 }}>{t('common.cancel')}</Button>
-                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#FCE7F3' } }}>
+                    <Button onClick={handleSave} variant="contained" disabled={saving} sx={{ borderRadius: 2, fontWeight: 600 }}>
                         {saving ? t('common.saving') : (editing ? t('common.save') : t('k8s.ingresses.create'))}
                     </Button>
                 </DialogActions>

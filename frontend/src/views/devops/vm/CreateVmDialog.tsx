@@ -25,8 +25,9 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { serviceEnvironmentService, type ServiceEnvironment } from '../../../services/ServiceEnvironmentService';
-import { vmService } from '../../../services/VmService';
+import { listServiceEnvironments } from '../../../services/devopsService';
+import type { ServiceEnvironmentResponse } from '../../../services/devopsService';
+import { vmService } from '../../../services/vmService';
 import { listQuotas } from '../../../services/cloudPricerService';
 import type { QuotaResponse } from '../../../services/cloudPricerService';
 import { VM_OS_OPTIONS, type CreateVmRequest, type VmOs } from '../../../services/interfaces/vm';
@@ -80,7 +81,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [serviceEnvironments, setServiceEnvironments] = useState<ServiceEnvironment[]>([]);
+    const [serviceEnvironments, setServiceEnvironments] = useState<ServiceEnvironmentResponse[]>([]);
     const [loadingEnvs, setLoadingEnvs] = useState(false);
     const [quotas, setQuotas] = useState<QuotaResponse[]>([]);
 
@@ -88,8 +89,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
         if (!open) return;
         setLoadingEnvs(true);
         setError(null);
-        serviceEnvironmentService
-            .getAll()
+        listServiceEnvironments()
             .then((data) => setServiceEnvironments(data))
             .catch((err) => setError(getErrorMessage(err, 'Failed to load environments')))
             .finally(() => setLoadingEnvs(false));
@@ -293,7 +293,7 @@ const CreateVmDialog = ({ open, onClose, onCreated }: CreateVmDialogProps) => {
                                             />
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
                                                 <Typography sx={{ fontSize: 10, color: C.subtle }}>{meta.min}{field === 'ram' ? 'MB' : field === 'disk' ? 'GB' : ''}</Typography>
-                                                <Typography sx={{ fontSize: 10, color: C.subtle }}>{meta.max}{field === 'ram' ? 'GB' : ''}</Typography>
+                                                <Typography sx={{ fontSize: 10, color: C.subtle }}>{field === 'ram' ? formatRam(meta.max) : `${meta.max}${field === 'disk' ? ' GB' : ''}`}</Typography>
                                             </Box>
                                         </Paper>
                                     </Grid>

@@ -7,7 +7,6 @@ import { C} from '../../../theme/tokens';
 interface SshTerminalProps {
     vmId: string;
     vmName: string;
-    sshInfo: { host: string; port: number; user: string; privateKeyPath: string } | null;
 }
 
 const WS_BASE = (() => {

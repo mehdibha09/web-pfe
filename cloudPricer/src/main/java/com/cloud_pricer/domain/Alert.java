@@ -50,6 +50,9 @@ public class Alert {
   @Column(name = "resolved_at")
   private Instant resolvedAt;
 
+  @Column(name = "notified_at")
+  private Instant notifiedAt;
+
   public Alert() {
   }
 
@@ -155,6 +158,14 @@ public class Alert {
 
   public void setResolvedAt(Instant resolvedAt) {
     this.resolvedAt = resolvedAt;
+  }
+
+  public Instant getNotifiedAt() {
+    return notifiedAt;
+  }
+
+  public void setNotifiedAt(Instant notifiedAt) {
+    this.notifiedAt = notifiedAt;
   }
 
   @PrePersist

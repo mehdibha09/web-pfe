@@ -3,6 +3,7 @@ package com.deployment.ServiceEntity.service;
 import com.deployment.ServiceEntity.config.UserContext;
 import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
 import com.deployment.ServiceEntity.repository.ServiceRepository;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -31,9 +33,9 @@ public class ServiceDomainService {
   public com.deployment.ServiceEntity.domain.Service getById(UUID id) {
     com.deployment.ServiceEntity.domain.Service svc = serviceRepository
         .findById(id)
-        .orElseThrow(() -> new RuntimeException("Service not found"));
+        .orElseThrow(() -> new EntityNotFoundException("Service not found"));
     if (!svc.getTenantId().equals(UserContext.getTenantId())) {
-      throw new RuntimeException("Service not found");
+      throw new EntityNotFoundException("Service not found");
     }
     return svc;
   }
@@ -57,6 +59,7 @@ public class ServiceDomainService {
     return serviceRepository.save(existing);
   }
 
+  @Transactional
   public void delete(UUID id) {
     List<com.deployment.ServiceEntity.domain.ServiceEnvironment> envs =
         serviceEnvironmentRepository.findByServiceId(id);

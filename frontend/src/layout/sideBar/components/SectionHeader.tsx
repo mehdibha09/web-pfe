@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { memo } from 'react';
 import { C } from '../../../theme/tokens';
 
 interface SectionHeaderProps {
@@ -57,4 +58,4 @@ const SectionHeader = ({ label, isMenuClosed }: SectionHeaderProps) => (
   </Box>
 );
 
-export default SectionHeader;
+export default memo(SectionHeader);

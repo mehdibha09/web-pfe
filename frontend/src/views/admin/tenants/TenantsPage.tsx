@@ -8,19 +8,20 @@ import { toast } from 'react-toastify';
 import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import DomainIcon from '@mui/icons-material/Domain';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import { C } from '../../../theme/tokens';
+import EmptyState from '../../../components/EmptyState';
+import { C, PAGE_BG } from '../../../theme/tokens';
 import PaginationBar from '../../../components/PaginationBar';
 import {
     createTenant,
     disableTenant,
+    hardDeleteTenant,
     listTenants,
     listTenantsPaginated,
     updateTenant,
@@ -78,6 +79,8 @@ const TenantsPage = () => {
     const [editPhone, setEditPhone] = useState('');
     const [disableDialogId, setDisableDialogId] = useState<string | null>(null);
     const [disableAction, setDisableAction] = useState<'enable' | 'disable'>('disable');
+    const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [detailTenant, setDetailTenant] = useState<TenantItem | null>(null);
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
@@ -169,6 +172,20 @@ const TenantsPage = () => {
         }
     };
 
+    const handleDeleteTenant = async (id: string) => {
+        setDeletingId(id);
+        try {
+            await hardDeleteTenant(id);
+            toast.success(t('admin.tenants.tenantDeleted'));
+            await loadTenants();
+        } catch (error: any) {
+            const message = error?.response?.data?.message || error?.message || t('admin.tenants.failedToDeleteTenant');
+            toast.error(message);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const handleEnableTenant = async (id: string) => {
         setStatusUpdatingId(id);
         try {
@@ -219,9 +236,9 @@ const TenantsPage = () => {
     };
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
-                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', mb: 2 }} />
+                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(135deg, #E4477D, #BE185D)', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>
                     {t('admin.tenants.title')}
                 </Typography>
@@ -232,7 +249,7 @@ const TenantsPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                 {[
-                    { label: t('admin.tenants.totalTenants'), value: totalElements, icon: <DomainIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
+                    { label: t('admin.tenants.totalTenants'), value: totalElements, icon: <DomainIcon />, gradient: 'linear-gradient(135deg, #E4477D, #BE185D)' },
                     { label: t('admin.tenants.activeTenants'), value: activeCount, icon: <CheckCircleOutlinedIcon />, gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
                     { label: t('admin.tenants.visibleTenants'), value: filteredTenants.length, icon: <VisibilityIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' }
                 ].map((stat) => (
@@ -337,19 +354,11 @@ const TenantsPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : filteredTenants.length === 0 ? (
-                <Card sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, background: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <DomainIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.tenants.noTenantsFound')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('admin.tenants.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<DomainIcon />}
+                    title={t('admin.tenants.noTenantsFound')}
+                    message={t('admin.tenants.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -484,6 +493,19 @@ const TenantsPage = () => {
                                     >
                                         {tenant.status === 'DISABLED' ? t('admin.tenants.enable') : t('admin.tenants.disable')}
                                     </Button>
+                                    <Button
+                                        onClick={() => setDeleteDialogId(tenant.id)}
+                                        disabled={deletingId === tenant.id}
+                                        variant="text"
+                                        sx={{
+                                            color: '#DC2626',
+                                            background: 'transparent',
+                                            '&:hover': { background: 'rgba(220,38,38,0.12)' }
+                                        }}
+                                        startIcon={<DeleteOutlineIcon />}
+                                    >
+                                        {t('common.delete')}
+                                    </Button>
                                 </CardActions>
                             )}
                         </Card>
@@ -507,9 +529,35 @@ const TenantsPage = () => {
                             if (disableDialogId) await handleDisableTenant(disableDialogId);
                             setDisableDialogId(null);
                         }}
-                        sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}
+                        variant="contained"
+                        color="error"
                     >
                         {t('admin.tenants.disable')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={!!deleteDialogId} onClose={() => setDeleteDialogId(null)}>
+                <DialogTitle sx={{ color: '#DC2626', fontWeight: 700 }}>
+                    {t('admin.tenants.confirmDeleteTitle')}
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        {t('admin.tenants.confirmDeleteBody', { name: tenants.find((t) => t.id === deleteDialogId)?.name ?? '' })}
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDialogId(null)} disabled={!!deletingId}>{t('common.cancel')}</Button>
+                    <Button
+                        onClick={async () => {
+                            if (deleteDialogId) await handleDeleteTenant(deleteDialogId);
+                            setDeleteDialogId(null);
+                        }}
+                        disabled={!!deletingId}
+                        variant="contained"
+                        color="error"
+                    >
+                        {deletingId ? t('admin.tenants.deleting') : t('common.delete')}
                     </Button>
                 </DialogActions>
             </Dialog>

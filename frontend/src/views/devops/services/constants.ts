@@ -1,5 +1,5 @@
 import type { ServiceResponse } from '../../../services/devopsService';
-import { C} from '../../../theme/tokens';
+import { C, PAGE_BG } from '../../../theme/tokens';
 
 export const statusColors: Record<string, { bg: string; color: string; border?: string }> = {
     ACTIVE: { bg: '#E0F1E6', color: '#2E7A4F', border: '#B7DCC4' },
@@ -10,7 +10,7 @@ export const statusColors: Record<string, { bg: string; color: string; border?: 
 export const pageBg = {
     minHeight: '100%',
     p: { xs: 2, md: 4 },
-    background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)'
+    background: PAGE_BG
 } as const;
 
 export const cardSx = {

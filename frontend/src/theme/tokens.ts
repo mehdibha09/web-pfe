@@ -1,6 +1,9 @@
 export const C = {
     bg: '#FFF3F8',
     surface: '#FFFFFF',
+    surfaceAlt: '#FAF7FB',   // subtle panel/footer tint
+    rowHover: '#F8F5FA',     // table/list row hover
+    unread: '#FFF8FA',       // unread/highlight row tint
     border: '#F6DDE7',
     brand: '#E4477D',
     brandLight: '#FCE7F3',
@@ -12,7 +15,18 @@ export const C = {
     subtle: '#90A0AE'
 };
 
-export const PAGE_BG = 'linear-gradient(180deg, #FFFDFE 0%, #FFF5F9 100%)';
+// Single source of truth for the page background gradient (was duplicated as a
+// literal across ~8 pages + ProtectedLayout with slightly different values).
+export const PAGE_BG = 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)';
+
+// Border-radius scale — a small, intentional set instead of the 8 divergent
+// values previously in use (5 / 2 / 3 / 4 / 10 / 12 / 14). All still "rounded",
+// just consistent.
+export const R = {
+    control: 10,   // buttons, inputs, chips-as-controls
+    card: 14,      // cards, panels, surfaces
+    pill: 999      // status chips / badges
+};
 
 export type ColorEntry = { bg: string; color: string };
 

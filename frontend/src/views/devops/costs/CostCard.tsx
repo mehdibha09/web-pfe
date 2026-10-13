@@ -13,8 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import type { CostBreakdownResponse, CostRecordResponse } from '../../../services/cloudPricerService';
-import { modeColors } from './constants';
-import { C } from '../../../theme/tokens';
+import { C, MODE_COLORS } from '../../../theme/tokens';
 import { formatMoney } from '../../../utils/format';
 
 interface CostCardProps {
@@ -25,7 +24,7 @@ interface CostCardProps {
 
 const CostCard = ({ cost, isExpanded, onToggleExpand }: CostCardProps) => {
     const { t } = useTranslation();
-    const mc = modeColors[cost.mode] || { bg: C.brandLight, color: C.brand };
+    const mc = MODE_COLORS[cost.mode] || { bg: C.brandLight, color: C.brand };
     const breakdownTotal = cost.breakdowns.reduce((sum, b) => sum + b.total, 0);
     const totalForShare = Math.max(cost.totalCost, 1e-9);
 

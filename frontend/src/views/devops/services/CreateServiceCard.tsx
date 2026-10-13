@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { createService } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 import { cardSx } from './constants';
 import { C} from '../../../theme/tokens';

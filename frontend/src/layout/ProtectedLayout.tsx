@@ -5,6 +5,7 @@ import { Outlet } from 'react-router-dom';
 import AppBar from './AppBar';
 import Footer from './Footer';
 import SideBar from './sideBar/SideBar.tsx';
+import { PAGE_BG } from '../theme/tokens';
 
 const ProtectedLayout = () => {
     const { i18n } = useTranslation();
@@ -15,7 +16,7 @@ const ProtectedLayout = () => {
         <Box
             sx={{
                 minHeight: '100vh',
-                background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)'
+                background: PAGE_BG
             }}
         >
             <SideBar

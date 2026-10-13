@@ -1,6 +1,6 @@
 export type { ServiceEnvironment } from '../interfaces/serviceEnvironment';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 import type { ServiceEnvironment } from '../interfaces/serviceEnvironment';
 
 export const serviceEnvironmentService = {

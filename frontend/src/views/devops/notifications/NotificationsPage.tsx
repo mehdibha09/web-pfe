@@ -1,9 +1,9 @@
 import { Box } from '@mui/material';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import PaginationBar from '../../../components/PaginationBar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import {
     countUnreadNotifications,
     deleteNotification,
@@ -27,7 +27,9 @@ const API_BASE_URL = (() => {
 })();
 
 const NotificationsPage = () => {
-    const user = getStoredUser();
+    const [user] = useState(getStoredUser());
+    const userId = user?.userId;
+    const tenantId = user?.tenantId;
     const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
     const [totalElements, setTotalElements] = useState(0);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -35,14 +37,13 @@ const NotificationsPage = () => {
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
-    const esRef = useRef<EventSource | null>(null);
 
     const fetchData = useCallback(async () => {
-        if (!user) return;
+        if (!userId) return;
         try {
             const [result, unread] = await Promise.all([
-                listNotificationsPaginated(user.userId, page, PAGE_SIZE),
-                countUnreadNotifications(user.userId)
+                listNotificationsPaginated(userId, page, PAGE_SIZE),
+                countUnreadNotifications(userId)
             ]);
             setNotifications(result.items);
             setTotalElements(result.total);
@@ -52,7 +53,7 @@ const NotificationsPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [user, page]);
+    }, [userId, page]);
 
     useEffect(() => {
         fetchData();
@@ -64,10 +65,12 @@ const NotificationsPage = () => {
     }, [totalElements]);
 
     useEffect(() => {
-        if (!user) return;
+        if (!userId) return;
         const ctrl = new AbortController();
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+        let closed = false;
 
-        (async () => {
+        const connect = async () => {
             try {
                 await fetchEventSource(`${API_BASE_URL}/notifications/stream`, {
                     method: 'GET',
@@ -84,12 +87,12 @@ const NotificationsPage = () => {
                                 if (prev.some((n) => n.id === data.id)) return prev;
                                 const newNotif: NotificationResponse = {
                                     id: data.id,
-                                    userId: user.userId,
+                                    userId: userId,
                                     title: data.title,
                                     message: data.message,
                                     type: data.type,
                                     read: false,
-                                    tenantId: user.tenantId,
+                                    tenantId: tenantId ?? '',
                                     link: data.link || null,
                                     createdAt: data.timestamp,
                                     updatedAt: data.timestamp,
@@ -101,20 +104,35 @@ const NotificationsPage = () => {
                             // ignore parse errors
                         }
                     },
+                    onclose: () => {
+                        if (!closed && !ctrl.signal.aborted) {
+                            if (reconnectTimer) clearTimeout(reconnectTimer);
+                            reconnectTimer = setTimeout(() => { if (!closed) connect(); }, 3000);
+                        }
+                    },
                     onerror: () => {
-                        ctrl.abort();
+                        // fetchEventSource closes the stream after onerror; schedule a
+                        // reconnection so the list keeps updating after a transient
+                        // disconnect (previously ctrl.abort() froze it forever).
+                        if (!closed && !ctrl.signal.aborted) {
+                            if (reconnectTimer) clearTimeout(reconnectTimer);
+                            reconnectTimer = setTimeout(() => { if (!closed) connect(); }, 3000);
+                        }
                     }
                 });
             } catch {
-                // connection closed or aborted
+                // connection closed or aborted — will be reconnected via onclose
             }
-        })();
+        };
+
+        connect();
 
         return () => {
+            closed = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
             ctrl.abort();
-            esRef.current = null;
         };
-    }, [user]);
+    }, [userId, tenantId]);
 
     const handleMarkAsRead = async (id: string) => {
         try {
@@ -129,9 +147,9 @@ const NotificationsPage = () => {
     };
 
     const handleMarkAllAsRead = async () => {
-        if (!user) return;
+        if (!userId) return;
         try {
-            await markAllAsRead(user.userId);
+            await markAllAsRead(userId);
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
             setUnreadCount(0);
         } catch (err) {

@@ -32,7 +32,7 @@ import {
     type ServiceResponse
 } from '../../../services/devopsService';
 import { backupService } from '../../../services/backupService';
-import { vmService } from '../../../services/VmService';
+import { vmService } from '../../../services/vmService';
 import { k8sService } from '../../../services/k8sService';
 import type { Backup } from '../../../services/interfaces/backup';
 import type { Vm } from '../../../services/interfaces/vm';
@@ -47,7 +47,7 @@ import MetricsOverviewSection from './MetricsOverviewSection';
 import CostOverviewSection from './CostOverviewSection';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import { C} from '../../../theme/tokens';
-import { getStoredUser } from '../../../services/authStorage';
+import { getStoredUser } from '../../../services/core/authStorage';
 import {
     canAccessAlerts,
     canAccessAuditLogs,
@@ -60,7 +60,7 @@ import {
     canAccessVMs,
     canManageBackups,
     canManageVMs
-} from '../../../services/authorization';
+} from '../../../services/core/authorization';
 
 const DevopsDashboardPage = () => {
     const { t } = useTranslation();

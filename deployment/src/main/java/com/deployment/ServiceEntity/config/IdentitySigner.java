@@ -6,6 +6,8 @@ import java.security.MessageDigest;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,17 +19,34 @@ import org.springframework.stereotype.Component;
 @Component
 public class IdentitySigner {
 
+    private static final Logger log = LoggerFactory.getLogger(IdentitySigner.class);
+
     public static final String ID_HEADER_USER_ID = "X-User-Id";
     public static final String ID_HEADER_TENANT_ID = "X-Tenant-Id";
     public static final String ID_HEADER_ROLES = "X-User-Roles";
     public static final String ID_HEADER_PERMISSIONS = "X-User-Permissions";
     public static final String SIGNATURE_HEADER = "X-Identity-Signature";
 
+    private static final String DEFAULT_SECRET =
+            "change-me-please-define-security.internal-signing-secret";
+
     private final byte[] secret;
 
     public IdentitySigner(org.springframework.core.env.Environment env) {
-        String configured = env.getProperty("security.internal-signing-secret",
-                "change-me-please-define-security.internal-signing-secret");
+        String configured = env.getProperty("security.internal-signing-secret", DEFAULT_SECRET);
+        if (configured == null || configured.isBlank()) {
+            throw new IllegalStateException(
+                    "security.internal-signing-secret must be configured");
+        }
+        if (DEFAULT_SECRET.equals(configured)) {
+            boolean prod = java.util.Arrays.asList(env.getActiveProfiles()).contains("prod");
+            if (prod) {
+                throw new IllegalStateException(
+                        "security.internal-signing-secret is still the insecure default in prod; set a real secret");
+            }
+            log.warn("security.internal-signing-secret is using the insecure default value; "
+                    + "set a real secret before running in production");
+        }
         this.secret = configured.getBytes(StandardCharsets.UTF_8);
     }
 

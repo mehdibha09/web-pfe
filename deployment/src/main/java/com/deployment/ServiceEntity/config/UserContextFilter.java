@@ -78,7 +78,10 @@ public class UserContextFilter extends OncePerRequestFilter {
                     Set<String> permissions = resolved.permissions() != null && !resolved.permissions().isEmpty()
                             ? resolved.permissions()
                             : parsePermissionsHeader(permissionsHeader);
-                    UserContext.set(resolved.userId(), resolved.tenantId(), permissions, parseRolesHeader(rolesHeader));
+                    // Rôles issus du TOKEN résolu /me (sûr), JAMAIS du header X-User-Roles client
+                    // (non signé) — évite la contrefaçon de rôles via appel direct au service.
+                    Set<String> roles = resolved.roles() != null ? resolved.roles() : Set.of();
+                    UserContext.set(resolved.userId(), resolved.tenantId(), permissions, roles);
                     chain.doFilter(request, response);
                     return;
                 }

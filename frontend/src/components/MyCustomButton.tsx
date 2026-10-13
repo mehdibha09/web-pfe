@@ -1,7 +1,6 @@
 import type { SxProps, Theme } from '@mui/material';
 import { Button } from '@mui/material';
-import type { ReactNode } from 'react';
-import { C, BTN } from '../theme/tokens';
+import { memo, type ReactNode } from 'react';
 
 interface MyCustomButtonProps {
   children: ReactNode;
@@ -9,30 +8,15 @@ interface MyCustomButtonProps {
   [key: string]: any;
 }
 
+// Primary action button. Styling (brand gradient, radius, disabled state,
+// text-transform) now comes from the shared theme (MuiButton), so this stays a
+// thin, consistent wrapper — callers can still pass `sx`/props to extend it.
 const MyCustomButton = ({ children, sx = {}, ...otherProps }: MyCustomButtonProps) => {
   return (
-    <Button
-      sx={{
-        p: 1,
-        borderRadius: '5px',
-        background: BTN.primary.gradient,
-        fontWeight: 'bold',
-        textTransform: 'capitalize',
-        '&:hover': {
-          background: BTN.primary.gradientHover,
-        },
-        '&.Mui-disabled': {
-          background: '#E5E7EB',
-          color: '#9CA3AF',
-        },
-        ...sx,
-      }}
-      variant="contained"
-      {...otherProps}
-    >
+    <Button variant="contained" sx={sx} {...otherProps}>
       {children}
     </Button>
   );
 };
 
-export default MyCustomButton;
+export default memo(MyCustomButton);

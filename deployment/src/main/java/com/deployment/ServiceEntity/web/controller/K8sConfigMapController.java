@@ -20,7 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.exception.ApiException;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.service.TenantNamespaceResolver;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sConfigMapRequest;
@@ -37,6 +38,16 @@ public class K8sConfigMapController {
 
     private final KubernetesClient kubernetesClient;
     private final AuditService auditService;
+
+    // Empêche l'injection YAML via des clés user-controlled dans data/binaryData.
+    private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[A-Za-z0-9._-]+$");
+
+    private static void validateKey(String key) {
+        if (key == null || !SAFE_KEY.matcher(key).matches()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_KEY",
+                    "Invalid data key '" + key + "': only [A-Za-z0-9._-] are allowed");
+        }
+    }
 
     @GetMapping
     public ResponseEntity<Page<K8sConfigMapResponse>> list(
@@ -70,18 +81,11 @@ public class K8sConfigMapController {
         String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
-        if (dto.labels() != null && !dto.labels().isEmpty()) {
-            yamlSpec.append("metadata:\n  labels:\n");
-            for (var entry : dto.labels().entrySet()) {
-                yamlSpec.append("    ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-            }
-            yamlSpec.append("data:\n");
-        } else {
-            yamlSpec.append("data:\n");
-        }
+        yamlSpec.append("data:\n");
 
         if (dto.data() != null) {
             for (var entry : dto.data().entrySet()) {
+                validateKey(entry.getKey());
                 yamlSpec.append("  ").append(entry.getKey()).append(": |\n");
                 yamlSpec.append("    ").append(entry.getValue()).append("\n");
             }
@@ -90,11 +94,12 @@ public class K8sConfigMapController {
         if (dto.binaryData() != null) {
             yamlSpec.append("binaryData:\n");
             for (var entry : dto.binaryData().entrySet()) {
+                validateKey(entry.getKey());
                 yamlSpec.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
             }
         }
 
-        kubernetesClient.createOrUpdateConfigMap(dto.name(), ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateConfigMap(dto.name(), ns, yamlSpec.toString(), dto.labels());
         K8sConfigMapResponse result = kubernetesClient.getConfigMap(dto.name(), ns);
         if (result == null) {
             result = K8sConfigMapResponse.fromSimulated(dto.name(), ns, dto.data());
@@ -114,6 +119,7 @@ public class K8sConfigMapController {
         yamlSpec.append("data:\n");
         if (dto.data() != null) {
             for (var entry : dto.data().entrySet()) {
+                validateKey(entry.getKey());
                 yamlSpec.append("  ").append(entry.getKey()).append(": |\n");
                 yamlSpec.append("    ").append(entry.getValue()).append("\n");
             }
@@ -121,11 +127,12 @@ public class K8sConfigMapController {
         if (dto.binaryData() != null) {
             yamlSpec.append("binaryData:\n");
             for (var entry : dto.binaryData().entrySet()) {
+                validateKey(entry.getKey());
                 yamlSpec.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
             }
         }
 
-        kubernetesClient.createOrUpdateConfigMap(name, ns, yamlSpec.toString());
+        kubernetesClient.createOrUpdateConfigMap(name, ns, yamlSpec.toString(), dto.labels());
         K8sConfigMapResponse result = kubernetesClient.getConfigMap(name, ns);
         if (result == null) {
             result = K8sConfigMapResponse.fromSimulated(name, ns, dto.data());

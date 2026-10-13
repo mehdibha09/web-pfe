@@ -5,6 +5,7 @@ import com.deployment.ServiceEntity.domain.Environment;
 import com.deployment.ServiceEntity.exception.ApiException;
 import com.deployment.ServiceEntity.repository.EnvironmentRepository;
 import com.deployment.ServiceEntity.repository.ServiceEnvironmentRepository;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,9 +42,9 @@ public class EnvironmentService {
   public Environment getById(UUID id) {
     Environment env = environmentRepository
         .findById(id)
-        .orElseThrow(() -> new RuntimeException("Environment not found"));
+        .orElseThrow(() -> new EntityNotFoundException("Environment not found"));
     if (!env.getTenantId().equals(UserContext.getTenantId())) {
-      throw new RuntimeException("Environment not found");
+      throw new EntityNotFoundException("Environment not found");
     }
     return env;
   }
@@ -72,6 +74,7 @@ public class EnvironmentService {
     return environmentRepository.save(existing);
   }
 
+  @Transactional
   public void delete(UUID id) {
     List<com.deployment.ServiceEntity.domain.ServiceEnvironment> envs =
         serviceEnvironmentRepository.findByEnvironmentId(id);

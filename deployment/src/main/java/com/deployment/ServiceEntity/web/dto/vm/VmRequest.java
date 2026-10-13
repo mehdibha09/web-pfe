@@ -6,10 +6,15 @@ import com.deployment.ServiceEntity.domain.Vm;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 public class VmRequest {
 
+    @NotBlank(message = "Name is required")
+    @Pattern(regexp = "^[a-zA-Z0-9_-]{1,40}$",
+            message = "Name must be 1-40 characters and contain only letters, digits, underscores or hyphens")
     private String name;
 
     private String displayName;

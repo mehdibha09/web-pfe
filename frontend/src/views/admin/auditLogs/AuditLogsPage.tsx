@@ -11,9 +11,10 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import PersonIcon from '@mui/icons-material/Person';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import PaginationBar from '../../../components/PaginationBar';
 import { listDeploymentHistoryPaginated } from '../../../services/devopsService';
-import { C } from '../../../theme/tokens';
+import { C, PAGE_BG, R } from '../../../theme/tokens';
 
 const fmtAuditDate = (iso?: string) => {
     if (!iso) return '-';
@@ -194,9 +195,9 @@ const AuditLogsPage = () => {
     const selectedUserEmail = userOptions.find((u) => u.id === userId)?.email || '';
 
     return (
-        <Box sx={{ p: 4, background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)', minHeight: '100%' }}>
+        <Box sx={{ p: 4, background: PAGE_BG, minHeight: '100%' }}>
             <Box sx={{ mb: 4 }}>
-                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)', mb: 2 }} />
+                <Box sx={{ width: 48, height: 4, borderRadius: 2, background: 'linear-gradient(135deg, #E4477D, #BE185D)', mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 800, color: C.text }}>
                     {t('admin.auditLogs.title')}
                 </Typography>
@@ -207,11 +208,11 @@ const AuditLogsPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                 {[
-                    { label: t('admin.auditLogs.totalLogs'), value: logs.length, icon: <DescriptionIcon />, gradient: 'linear-gradient(135deg, #7C3AED, #A78BFA)' },
+                    { label: t('admin.auditLogs.totalLogs'), value: logs.length, icon: <DescriptionIcon />, gradient: 'linear-gradient(135deg, #E4477D, #BE185D)' },
                     { label: t('admin.auditLogs.visibleLogs'), value: logs.length, icon: <VisibilityIcon />, gradient: 'linear-gradient(135deg, #0EA5E9, #38BDF8)' },
                     { label: t('admin.auditLogs.uniqueActions'), value: new Set(logs.map((l) => l.action)).size, icon: <TrackChangesIcon />, gradient: 'linear-gradient(135deg, #F59E0B, #FBBF24)' }
                 ].map((stat) => (
-                    <Card key={stat.label} sx={{ borderRadius: 3, position: 'relative', overflow: 'visible' }}>
+                    <Card key={stat.label} sx={{ borderRadius: R.card, position: 'relative', overflow: 'visible' }}>
                         <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: stat.gradient, borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, pt: 3 }}>
                             <Box sx={{ width: 44, height: 44, borderRadius: 2, background: stat.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
@@ -230,7 +231,7 @@ const AuditLogsPage = () => {
                 ))}
             </Box>
 
-            <Card sx={{ borderRadius: 3, mb: 3, position: 'relative', overflow: 'visible' }}>
+            <Card sx={{ borderRadius: R.card, mb: 3, position: 'relative', overflow: 'visible' }}>
                 <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EC4899, #F472B6)', borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
                 <CardContent sx={{ pt: 3 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -317,19 +318,11 @@ const AuditLogsPage = () => {
             {loading ? (
                 <LoadingSpinner variant="block" />
             ) : logs.length === 0 ? (
-                <Card sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, background: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <SearchIcon sx={{ fontSize: 32, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.auditLogs.noLogsFound')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: C.muted }}>
-                            {t('admin.auditLogs.tryAdjustingFilter')}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<SearchIcon />}
+                    title={t('admin.auditLogs.noLogsFound')}
+                    message={t('admin.auditLogs.tryAdjustingFilter')}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -380,7 +373,7 @@ const AuditLogsPage = () => {
                                             </Typography>
                                         </Box>
                                     </Box>
-                                    <Typography variant="body2" sx={{ color: '#475569', mt: 0.5 }}>
+                                    <Typography variant="body2" sx={{ color: C.muted, mt: 0.5 }}>
                                         {log.details}
                                     </Typography>
                                 </CardContent>

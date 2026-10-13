@@ -8,11 +8,11 @@ export type {
   CostAggregateResponse,
 } from '../interfaces/cloudPricer';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 
 // ── Cost Records ─────────────────────────────────────────────────────────────
 export const listCosts = async (): Promise<import('../interfaces/cloudPricer').CostRecordResponse[]> => {
-  const { data, pagination } = await axiosInstance.get('/costs?page=0&size=1000');
+  const { data } = await axiosInstance.get('/costs?page=0&size=1000');
   return data || [];
 };
 

@@ -15,7 +15,8 @@ public record K8sServiceResponse(
     Map<String, String> selector,
     Map<String, String> labels,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     public record ServicePort(
         String name,
@@ -72,7 +73,7 @@ public record K8sServiceResponse(
 
             return new K8sServiceResponse(name, namespace != null ? namespace : "default",
                 type, clusterIp, externalIps, ports, selector, labels,
-                creationTimestamp, "v1");
+                creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -97,6 +98,6 @@ public record K8sServiceResponse(
             int port, int targetPort, Map<String, String> selector) {
         return new K8sServiceResponse(name, namespace, type, "10.0.0.1", List.of(),
             List.of(new ServicePort("", "TCP", port, targetPort, type.equals("NodePort") ? 30001 : null)),
-            selector, Map.of(), java.time.Instant.now().toString(), "v1");
+            selector, Map.of(), java.time.Instant.now().toString(), "v1",true);
     }
 }

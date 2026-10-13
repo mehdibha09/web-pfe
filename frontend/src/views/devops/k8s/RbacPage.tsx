@@ -6,8 +6,8 @@ import { toast } from 'react-toastify';
 import { k8sService } from '../../../services/k8sService';
 import type { K8sRoleBindingRequest, K8sRoleRequest, K8sServiceAccountRequest, K8sServiceAccountResponse, K8sRoleResponse, K8sRoleBindingResponse, RoleBindingSubject } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
@@ -36,7 +36,7 @@ const RbacPage = () => {
     const [saLoading, setSaLoading] = useState(false);
     const [saError, setSaError] = useState<string | null>(null);
     const [saCreateOpen, setSaCreateOpen] = useState(false);
-    const [saForm, setSaForm] = useState({ name: '', labels: '' });
+    const [saForm, setSaForm] = useState({ name: '', labels: '', annotations: '' });
     const [saSaving, setSaSaving] = useState(false);
     const [saDeleteTarget, setSaDeleteTarget] = useState<K8sServiceAccountResponse | null>(null);
 
@@ -46,7 +46,7 @@ const RbacPage = () => {
     const [roleError, setRoleError] = useState<string | null>(null);
     const [showClusterRoles, setShowClusterRoles] = useState(false);
     const [roleCreateOpen, setRoleCreateOpen] = useState(false);
-    const [roleForm, setRoleForm] = useState({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '' });
+    const [roleForm, setRoleForm] = useState({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '', resourceNames: '' });
     const [roleSaving, setRoleSaving] = useState(false);
     const [roleDeleteTarget, setRoleDeleteTarget] = useState<K8sRoleResponse | null>(null);
 
@@ -138,10 +138,11 @@ const RbacPage = () => {
         setSaSaving(true);
         try {
             const labels = saForm.labels.trim() ? Object.fromEntries(saForm.labels.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined;
-            await k8sService.createServiceAccount({ name: saForm.name.trim(), labels });
-            toast.success(t('k8s.rbac.saCreated'));
+            const annotations = saForm.annotations.trim() ? Object.fromEntries(saForm.annotations.split(',').map((s) => { const [k, ...v] = s.trim().split('='); return [k, v.join('=')]; })) : undefined;
+            const res = await k8sService.createServiceAccount({ name: saForm.name.trim(), labels, annotations });
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.rbac.saCreated'));
             setSaCreateOpen(false);
-            setSaForm({ name: '', labels: '' });
+            setSaForm({ name: '', labels: '', annotations: '' });
             clearFieldError('saName');
             await loadSas(true);
         } catch (e: unknown) {
@@ -172,15 +173,16 @@ const RbacPage = () => {
                 apiGroups: roleForm.apiGroups.trim() ? roleForm.apiGroups.split(',').map((s) => s.trim()) : [''],
                 resources: roleForm.resources.trim() ? roleForm.resources.split(',').map((s) => s.trim()) : ['*'],
                 verbs: roleForm.verbs.trim() ? roleForm.verbs.split(',').map((s) => s.trim()) : ['*'],
+                resourceNames: roleForm.resourceNames.trim() ? roleForm.resourceNames.split(',').map((s) => s.trim()) : undefined,
             };
-            await k8sService.createRole({
+            const res = await k8sService.createRole({
                 name: roleForm.name.trim(),
                 isClusterRole: roleForm.isClusterRole,
                 rules: [rule],
             });
-            toast.success(t('k8s.rbac.roleCreated'));
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.rbac.roleCreated'));
             setRoleCreateOpen(false);
-            setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '' });
+            setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '', resourceNames: '' });
             clearFieldError('roleName');
             await loadRoles(true);
         } catch (e: unknown) {
@@ -220,14 +222,14 @@ const RbacPage = () => {
                 name: bindingForm.subjName.trim(),
                 namespace: bindingForm.subjNamespace.trim() || undefined,
             }];
-            await k8sService.createRoleBinding({
+            const res = await k8sService.createRoleBinding({
                 name: bindingForm.name.trim(),
                 isClusterBinding: bindingForm.isClusterBinding,
                 roleKind: bindingForm.roleKind,
                 roleName: bindingForm.roleName.trim(),
                 subjects,
             });
-            toast.success(t('k8s.rbac.bindingCreated'));
+            if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.rbac.bindingCreated'));
             setBindingCreateOpen(false);
             setBindingForm({ name: '', isClusterBinding: false, roleKind: 'Role', roleName: '', subjKind: 'ServiceAccount', subjName: '', subjNamespace: '' });
             clearFieldError('bindingName');
@@ -262,8 +264,8 @@ const RbacPage = () => {
                         else if (section === 'roles') loadRoles();
                         else loadBindings();
                     }} disabled={loading} sx={{ border: `1px solid ${C.border}`, borderRadius: 2 }}><RefreshIcon sx={{ fontSize: 18, color: loading ? C.subtle : C.muted }} /></IconButton></span></Tooltip>
-                    {allowManage && section === 'serviceaccounts' && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setSaForm({ name: '', labels: '' }); setSaCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.rbac.newSa')}</MyCustomButton>}
-                    {allowManage && section === 'roles' && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '' }); setRoleCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.rbac.newRole')}</MyCustomButton>}
+                    {allowManage && section === 'serviceaccounts' && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setSaForm({ name: '', labels: '', annotations: '' }); setSaCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.rbac.newSa')}</MyCustomButton>}
+                    {allowManage && section === 'roles' && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '', resourceNames: '' }); setRoleCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.rbac.newRole')}</MyCustomButton>}
                     {allowManage && section === 'rolebindings' && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setBindingForm({ name: '', isClusterBinding: false, roleKind: 'Role', roleName: '', subjKind: 'ServiceAccount', subjName: '', subjNamespace: '' }); setBindingCreateOpen(true); }} sx={{ px: 2.5 }}>{t('k8s.rbac.newBinding')}</MyCustomButton>}
                 </Box>
             </Box>
@@ -309,7 +311,7 @@ const RbacPage = () => {
                             <GroupIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
                             <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.rbac.noSas')}</Typography>
                             <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{t('k8s.rbac.noSaDesc')}</Typography>
-                            {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setSaForm({ name: '', labels: '' }); setSaCreateOpen(true); }}>{t('k8s.rbac.newSa')}</MyCustomButton>}
+                            {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setSaForm({ name: '', labels: '', annotations: '' }); setSaCreateOpen(true); }}>{t('k8s.rbac.newSa')}</MyCustomButton>}
                         </Card></Fade>
                     ) : (<>
                     {filteredSas.map((sa) => (
@@ -327,6 +329,13 @@ const RbacPage = () => {
                                         </Box>
                                         <Typography sx={{ color: C.muted, fontFamily: 'monospace', fontSize: 11, mt: 0.3 }}>{sa.namespace}</Typography>
                                         {sa.createdAt && <Typography sx={{ color: C.subtle, fontSize: 10, mt: 0.5 }}>{t('k8s.rbac.created')} {fmtDate(sa.createdAt)}</Typography>}
+                                        {Object.entries(sa.labels).length > 0 && (
+                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
+                                                {Object.entries(sa.labels).map(([k, v]) => (
+                                                    <Chip key={k} label={`${k}=${v}`} size="small" sx={{ backgroundColor: '#FCE7F3', color: '#BE185D', fontWeight: 600, fontSize: 10, height: 20 }} />
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Box>
                                 </Box>
                             </CardContent>
@@ -348,7 +357,7 @@ const RbacPage = () => {
                             <SecurityIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
                             <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>{t('k8s.rbac.noRoles')}</Typography>
                             <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>{t('k8s.rbac.noRoleDesc')}</Typography>
-                            {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '' }); setRoleCreateOpen(true); }}>{t('k8s.rbac.newRole')}</MyCustomButton>}
+                            {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { setRoleForm({ name: '', isClusterRole: false, apiGroups: '', resources: '', verbs: '', resourceNames: '' }); setRoleCreateOpen(true); }}>{t('k8s.rbac.newRole')}</MyCustomButton>}
                         </Card></Fade>
                     ) : (<>
                     {filteredRoles.map((r) => (
@@ -445,6 +454,7 @@ const RbacPage = () => {
                     <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
                         <TextField size="small" label={t('k8s.rbac.name')} value={saForm.name} onChange={(e) => { setSaForm((p) => ({ ...p, name: e.target.value })); clearFieldError('saName'); }} required error={Boolean(errors.saName)} helperText={errors.saName} />
                         <TextField size="small" label={t('k8s.rbac.labels')} value={saForm.labels} onChange={(e) => setSaForm((p) => ({ ...p, labels: e.target.value }))} placeholder="env=prod,team=backend" helperText={t('k8s.rbac.labelsHint')} />
+                        <TextField size="small" label={t('k8s.rbac.annotations')} value={saForm.annotations} onChange={(e) => setSaForm((p) => ({ ...p, annotations: e.target.value }))} placeholder="key=value" helperText={t('k8s.rbac.annotationsHint')} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>
@@ -491,6 +501,7 @@ const RbacPage = () => {
                             <TextField size="small" label={t('k8s.rbac.resources')} value={roleForm.resources} onChange={(e) => setRoleForm((p) => ({ ...p, resources: e.target.value }))} placeholder="pods,services" helperText={t('k8s.rbac.resourcesHint')} />
                             <TextField size="small" label={t('k8s.rbac.verbs')} value={roleForm.verbs} onChange={(e) => setRoleForm((p) => ({ ...p, verbs: e.target.value }))} placeholder="get,list,create" helperText={t('k8s.rbac.verbsHint')} />
                         </Box>
+                        <TextField size="small" label={t('k8s.rbac.resourceNames')} value={roleForm.resourceNames} onChange={(e) => setRoleForm((p) => ({ ...p, resourceNames: e.target.value }))} placeholder="my-pod-1,my-config" helperText={t('k8s.rbac.resourceNamesHint')} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1, borderTop: `1px solid ${C.border}`, pt: 2 }}>

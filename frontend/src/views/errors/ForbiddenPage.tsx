@@ -2,6 +2,7 @@ import { Box, Card, CardContent, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../../components/MyCustomButton';
+import { PAGE_BG } from '../../theme/tokens';
 
 const ForbiddenPage = () => {
     const { t } = useTranslation();
@@ -15,7 +16,7 @@ const ForbiddenPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 px: 2,
-                background: 'linear-gradient(180deg, #FDFCFF 0%, #F8F5FA 100%)'
+                background: PAGE_BG
             }}
         >
             <Card

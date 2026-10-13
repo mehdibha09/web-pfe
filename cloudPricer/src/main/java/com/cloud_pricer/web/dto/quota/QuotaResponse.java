@@ -13,6 +13,7 @@ public record QuotaResponse(
     double maxBudget,
     String period,
     boolean isActive,
+    boolean autoStopOnExceed,
     Instant createdAt,
     Instant updatedAt,
     QuotaUsageResponse usage

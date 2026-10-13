@@ -2,7 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
 import { Box, Button, Card, CardContent, MenuItem, TextField, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { P, type Option } from './palette';
+import { P, type Option } from '../../../theme/palette';
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {

@@ -1,16 +1,17 @@
 import { Add as AddIcon, Close as CloseIcon, ContentCopy, Delete as DeleteIcon, Lock as LockIcon, Refresh as RefreshIcon, Search as SearchIcon, Visibility as VisibilityIcon, WarningAmber as WarningAmberIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Fade, IconButton, InputAdornment, MenuItem, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActions, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { k8sService } from '../../../services/k8sService';
 import type { K8sSecretResponse } from '../../../services/k8sService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageK8s } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageK8s } from '../../../services/core/authorization';
 import MyCustomButton from '../../../components/MyCustomButton';
 import PaginationBar from '../../../components/PaginationBar';
-import { C } from '../../../theme/tokens';
+import EmptyState from '../../../components/EmptyState';
+import { C, R } from '../../../theme/tokens';
 import { fmtDate } from './constants';
 import { useInlineErrors } from '../../../hooks/useInlineErrors';
 
@@ -86,11 +87,11 @@ const SecretsPage = () => {
             };
 
             if (editTarget) {
-                await k8sService.updateSecret(editTarget.name, payload);
-                toast.success(t('k8s.secrets.updatedToast'));
+                const res = await k8sService.updateSecret(editTarget.name, payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.secrets.updatedToast'));
             } else {
-                await k8sService.createSecret(payload);
-                toast.success(t('k8s.secrets.createdToast'));
+                const res = await k8sService.createSecret(payload);
+                if (res.simulated) toast.warning(t('k8s.simulatedWarning')); else toast.success(t('k8s.secrets.createdToast'));
             }
             setCreateOpen(false);
             setEditTarget(null);
@@ -139,7 +140,7 @@ const SecretsPage = () => {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 1.5, mb: 3 }}>
                 {[
-                    { label: t('k8s.secrets.total'), value: items.length, bg: '#F8FAFC', fg: '#475569' },
+                    { label: t('k8s.secrets.total'), value: items.length, bg: '#F8FAFC', fg: C.muted },
                     { label: t('k8s.secrets.totalEntries'), value: items.reduce((sum, s) => sum + s.dataEntries, 0), bg: '#FCE7F3', fg: '#BE185D' },
                     { label: t('k8s.secrets.types'), value: [...new Set(items.map((s) => s.type))].length, bg: '#F0FDF4', fg: '#16A34A' },
                 ].map((kpi) => (
@@ -166,18 +167,13 @@ const SecretsPage = () => {
             {loading && <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>{[1, 2, 3, 4].map((i) => <Skeleton key={i} variant="rounded" height={120} sx={{ borderRadius: 3 }} />)}</Box>}
 
             {!loading && filtered.length === 0 && (
-                <Fade in>
-                    <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, textAlign: 'center', py: 8 }}>
-                        <LockIcon sx={{ fontSize: 56, color: C.subtle, mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text }}>
-                            {t('k8s.secrets.noSecrets')}
-                        </Typography>
-                        <Typography sx={{ color: C.muted, mt: 0.5, mb: 3 }}>
-                            {t('k8s.secrets.createFirst')}
-                        </Typography>
-                        {allowManage && <MyCustomButton startIcon={<AddIcon />} onClick={() => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); }}>{t('k8s.secrets.new')}</MyCustomButton>}
-                    </Card>
-                </Fade>
+                <EmptyState
+                    icon={<LockIcon />}
+                    title={t('k8s.secrets.noSecrets')}
+                    message={t('k8s.secrets.createFirst')}
+                    actionLabel={allowManage ? t('k8s.secrets.new') : undefined}
+                    onAction={allowManage ? () => { resetForm(); setEditTarget(null); setCreateOpen(true); clearFieldError('name'); } : undefined}
+                />
             )}
 
             {!loading && filtered.length > 0 && (
@@ -218,11 +214,11 @@ const SecretsPage = () => {
                                         </Box>
                                     ) : (
                                         <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.border}`, boxShadow: 'none', mt: 1 }}>
-                                            <Table size="small">
+                                            <Table size="small" sx={{ minWidth: 720 }}>
                                                 <TableHead>
                                                     <TableRow>
-                                                        <TableCell sx={{ fontWeight: 700, fontSize: 11, color: C.muted }}>{t('k8s.secrets.key')}</TableCell>
-                                                        <TableCell sx={{ fontWeight: 700, fontSize: 11, color: C.muted }}>{t('k8s.secrets.value')}</TableCell>
+                                                        <TableCell>{t('k8s.secrets.key')}</TableCell>
+                                                        <TableCell>{t('k8s.secrets.value')}</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -295,11 +291,11 @@ const SecretsPage = () => {
                                 <IconButton size="small" onClick={() => { const keys = form.keys.filter((_, idx) => idx !== i); setForm((p) => ({ ...p, keys: keys.length ? keys : [{ key: '', value: '' }] })); }} sx={{ color: C.danger }}><CloseIcon fontSize="small" /></IconButton>
                             </Box>
                         ))}
-                        <Button variant="text" size="small" onClick={() => setForm((p) => ({ ...p, keys: [...p.keys, { key: '', value: '' }] }))} sx={{ textTransform: 'capitalize', fontWeight: 600, justifyContent: 'flex-start', pl: 0 }}>{t('k8s.secrets.addEntry')}</Button>
+                        <Button variant="text" size="small" onClick={() => setForm((p) => ({ ...p, keys: [...p.keys, { key: '', value: '' }] }))} sx={{ fontWeight: 600, justifyContent: 'flex-start', pl: 0 }}>{t('k8s.secrets.addEntry')}</Button>
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-                    <Button variant="outlined" onClick={() => { setCreateOpen(false); setEditTarget(null); }} sx={{ borderRadius: '5px', textTransform: 'capitalize' }}>{t('k8s.secrets.cancel')}</Button>
+                    <Button variant="outlined" onClick={() => { setCreateOpen(false); setEditTarget(null); }} sx={{ borderRadius: R.control }}>{t('k8s.secrets.cancel')}</Button>
                     <MyCustomButton onClick={handleCreateOrUpdate} disabled={saving} sx={{ px: 3 }}>{saving ? t('k8s.secrets.saving') : editTarget ? t('k8s.secrets.update') : t('k8s.secrets.create')}</MyCustomButton>
                 </DialogActions>
             </Dialog>

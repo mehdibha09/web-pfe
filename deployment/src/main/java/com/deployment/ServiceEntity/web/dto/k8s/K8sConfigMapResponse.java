@@ -12,7 +12,8 @@ public record K8sConfigMapResponse(
     Map<String, String> labels,
     int dataEntries,
     String createdAt,
-    String apiVersion) {
+    String apiVersion,
+    boolean simulated) {
 
     @SuppressWarnings("unchecked")
     public static K8sConfigMapResponse fromK8sJson(Map<String, Object> json) {
@@ -38,7 +39,7 @@ public record K8sConfigMapResponse(
             return new K8sConfigMapResponse(name, namespace != null ? namespace : "default",
                 data != null ? data : Map.of(),
                 binaryData != null ? binaryData : Map.of(),
-                labels, dataEntries, creationTimestamp, "v1");
+                labels, dataEntries, creationTimestamp, "v1",false);
         } catch (Exception e) {
             return null;
         }
@@ -61,6 +62,6 @@ public record K8sConfigMapResponse(
 
     public static K8sConfigMapResponse fromSimulated(String name, String namespace, Map<String, String> data) {
         return new K8sConfigMapResponse(name, namespace, data, Map.of(), Map.of(),
-            data != null ? data.size() : 0, java.time.Instant.now().toString(), "v1");
+            data != null ? data.size() : 0, java.time.Instant.now().toString(), "v1",true);
     }
 }

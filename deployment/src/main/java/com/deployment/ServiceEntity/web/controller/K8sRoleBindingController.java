@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.deployment.ServiceEntity.config.UserContext;
-import com.deployment.ServiceEntity.domain.KubernetesClient;
+import com.deployment.ServiceEntity.infra.KubernetesClient;
 import com.deployment.ServiceEntity.service.AuditService;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingRequest;
 import com.deployment.ServiceEntity.web.dto.k8s.K8sRoleBindingResponse;
@@ -58,6 +58,10 @@ public class K8sRoleBindingController {
     @PostMapping
     public ResponseEntity<K8sRoleBindingResponse> create(@Valid @RequestBody K8sRoleBindingRequest dto) {
         UserContext.requirePermission("K8S_MANAGE");
+        if (dto.isClusterBinding() && !UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "ClusterRoleBinding management requires super-admin privileges");
+        }
         String ns = TenantNamespaceResolver.resolve(dto.namespace());
 
         StringBuilder yamlSpec = new StringBuilder();
@@ -79,8 +83,11 @@ public class K8sRoleBindingController {
 
         kubernetesClient.createOrUpdateRoleBinding(dto.name(), ns, dto.isClusterBinding(), yamlSpec.toString());
 
-        K8sRoleBindingResponse result = K8sRoleBindingResponse.fromSimulated(
-            dto.name(), ns, dto.isClusterBinding(), dto.roleKind(), dto.roleName());
+        K8sRoleBindingResponse result = kubernetesClient.getRoleBinding(dto.name(), ns, dto.isClusterBinding());
+        if (result == null) {
+            result = K8sRoleBindingResponse.fromSimulated(
+                dto.name(), ns, dto.isClusterBinding(), dto.roleKind(), dto.roleName());
+        }
         auditService.record("K8S_ROLE_BINDING_CREATE", "k8s-role-binding", dto.name(),
             "Role binding created (name='" + dto.name() + "', namespace='" + ns + "', roleKind='" + dto.roleKind() + "', roleName='" + dto.roleName() + "')");
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
@@ -92,6 +99,10 @@ public class K8sRoleBindingController {
             @RequestParam(required = false) String namespace,
             @RequestParam(defaultValue = "false") boolean cluster) {
         UserContext.requirePermission("K8S_MANAGE");
+        if (cluster && !UserContext.isSuperAdmin()) {
+            throw new com.deployment.ServiceEntity.exception.ApiException(
+                    HttpStatus.FORBIDDEN, "FORBIDDEN", "ClusterRoleBinding management requires super-admin privileges");
+        }
         kubernetesClient.deleteRoleBinding(name, TenantNamespaceResolver.resolve(namespace), cluster);
         auditService.record("K8S_ROLE_BINDING_DELETE", "k8s-role-binding", name, "Role binding deleted (name='" + name + "', cluster=" + cluster + ")");
         return ResponseEntity.noContent().build();

@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.deployment.ServiceEntity.domain.Metric;
-import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.infra.VmClient;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.repository.MetricRepository;
 import com.deployment.ServiceEntity.repository.VmRepository;

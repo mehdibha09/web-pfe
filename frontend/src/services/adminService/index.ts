@@ -8,7 +8,7 @@ export type {
   AuditLogQuery,
 } from '../interfaces/admin';
 
-import axiosInstance from '../axiosInstance';
+import axiosInstance from '../core/axiosInstance';
 import type { AuditLogQuery } from '../interfaces/admin';
 
 export const listUsers = async (): Promise<import('../interfaces/admin').UserResponse[]> => {
@@ -159,6 +159,12 @@ export const createTenant = async (payload: {
 
 export const disableTenant = async (tenantId: string) => {
   const response = await axiosInstance.delete(`/tenants/${tenantId}`);
+  return response.data;
+};
+
+/** Suppression permanente (hard delete) — réservé au super-admin. */
+export const hardDeleteTenant = async (tenantId: string) => {
+  const response = await axiosInstance.delete(`/tenants/${tenantId}/hard`);
   return response.data;
 };
 

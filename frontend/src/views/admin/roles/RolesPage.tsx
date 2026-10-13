@@ -14,18 +14,18 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import Button from '../../../components/MyCustomButton';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import EmptyState from '../../../components/EmptyState';
 import {
     addPermissionToRole,
     createRole,
     deleteRole,
     listPermissions,
-    listRoles,
     listRolesPaginated,
     removePermissionFromRole,
     updateRole
 } from '../../../services/adminService';
-import { canDeleteRole, isSuperAdmin } from '../../../services/authorization';
-import { getStoredUser } from '../../../services/authStorage';
+import { canDeleteRole, isSuperAdmin } from '../../../services/core/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
 import PaginationBar from '../../../components/PaginationBar';
 import { C } from '../../../theme/tokens';
 
@@ -428,19 +428,11 @@ const RolesPage = () => {
             {loading ? (
                 <LoadingSpinner variant="page" />
             ) : filteredRoles.length === 0 ? (
-                <Card sx={{ borderRadius: 3, border: `1px solid ${C.border}`, background: '#FFFFFF' }}>
-                    <CardContent sx={{ textAlign: 'center', py: 8 }}>
-                        <Box sx={{ width: 64, height: 64, borderRadius: 3, backgroundColor: C.brandLight, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                            <SecurityIcon sx={{ fontSize: 30, color: C.brand }} />
-                        </Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: C.text, mb: 0.5 }}>
-                            {t('admin.roles.noRolesFound')}
-                        </Typography>
-                        <Typography sx={{ color: C.subtle, fontSize: 13 }}>
-                            {filterPermission ? t('admin.roles.tryAdjustingFilter') : ''}
-                        </Typography>
-                    </CardContent>
-                </Card>
+                <EmptyState
+                    icon={<SecurityIcon />}
+                    title={t('admin.roles.noRolesFound')}
+                    message={filterPermission ? t('admin.roles.tryAdjustingFilter') : ''}
+                />
             ) : (
                 <>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
@@ -599,7 +591,7 @@ const RolesPage = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setConfirmDeleteId(null)}>{t('common.cancel')}</Button>
-                    <Button onClick={handleRemoveRole} sx={{ color: '#fff', background: '#DC2626', '&:hover': { background: '#B91C1C' } }}>{t('common.delete')}</Button>
+                    <Button onClick={handleRemoveRole} variant="contained" color="error">{t('common.delete')}</Button>
                 </DialogActions>
             </Dialog>
         </Box>

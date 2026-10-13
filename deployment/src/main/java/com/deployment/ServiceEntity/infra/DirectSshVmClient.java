@@ -1,4 +1,4 @@
-package com.deployment.ServiceEntity.domain;
+package com.deployment.ServiceEntity.infra;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.web.dto.vm.VmMetricsSnapshot;
 
 @Component

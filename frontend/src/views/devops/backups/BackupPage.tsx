@@ -14,12 +14,12 @@ import type { Vm } from '../../../services/interfaces/vm';
 import type { ServiceEnvironment } from '../../../services/interfaces/serviceEnvironment';
 import type { ServiceResponse, EnvironmentResponse } from '../../../services/interfaces/devops';
 import { backupService } from '../../../services/backupService';
-import { vmService } from '../../../services/VmService';
-import { serviceEnvironmentService } from '../../../services/ServiceEnvironmentService';
+import { vmService } from '../../../services/vmService';
+import { serviceEnvironmentService } from '../../../services/serviceEnvironmentService';
 import { listServices, listEnvironments } from '../../../services/devopsService';
 import { getErrorMessage } from '../../../utils/errorMessage';
-import { getStoredUser } from '../../../services/authStorage';
-import { canManageBackups } from '../../../services/authorization';
+import { getStoredUser } from '../../../services/core/authStorage';
+import { canManageBackups } from '../../../services/core/authorization';
 import { C } from '../../../theme/tokens';
 
 import PageHeader from '../../../components/PageHeader';
@@ -50,6 +50,7 @@ const BackupPage = () => {
     const [deleteTarget, setDeleteTarget] = useState<Backup | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [totalElements, setTotalElements] = useState(0);
+    const [allBackups, setAllBackups] = useState<Backup[]>([]); // liste complète pour les KPI
     const PAGE_SIZE = 10;
     const [page, setPage] = useState(0);
     const currentUser = getStoredUser();
@@ -59,14 +60,16 @@ const BackupPage = () => {
         if (!quiet) setLoading(true);
         setError(null);
         try {
-            const [b, vmList, envList, svcList, envSvcList] = await Promise.all([
+            const [b, allB, vmList, envList, svcList, envSvcList] = await Promise.all([
                 backupService.getAllPaginated(page, PAGE_SIZE),
+                backupService.getAll(),
                 vmService.getAll(),
                 serviceEnvironmentService.getAll(),
                 listServices(),
                 listEnvironments()
             ]);
             setBackups(b.items);
+            setAllBackups(allB);
             setTotalElements(b.total);
             setVms(vmList);
             setServiceEnvs(envList);
@@ -134,11 +137,11 @@ const BackupPage = () => {
     const pageCount = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
 
     const kpis = useMemo(() => ({
-        total: Math.max(backups.length, totalElements),
-        completed: backups.filter((b) => b.status === 'COMPLETED').length,
-        restored: backups.filter((b) => b.status === 'RESTORED').length,
-        failed: backups.filter((b) => b.status === 'FAILED').length
-    }), [backups, totalElements]);
+        total: Math.max(allBackups.length, totalElements),
+        completed: allBackups.filter((b) => b.status === 'COMPLETED').length,
+        restored: allBackups.filter((b) => b.status === 'RESTORED').length,
+        failed: allBackups.filter((b) => b.status === 'FAILED').length
+    }), [allBackups, totalElements]);
 
     const handleRestore = async (id: string) => {
         try {
@@ -212,7 +215,7 @@ const BackupPage = () => {
                     <KpiCard label={t('backups.totalBackups')} value={kpis.total} icon={<StorageIcon sx={{ color: '#E4477D', fontSize: 22 }} />} bg="#FCE7F3" color="#E4477D" />
                     <KpiCard label={t('backups.completed')} value={kpis.completed} icon={<BackupIcon sx={{ color: '#2E5C8A', fontSize: 22 }} />} bg="#E4EEF7" color="#2E5C8A" />
                     <KpiCard label={t('backups.restored')} value={kpis.restored} icon={<RestoreAltIcon sx={{ color: '#8A6A2E', fontSize: 22 }} />} bg="#F7ECD6" color="#8A6A2E" />
-                    <KpiCard label={t('backups.failed')} value={kpis.failed} icon={<DeleteIcon sx={{ color: '#065F46', fontSize: 22 }} />} bg="#D1FAE5" color="#065F46" />
+                    <KpiCard label={t('backups.failed')} value={kpis.failed} icon={<DeleteIcon sx={{ color: '#A23B4E', fontSize: 22 }} />} bg="#F7DEE3" color="#A23B4E" />
                 </Box>
 
                 <CollapsibleFormCard title={t('backups.createNewBackup')} open={createOpen} onToggle={() => setCreateOpen(!createOpen)}>

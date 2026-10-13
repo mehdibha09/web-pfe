@@ -7,7 +7,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import com.deployment.ServiceEntity.domain.VmClient;
+import com.deployment.ServiceEntity.infra.VmClient;
 import com.deployment.ServiceEntity.domain.Vm;
 import com.deployment.ServiceEntity.repository.VmRepository;
 

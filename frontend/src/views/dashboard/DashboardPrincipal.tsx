@@ -1,5 +1,5 @@
-import { getStoredUser } from '../../services/authStorage';
-import { getDashboardRole } from '../../services/authorization';
+import { getStoredUser } from '../../services/core/authStorage';
+import { getDashboardRole } from '../../services/core/authorization';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import TenantAdminDashboard from './TenantAdminDashboard';
 import StandardUserDashboard from './StandardUserDashboard';

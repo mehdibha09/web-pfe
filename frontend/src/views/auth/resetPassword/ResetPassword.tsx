@@ -104,6 +104,7 @@ const ResetPassword = () => {
                 <Typography sx={{ color: C.muted, mb: 2, textAlign: 'center' }}>
                     {t('auth.resetPasswordDesc')}
                 </Typography>
+                <Box component="form" onSubmit={handleSubmit(handleResetPassword)} sx={{ width: '100%' }}>
                 <TextField
                     label={t('auth.newPassword')}
                     type="password"
@@ -151,7 +152,7 @@ const ResetPassword = () => {
                     }}
                 />
                 <Button
-                    onClick={handleSubmit(handleResetPassword)}
+                    type="submit"
                     disabled={loading}
                     sx={{
                         my: 2,
@@ -164,6 +165,7 @@ const ResetPassword = () => {
                 >
                     {loading ? t('common.saving') : t('auth.resetPassword')}
                 </Button>
+                </Box>
 
                 <Typography
                     variant="body2"

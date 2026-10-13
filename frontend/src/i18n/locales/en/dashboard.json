@@ -143,6 +143,7 @@
             "alertLabel": "Alert",
             "recentNotifications": "Recent Notifications",
             "unreadCount": "{{count}} unread",
+            "totalCount": "{{count}} total",
             "noNotifications": "No notifications",
             "notificationLabel": "Notification"
         },

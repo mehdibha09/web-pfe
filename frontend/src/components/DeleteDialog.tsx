@@ -69,7 +69,7 @@ const DeleteDialog = ({ open, name, deleting, onConfirm, onCancel }: DeleteDialo
                 </Button>
                 <Button onClick={onConfirm} disabled={deleting} variant="contained" color="error"
                     startIcon={<DeleteForeverIcon />}
-                    sx={{ borderRadius: 2, fontWeight: 700, px: 3, background: 'linear-gradient(135deg, #E4477D, #BE185D)', '&:hover': { background: 'linear-gradient(135deg, #BE185D, #9D174D)' }, '&.Mui-disabled': { background: '#F9A8C9' } }}>
+                    sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>
                     {deleting ? t('common.deleting') : t('common.delete')}
                 </Button>
             </DialogActions>

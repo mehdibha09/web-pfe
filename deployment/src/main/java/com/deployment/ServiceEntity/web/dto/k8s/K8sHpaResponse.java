@@ -15,7 +15,8 @@ public record K8sHpaResponse(
     Integer cpuCurrentAverageUtilization,
     Integer memoryTargetAverageUtilization,
     Integer memoryCurrentAverageUtilization,
-    String status) {
+    String status,
+    boolean simulated) {
 
     public static K8sHpaResponse fromK8sJson(Map<String, Object> json) {
         if (json == null || json.isEmpty()) return null;
@@ -119,7 +120,7 @@ public record K8sHpaResponse(
                 (String) json.getOrDefault("kind", "HorizontalPodAutoscaler"),
                 (String) json.getOrDefault("apiVersion", "autoscaling/v2"),
                 minReplicas, maxReplicas, currentReplicas, desiredReplicas,
-                cpuTarget, cpuCurrent, memTarget, memCurrent, status);
+                cpuTarget, cpuCurrent, memTarget, memCurrent, status,false);
         } catch (Exception e) {
             return null;
         }
@@ -127,6 +128,6 @@ public record K8sHpaResponse(
 
     public static K8sHpaResponse fromSimulated(String name, String namespace, int minReplicas, int maxReplicas, int cpuTarget, int memTarget) {
         return new K8sHpaResponse(name + "-hpa", namespace, "HorizontalPodAutoscaler", "autoscaling/v2",
-            minReplicas, maxReplicas, 1, 1, cpuTarget, 30, memTarget, 45, "Active");
+            minReplicas, maxReplicas, 1, 1, cpuTarget, 30, memTarget, 45, "Active",true);
     }
 }

@@ -22,7 +22,9 @@ public class ForecastService {
     private final CostRecordRepository costRecordRepository;
 
     public CostForecast generateForecast(UUID tenantId, UUID serviceEnvironmentId, String period) {
-        List<CostRecord> records = costRecordRepository.findByTenantIdAndServiceEnvironmentId(tenantId, serviceEnvironmentId);
+        // Ordered chronologically (oldest first) so the last `window` records are
+        // truly the most recent; the plain derived query has no ORDER BY guarantee.
+        List<CostRecord> records = costRecordRepository.findByTenantIdAndServiceEnvironmentIdOrderByPeriodEndAsc(tenantId, serviceEnvironmentId);
 
         double predictedCost;
         double confidence;

@@ -1,7 +1,8 @@
 import { Box, Card, Skeleton } from '@mui/material';
+import { R } from '../theme/tokens';
 
 const SkeletonCard = () => (
-    <Card sx={{ borderRadius: 3 }}>
+    <Card sx={{ borderRadius: R.card }}>
         <Box sx={{ p: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Skeleton variant="rounded" width={48} height={48} sx={{ borderRadius: 2.5 }} />

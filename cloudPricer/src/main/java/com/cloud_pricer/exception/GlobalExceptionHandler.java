@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,9 +17,11 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
@@ -48,6 +52,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiError> handleTypeMismatch(
       MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
     String message = "Invalid value for parameter '%s'".formatted(ex.getName());
+    return build(HttpStatus.BAD_REQUEST, message, request, "BAD_REQUEST", null);
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiError> handleMissingParameter(
+      MissingServletRequestParameterException ex, HttpServletRequest request) {
+    String message = "Missing required parameter '%s'".formatted(ex.getParameterName());
     return build(HttpStatus.BAD_REQUEST, message, request, "BAD_REQUEST", null);
   }
 
@@ -87,6 +98,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiError> handleUnhandled(Exception ex, HttpServletRequest request) {
+    log.error("Unhandled exception on {}: {}", request.getRequestURI(), ex.toString());
+    log.error("Stack trace for unhandled exception: ", ex);
     return build(
         HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", request, "INTERNAL_ERROR", null);
   }

@@ -101,6 +101,13 @@ public class CostBreakdown {
     if (createdAt == null) {
       createdAt = Instant.now();
     }
-    total = unitCost * quantity;
+    // Only derive the total from unitCost*quantity when the caller did not
+    // already set a meaningful total. The cost generator computes the real
+    // total (which factors in billed hours), so overwriting it here would make
+    // sum(breakdowns) inconsistent with the record's total. A primitive double
+    // defaults to 0.0, so 0.0 means "not set by caller".
+    if (total == 0.0) {
+      total = unitCost * quantity;
+    }
   }
 }

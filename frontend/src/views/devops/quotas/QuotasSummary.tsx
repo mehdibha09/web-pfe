@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { getUsagePercent } from './helpers';
 import type { QuotaWithMetrics } from './types';
 import { C } from '../../../theme/tokens';
+import { currencySymbol } from '../../../utils/format';
 
 interface Props {
     quotas: QuotaWithMetrics[];
@@ -25,7 +26,9 @@ const QuotasSummary = ({ quotas }: Props) => {
             if (!q.usage) return false;
             const cpuPct = getUsagePercent(q.usage.cpu, q.maxCpu);
             const ramPct = getUsagePercent(q.usage.ram, q.maxRam);
-            return cpuPct >= 90 || ramPct >= 90;
+            const storagePct = getUsagePercent(q.usage.storage, q.maxStorage);
+            const podsPct = getUsagePercent(q.usage.pods, q.maxPods);
+            return cpuPct >= 90 || ramPct >= 90 || storagePct >= 90 || podsPct >= 90;
         }).length;
     }, [quotas]);
 
@@ -54,7 +57,7 @@ const QuotasSummary = ({ quotas }: Props) => {
         },
         {
             label: t('quotas.totalBudget'),
-            value: `$${totalBudget.toLocaleString()}`,
+            value: `${currencySymbol()}${totalBudget.toLocaleString()}`,
             icon: <AccountBalanceWalletOutlinedIcon sx={{ fontSize: 28, color: '#2E5C8A' }} />,
             bg: '#E4EEF7',
             valueColor: '#2E5C8A',
