@@ -35,7 +35,7 @@ public class IdentitySigner {
 
     public IdentitySigner(org.springframework.core.env.Environment env) {
         String configured = env.getProperty("security.internal-signing-secret", DEFAULT_INSECURE_SECRET);
-        if (configured == null || configured.isBlank()) {
+        if (configured.isBlank()) {
             throw new IllegalStateException("SECURITY_INTERNAL_SIGNING_SECRET must be configured");
         }
         if (DEFAULT_INSECURE_SECRET.equals(configured)) {

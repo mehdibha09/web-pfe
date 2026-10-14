@@ -32,6 +32,8 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String USER_ID_FIELD = "userId";
     private static final String TENANT_ID_FIELD = "tenantId";
+    private static final String ROLES_FIELD = "roles";
+    private static final String PERMISSIONS_FIELD = "permissions";
 
     private final WebClient webClient;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -78,7 +80,7 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
             return queryToken;
         }
         org.springframework.http.HttpCookie cookieToken = exchange.getRequest().getCookies().getFirst("access_token");
-        if (cookieToken != null && cookieToken.getValue() != null && !cookieToken.getValue().isBlank()) {
+        if (cookieToken != null && !cookieToken.getValue().isBlank()) {
             return cookieToken.getValue();
         }
         return null;
@@ -131,71 +133,82 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
                 .header(AUTHORIZATION, BEARER_PREFIX + token)
                 .retrieve()
                 .bodyToMono(String.class)
-                .flatMap(body -> {
-                    try {
-                        JsonNode node = mapper.readTree(body);
-                        String userId = node.has(USER_ID_FIELD) && !node.get(USER_ID_FIELD).isNull()
-                                ? node.get(USER_ID_FIELD).asText()
-                                : null;
-                        String tenantId = node.has(TENANT_ID_FIELD) && !node.get(TENANT_ID_FIELD).isNull()
-                                ? node.get(TENANT_ID_FIELD).asText()
-                                : null;
-                        JsonNode rolesNode = node.has("roles") ? node.get("roles") : null;
-                        String rolesJson = (rolesNode != null && rolesNode.isArray() && rolesNode.size() > 0)
-                                ? rolesNode.toString()
-                                : null;
-                        JsonNode permissionsNode = node.has("permissions") ? node.get("permissions") : null;
-                        String permissionsJson = (permissionsNode != null && permissionsNode.isArray() && permissionsNode.size() > 0)
-                                ? permissionsNode.toString()
-                                : null;
+                .flatMap(body -> forwardWithIdentity(exchange, chain, body))
+                .onErrorResume(e -> handleAuthError(exchange, e));
+    }
 
-                        ServerWebExchange mutated = exchange;
-                        if (userId != null) {
-                            mutated = mutated.mutate()
-                                    .request(r -> r.header(IdentitySigner.ID_HEADER_USER_ID, userId))
-                                    .build();
-                        }
-                        if (tenantId != null) {
-                            mutated = mutated.mutate()
-                                    .request(r -> r.header(IdentitySigner.ID_HEADER_TENANT_ID, tenantId))
-                                    .build();
-                        }
-                        if (rolesJson != null) {
-                            mutated = mutated.mutate()
-                                    .request(r -> r.header(IdentitySigner.ID_HEADER_ROLES, rolesJson))
-                                    .build();
-                        }
-                        if (permissionsJson != null) {
-                            mutated = mutated.mutate()
-                                    .request(r -> r.header(IdentitySigner.ID_HEADER_PERMISSIONS, permissionsJson))
-                                    .build();
-                        }
+    /** Parse la réponse de /me, injecte les identités signées et poursuit la chaîne. */
+    private Mono<Void> forwardWithIdentity(ServerWebExchange exchange, GatewayFilterChain chain, String body) {
+        try {
+            JsonNode node = mapper.readTree(body);
+            Identity identity = Identity.from(node);
+            ServerWebExchange mutated = addIdentityHeaders(exchange, identity);
+            return chain.filter(mutated);
+        } catch (Exception e) {
+            log.warn("Failed to parse auth service response: {}", e.getMessage());
+            return chain.filter(exchange);
+        }
+    }
 
-                        String signature = identitySigner.sign(
-                                userId == null ? "" : userId,
-                                tenantId == null ? "" : tenantId,
-                                rolesJson == null ? "" : rolesJson,
-                                permissionsJson == null ? "" : permissionsJson);
-                        mutated = mutated.mutate()
-                                .request(r -> r.header(IdentitySigner.SIGNATURE_HEADER, signature))
-                                .build();
+    private ServerWebExchange addIdentityHeaders(ServerWebExchange exchange, Identity identity) {
+        ServerWebExchange mutated = exchange;
+        mutated = setHeaderIfPresent(mutated, IdentitySigner.ID_HEADER_USER_ID, identity.userId());
+        mutated = setHeaderIfPresent(mutated, IdentitySigner.ID_HEADER_TENANT_ID, identity.tenantId());
+        mutated = setHeaderIfPresent(mutated, IdentitySigner.ID_HEADER_ROLES, identity.rolesJson());
+        mutated = setHeaderIfPresent(mutated, IdentitySigner.ID_HEADER_PERMISSIONS, identity.permissionsJson());
 
-                        return chain.filter(mutated);
-                    } catch (Exception e) {
-                        log.warn("Failed to parse auth service response: {}", e.getMessage());
-                        return chain.filter(exchange);
-                    }
-                })
-                .onErrorResume(e -> {
-                    if (e instanceof WebClientResponseException wcre && wcre.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                        log.warn("Token rejected by auth service: {}", e.getMessage());
-                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                    } else {
-                        log.error("Auth service unreachable or error: {}", e.getMessage());
-                        exchange.getResponse().setStatusCode(HttpStatus.BAD_GATEWAY);
-                    }
-                    return exchange.getResponse().setComplete();
-                });
+        String signature = identitySigner.sign(
+                orEmpty(identity.userId()),
+                orEmpty(identity.tenantId()),
+                orEmpty(identity.rolesJson()),
+                orEmpty(identity.permissionsJson()));
+        return setHeader(mutated, IdentitySigner.SIGNATURE_HEADER, signature);
+    }
+
+    private static ServerWebExchange setHeaderIfPresent(ServerWebExchange exchange, String name, String value) {
+        return value == null ? exchange : setHeader(exchange, name, value);
+    }
+
+    private static ServerWebExchange setHeader(ServerWebExchange exchange, String name, String value) {
+        return exchange.mutate().request(r -> r.header(name, value)).build();
+    }
+
+    private static String orEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    /** Gère les erreurs de l'auth-service : 401 si le token est rejeté, 502 sinon. */
+    private static Mono<Void> handleAuthError(ServerWebExchange exchange, Throwable e) {
+        if (e instanceof WebClientResponseException wcre && wcre.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+            log.warn("Token rejected by auth service: {}", e.getMessage());
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        } else {
+            log.error("Auth service unreachable or error: {}", e.getMessage());
+            exchange.getResponse().setStatusCode(HttpStatus.BAD_GATEWAY);
+        }
+        return exchange.getResponse().setComplete();
+    }
+
+    /** Identité extraite de la réponse /me (valeurs nulles si absentes). */
+    private record Identity(String userId, String tenantId, String rolesJson, String permissionsJson) {
+
+        static Identity from(JsonNode node) {
+            return new Identity(
+                    text(node, USER_ID_FIELD),
+                    text(node, TENANT_ID_FIELD),
+                    nonEmptyArrayJson(node, ROLES_FIELD),
+                    nonEmptyArrayJson(node, PERMISSIONS_FIELD));
+        }
+
+        private static String text(JsonNode node, String field) {
+            JsonNode value = node.get(field);
+            return value == null || value.isNull() ? null : value.asText();
+        }
+
+        private static String nonEmptyArrayJson(JsonNode node, String field) {
+            JsonNode value = node.get(field);
+            return value != null && value.isArray() && value.size() > 0 ? value.toString() : null;
+        }
     }
 
     public static class Config {
