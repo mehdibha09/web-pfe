@@ -79,7 +79,7 @@ public class UserService {
 
         return userRoleRepository.findByUser_Id(user.getId())
                 .stream()
-                .map(userRole -> userRole.getRole())
+                .map(UserRole::getRole)
                 .map(role -> new RoleResponse(
                         role.getId(),
                         role.getName(),
@@ -231,9 +231,7 @@ public class UserService {
             throw new ForbiddenException("Only a super administrator can delete an administrator account");
         }
 
-        userRoleRepository.findByUser_Id(user.getId()).forEach(userRole -> {
-            userRoleRepository.delete(userRole);
-        });
+        userRoleRepository.findByUser_Id(user.getId()).forEach(userRoleRepository::delete);
 
         List<Session> sessions = sessionRepository.findByUser_Id(user.getId());
         for (Session session : sessions) {

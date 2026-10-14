@@ -1,11 +1,9 @@
 package com.auth.service.service;
 
-import java.security.SecureRandom;
 import java.util.Base64;
 
 import org.springframework.stereotype.Service;
 
-import dev.samstevens.totp.code.CodeGenerator;
 import dev.samstevens.totp.code.DefaultCodeGenerator;
 import dev.samstevens.totp.code.DefaultCodeVerifier;
 import dev.samstevens.totp.code.HashingAlgorithm;

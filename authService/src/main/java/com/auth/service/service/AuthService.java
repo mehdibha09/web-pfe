@@ -23,12 +23,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.config.ClientIpResolver;
 import com.auth.service.domain.AuditLog;
 import com.auth.service.domain.PasswordResetToken;
+import com.auth.service.domain.Permission;
 import com.auth.service.domain.RolePermission;
 import com.auth.service.domain.Session;
 import com.auth.service.domain.SsoIdentity;
@@ -57,7 +56,6 @@ import com.auth.service.web.dto.auth.AuthForgotPasswordRequest;
 import com.auth.service.web.dto.auth.AuthLoginRequest;
 import com.auth.service.web.dto.auth.AuthLoginResponse;
 import com.auth.service.web.dto.auth.AuthMeResponse;
-import com.auth.service.web.dto.auth.AuthRefreshRequest;
 import com.auth.service.web.dto.auth.AuthResetPasswordRequest;
 import com.auth.service.web.dto.auth.AuthSsoRedirectResponse;
 import com.auth.service.web.dto.auth.AuthTokensResponse;
@@ -67,8 +65,6 @@ import com.auth.service.web.dto.auth.AuthTwoFaVerifyRequest;
 import com.auth.service.web.dto.auth.AuthUpdateEmailRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class AuthService {
@@ -90,6 +86,8 @@ public class AuthService {
 
     // SSO CSRF state tokens expire after this delay if the callback never arrives.
     private static final Duration SSO_STATE_TTL = Duration.ofMinutes(10);
+    private static final String SSO_TOKEN_EXCHANGE_FAILED = "SSO token exchange failed";
+    private static final String SSO_PROFILE_UNREADABLE = "Unable to read SSO user profile";
 
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
@@ -821,7 +819,7 @@ public class AuthService {
                 .map(role -> rolePermissionRepository.findByRole_Id(role.getId()))
                 .flatMap(List::stream)
                 .map(RolePermission::getPermission)
-                .map(permission -> permission.getName())
+                .map(Permission::getName)
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
@@ -973,14 +971,14 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new BadRequestException("SSO token exchange failed");
+                throw new BadRequestException(SSO_TOKEN_EXCHANGE_FAILED);
             }
             return objectMapper.readTree(response.body());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new BadRequestException("SSO token exchange failed");
+            throw new BadRequestException(SSO_TOKEN_EXCHANGE_FAILED);
         } catch (Exception exception) {
-            throw new BadRequestException("SSO token exchange failed");
+            throw new BadRequestException(SSO_TOKEN_EXCHANGE_FAILED);
         }
     }
 
@@ -994,7 +992,7 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new BadRequestException("Unable to read SSO user profile");
+                throw new BadRequestException(SSO_PROFILE_UNREADABLE);
             }
 
             JsonNode profile = objectMapper.readTree(response.body());
@@ -1007,9 +1005,9 @@ public class AuthService {
             return new SsoUserProfile(subject, email, name);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new BadRequestException("Unable to read SSO user profile");
+            throw new BadRequestException(SSO_PROFILE_UNREADABLE);
         } catch (Exception exception) {
-            throw new BadRequestException("Unable to read SSO user profile");
+            throw new BadRequestException(SSO_PROFILE_UNREADABLE);
         }
     }
 

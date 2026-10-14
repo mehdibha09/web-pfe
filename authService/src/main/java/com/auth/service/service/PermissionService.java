@@ -65,7 +65,7 @@ public class PermissionService {
 
     @Transactional(readOnly = true)
     public List<PermissionResponse> listPermissions(String authorizationHeader) {
-        User currentUser = requireCurrentUser(authorizationHeader);
+        requireCurrentUser(authorizationHeader);
         return permissionRepository.findAll()
                 .stream()
                 .map(this::toResponse)
@@ -75,7 +75,7 @@ public class PermissionService {
 
     @Transactional(readOnly = true)
     public Page<PermissionResponse> listPermissions(String authorizationHeader, Pageable pageable) {
-        User currentUser = requireCurrentUser(authorizationHeader);
+        requireCurrentUser(authorizationHeader);
         if (pageable.getSort().isSorted()) {
             return permissionRepository.findAll(pageable).map(this::toResponse);
         }

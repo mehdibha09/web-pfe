@@ -10,8 +10,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.auth.service.config.CacheConfig;
 import com.auth.service.domain.AuditLog;
@@ -29,8 +27,6 @@ import com.auth.service.repository.SessionRepository;
 import com.auth.service.repository.UserRoleRepository;
 import com.auth.service.web.dto.auth.AuthActionResponse;
 import com.auth.service.web.dto.session.SessionResponse;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class SessionService {
