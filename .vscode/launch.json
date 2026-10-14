@@ -26,7 +26,7 @@
             "type": "java",
             "name": "GatewayApplication",
             "request": "launch",
-            "mainClass": "com.gateway.gatewayService.GatewayApplication",
+            "mainClass": "com.gateway.gateway_service.GatewayApplication",
             "projectName": "com.deployment-gateway"
         },
         {
@@ -47,7 +47,7 @@
             "type": "java",
             "name": "GatewayApplication",
             "request": "launch",
-            "mainClass": "com.gateway.gatewayService.GatewayApplication",
+            "mainClass": "com.gateway.gateway_service.GatewayApplication",
             "projectName": "gateway"
         },
         {

@@ -1,4 +1,4 @@
-package com.gateway.gatewayService.filter;
+package com.gateway.gateway_service.filter;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +31,7 @@ public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<
                     : "unknown";
             String key = clientIp + ":" + exchange.getRequest().getURI().getPath();
 
-            Window window = windows.computeIfAbsent(key, k -> new Window(config.maxRequests, config.windowMs));
+            Window window = windows.computeIfAbsent(key, k -> new Window(config.getMaxRequests(), config.getWindowMs()));
             boolean allowed = window.tryAcquire();
 
             // Opportunistically evict fully-expired windows so the map does not grow unbounded.
@@ -60,8 +60,24 @@ public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<
     }
 
     public static class Config {
-        public int maxRequests = 20;
-        public long windowMs = 60000;
+        private int maxRequests = 20;
+        private long windowMs = 60000;
+
+        public int getMaxRequests() {
+            return maxRequests;
+        }
+
+        public void setMaxRequests(int maxRequests) {
+            this.maxRequests = maxRequests;
+        }
+
+        public long getWindowMs() {
+            return windowMs;
+        }
+
+        public void setWindowMs(long windowMs) {
+            this.windowMs = windowMs;
+        }
     }
 
     private static class Window {

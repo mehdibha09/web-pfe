@@ -1,4 +1,4 @@
-package com.gateway.gatewayService.filter;
+package com.gateway.gateway_service.filter;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -19,7 +19,7 @@ import org.springframework.web.server.ServerWebExchange;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gateway.gatewayService.config.IdentitySigner;
+import com.gateway.gateway_service.config.IdentitySigner;
 
 import reactor.core.publisher.Mono;
 
@@ -79,7 +79,7 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
         if (queryToken != null && !queryToken.isBlank()) {
             return queryToken;
         }
-        org.springframework.http.HttpCookie cookieToken = exchange.getRequest().getCookies().getFirst("access_token");
+        HttpCookie cookieToken = exchange.getRequest().getCookies().getFirst("access_token");
         if (cookieToken != null && !cookieToken.getValue().isBlank()) {
             return cookieToken.getValue();
         }
@@ -211,6 +211,9 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
         }
     }
 
-    public static class Config {
+    /** Aucun paramètre : requis par Spring Cloud Gateway pour déclarer la factory. */
+    public static final class Config {
+        Config() {
+        }
     }
 }

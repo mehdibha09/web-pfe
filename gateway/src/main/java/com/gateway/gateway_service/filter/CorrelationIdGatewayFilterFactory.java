@@ -1,4 +1,4 @@
-package com.gateway.gatewayService.filter;
+package com.gateway.gateway_service.filter;
 
 import java.util.UUID;
 
@@ -38,6 +38,9 @@ public class CorrelationIdGatewayFilterFactory extends AbstractGatewayFilterFact
         };
     }
 
-    public static class Config {
+    /** Aucun paramètre : requis par Spring Cloud Gateway pour déclarer la factory. */
+    public static final class Config {
+        Config() {
+        }
     }
 }
