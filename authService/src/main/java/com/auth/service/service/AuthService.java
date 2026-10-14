@@ -1014,18 +1014,15 @@ public class AuthService {
     private User resolveOrCreateSsoUser(String provider, SsoUserProfile profile, Tenant tenant) {
         return ssoIdentityRepository.findByProviderAndSubject(provider, profile.subject())
                 .map(SsoIdentity::getUser)
-                .orElseGet(() -> {
-                    User user = userRepository.findByTenant_IdAndEmail(tenant.getId(), profile.email().toLowerCase())
-                            .orElseGet(() -> {
-                                User createdUser = new User();
-                                createdUser.setTenant(tenant);
-                                createdUser.setEmail(profile.email().toLowerCase());
-                                createdUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-                                createdUser.setStatus(UserStatus.ACTIVE);
-                                return userRepository.save(createdUser);
-                            });
-                    return user;
-                });
+                .orElseGet(() -> userRepository.findByTenant_IdAndEmail(tenant.getId(), profile.email().toLowerCase())
+                        .orElseGet(() -> {
+                            User createdUser = new User();
+                            createdUser.setTenant(tenant);
+                            createdUser.setEmail(profile.email().toLowerCase());
+                            createdUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+                            createdUser.setStatus(UserStatus.ACTIVE);
+                            return userRepository.save(createdUser);
+                        }));
     }
 
     private String hashToken(String token) {

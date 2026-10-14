@@ -149,14 +149,13 @@ public class SessionService {
         List<String> anomalies = new ArrayList<>();
 
         if (session.getRevokedAt() == null) {
-            for (Session other : allActiveSessions) {
-                if (other.getId().equals(session.getId())) continue;
-                if (other.getIpAddress() != null && session.getIpAddress() != null
-                        && !other.getIpAddress().equals(session.getIpAddress())) {
-                    anomalies.add("Multiple active sessions from different IPs (" + session.getIpAddress() + ", " + other.getIpAddress() + ")");
-                    break;
-                }
-            }
+            allActiveSessions.stream()
+                    .filter(other -> !other.getId().equals(session.getId()))
+                    .filter(other -> other.getIpAddress() != null && session.getIpAddress() != null
+                            && !other.getIpAddress().equals(session.getIpAddress()))
+                    .findFirst()
+                    .ifPresent(other -> anomalies.add("Multiple active sessions from different IPs ("
+                            + session.getIpAddress() + ", " + other.getIpAddress() + ")"));
         }
 
         if (session.getLocalization() != null && !session.getLocalization().equals("Unknown")) {
